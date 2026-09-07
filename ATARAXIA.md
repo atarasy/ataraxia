@@ -155,7 +155,7 @@ It protects the person. It does not protect other people, and it does not protec
 |---|---|
 | **Ataraxia** | This constitution, the conformance mark, and the foundation that will hold them. The object of "conforms to". |
 | **Atarasy** | The reference hub. What a member opens. Open source; a fork may claim Ataraxia conformance but not this name. |
-| **Valence** | The specification and engine. A candidate's outcome is its valence: `kept`, `returned`, `consumed`, `defaulted`, `lost`. Where other commerce specifications describe what was bought, this one treats what was declined as a first-class event. |
+| **Valence** | The specification and engine. A candidate's outcome is its valence: `kept`, `returned`, `consumed`, `defaulted`, `lost`. Where other commerce specifications describe what was bought, this one treats what was declined as a first-class event. Published at [atarasy/valence](https://github.com/atarasy/valence). |
 
 A merchant exposes **Valence**-conformant endpoints and carries the **Ataraxia** mark. A member opens **Atarasy**. The three are objects of different sentences, which is how a foundation can hold a reference implementation and still certify others.
 

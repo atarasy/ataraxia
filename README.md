@@ -32,7 +32,9 @@ One further asymmetry is worth naming rather than hiding. This repository curren
 
 ## Conformance
 
-Conformance tests will live in `tests/` and are runnable by anyone. A build or host that passes them may use the mark. A build that fails loses it.
+Conformance tests live in [`tests/`](tests/) and are runnable by anyone, against anyone's implementation, including ours. A build or host that passes them may use the mark. A build that fails loses it.
+
+The suites are scoped and none is yet written. What they check is a specific subset of the constitution: **capabilities that must be absent, and behaviours that must be refused.** Most of the constitution is not mechanically checkable, and the tests do not pretend otherwise.
 
 The mark attaches to software and hosts. **It never attaches to people.** Merchant endpoints and gift lineage do not discriminate on which hub produced a request — see clause 64, and the section on what this constitution does not protect.
 
