@@ -25,6 +25,7 @@ for the two rows that say so.
 | `balance_route` | Registered `GET /households/{id}/balance` returning 0 | 1 |
 | `invent_product` | A missing catalogue entry falls back to a price of 1000 | 1 |
 | `no_floor` | The exploration floor check disabled | 5 |
+| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count | 1 |
 | `floor_bypass_field` | `exploration_floor_met` accepted from the request and honoured | 1 |
 | `floor_too_strict` | Comparison tightened to `marked <= required` | 1 |
 | `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 5, and 2 more at rate 0.6 |
@@ -34,6 +35,17 @@ for the two rows that say so.
 | `no_reserve_ceiling` | The ledger accepts a commit above the reserved amount | 1, in the engine's own tests |
 
 ## What this exercise found
+
+**The floor was satisfiable by relabelling, and the specification allowed it.**
+§5.1 said a candidate *may* be marked as exploration when it is below the
+threshold or unknown to the household. That is a permission on the presenter
+and it forbade nothing: an implementation could accept a candidate the model
+fully expects to be kept, count it toward the floor, and pass every reading of
+§5. Clause 30 would then cost nothing to obey. The specification was corrected
+to forbid counting such a candidate, and the probe that catches it keeps a
+product, then offers the same product back as exploration with a high
+prediction. It is the probe in this suite that matters most and it was missing
+from the first version.
 
 **A suite can be wholly green and still miss the mutation it exists for.**
 `floor_too_strict` survived the first version of these suites. Every floor

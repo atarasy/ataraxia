@@ -189,3 +189,48 @@ describe("floor: the boundary", () => {
     expect(created.status).toBe(422);
   });
 });
+
+describe("floor: the floor cannot be padded (§5.1)", () => {
+  /**
+   * The probe that matters most in this suite, and the one that was missing
+   * from its first version.
+   *
+   * Refusing an offer that is short of the floor is worth nothing if the
+   * count can be met by relabelling. A presenter marks the items it most
+   * expects to be kept, the arithmetic passes, and clause 30 costs nothing.
+   *
+   * So the probe teaches the implementation that a product is known and
+   * wanted, by having the household keep it, and then offers the same product
+   * back as exploration with a high prediction.
+   */
+  test("a kept, well-predicted product cannot be marked as exploration", async () => {
+    // NOTE (mutation check, 2026-09-08): pad_the_floor removed the
+    // qualification check from the reference engine, leaving the count. This
+    // assertion failed with 201: an offer of two products the household had
+    // already kept, both marked exploration, was accepted.
+    const [known, other] = PRODUCTS;
+
+    const first = offerBody([
+      { product: known!, predicted_conversion: 0.05, is_exploration: true },
+      { product: other!, predicted_conversion: 0.9, is_exploration: false },
+    ]);
+    const created = await call("POST", "/offers", first);
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: [
+        { candidate: offer.candidates[0]!.id, valence: "kept", kept_as: "self" },
+        { candidate: offer.candidates[1]!.id, valence: "returned" },
+      ],
+    });
+    expect(decided.status).toBe(200);
+
+    const padded = offerBody([
+      { product: known!, predicted_conversion: 0.95, is_exploration: true },
+      { product: other!, predicted_conversion: 0.9, is_exploration: false },
+    ]);
+    const refused = await call("POST", "/offers", padded);
+    expect(refused.status).toBe(422);
+  });
+});
