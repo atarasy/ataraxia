@@ -1,0 +1,11 @@
+{
+  "name": "ataraxia-conformance",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Conformance probes for the Ataraxia constitution, run over HTTP against any implementation.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "bun test absence floor silence"
+  }
+}
