@@ -42,10 +42,14 @@ do not discriminate on it — see clause 64 of the constitution.
 
 ## Status
 
-The trademarks are currently held personally by Yoichiro Hara and licensed to
-conforming implementations. They are intended to transfer to the foundation
-once it is established. Registration is in progress; nothing here should be
-read as a claim that registration has completed.
+These names are **unregistered**. No trademark application has been filed, and
+nothing here should be read as a claim that one has. Registration will be
+considered when there is a reason to enforce, not before.
+
+What exists today is the common-law position: the names are used by this
+project, held personally by Yoichiro Hara, and licensed to conforming
+implementations on the terms above. They are intended to transfer to the
+foundation once it is established.
 
 This repository also sits, provisionally, under the organisation named after
 the reference hub. The constitution, its conformance tests and these marks move
