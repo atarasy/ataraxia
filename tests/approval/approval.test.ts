@@ -1,9 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   call,
+  conformingOffer,
   createConformingOffer,
+  decide,
   findKey,
   meansAnyOf,
+  signDecisions,
 } from "../lib/probe.js";
 
 /**
@@ -240,5 +243,63 @@ describe("approval: the mandate (clauses 37, 67)", () => {
     const after = await call("GET", `/offers/${offer.id}/approval`);
     expect((after.body as { reminded: boolean }).reminded).toBe(true);
     expect(findKey(after.body, meansAnyOf(["reminders_left", "remaining", "count"]))).toEqual([]);
+  });
+});
+
+describe("approval: a confirmation is the person's signature (clause 39)", () => {
+  /**
+   * Clause 39, as rewritten on 2026-09-09. The decided set is signed as the
+   * mandate, and nothing settles on an unsigned set or on a set other than
+   * the one signed. The probe posts the same set three ways: unsigned,
+   * signed over a different set, and signed.
+   */
+  test("an unsigned decided set is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): accept_unsigned_decisions skipped
+    // the signature check. The first two assertions failed: a set with a
+    // signature over nothing, and one signed over another set, were both
+    // taken as the person's word.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const set = offer.candidates.map((c, i) => ({
+      candidate: c.id,
+      valence: i === 0 ? "kept" : "returned",
+      ...(i === 0 ? { kept_as: "self" } : {}),
+    }));
+    const unsigned = await call("POST", `/offers/${offer.id}/decisions`, { decisions: set, signature: "" });
+    expect([400, 422]).toContain(unsigned.status);
+
+    const other = set.map((d) => ({ ...d, valence: "returned" as const, kept_as: undefined }));
+    const wrongSet = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: set,
+      signature: signDecisions(offer.id, other.map(({ candidate, valence }) => ({ candidate, valence }))),
+    });
+    expect(wrongSet.status).toBe(422);
+
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect((read.body as { state: string }).state).toBe("presented");
+
+    const signed = await decide(offer.id, { decisions: set });
+    expect(signed.status).toBe(200);
+  });
+});
+
+describe("approval: one set of endpoints, whoever calls (clause 38)", () => {
+  test("an offer is accepted from another client as it is from the reference hub", async () => {
+    // NOTE (mutation check, 2026-09-09): reject_foreign_offer_client refused
+    // POST /offers unless the user-agent was the reference hub's. The second
+    // assertion failed with 403. The person's own agent calls the same
+    // endpoints the merchant's does, or clause 38 is a sentence.
+    const fromReference = await call("POST", "/offers", conformingOffer(), {
+      "user-agent": "atarasy-reference/0.0.0",
+    });
+    expect(fromReference.status).toBe(201);
+    const fromElsewhere = await call("POST", "/offers", conformingOffer(), {
+      "user-agent": "some-other-agent/9.9.9",
+      "x-client": "the person's own",
+    });
+    expect(fromElsewhere.status).toBe(201);
+    const a = Object.keys(fromReference.body as object).sort();
+    const b = Object.keys(fromElsewhere.body as object).sort();
+    expect(b).toEqual(a);
   });
 });

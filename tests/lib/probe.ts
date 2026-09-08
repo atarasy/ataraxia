@@ -1,3 +1,4 @@
+import { createPrivateKey, sign } from "node:crypto";
 /**
  * The probes talk to an implementation over HTTP and nothing else. They know
  * no route that is not in the Valence specification, and they import nothing
@@ -35,6 +36,60 @@ export function freshHousehold(): string {
   return `${HOUSEHOLD}-${Math.random().toString(36).slice(2, 10)}`;
 }
 export const MANDATE = required("VALENCE_MANDATE");
+
+/**
+ * Clause 39. The private half of the key registered for the mandate, base64
+ * of a PKCS#8 PEM. The probes confirm with it; an implementation that
+ * settles on an unsigned confirmation, or on a set other than the one
+ * signed, is caught in approval/.
+ */
+const MANDATE_KEY = (() => {
+  const raw = required("VALENCE_MANDATE_KEY");
+  try {
+    return createPrivateKey(Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    throw new Error("VALENCE_MANDATE_KEY must be the base64 of a PKCS#8 PEM");
+  }
+})();
+
+export type DecisionSpec = {
+  candidate: string;
+  valence: string;
+  kept_as?: string;
+  lineage?: string;
+};
+
+/**
+ * Specification §10.5. The decided set in the shape that is signed: the
+ * offer id, then one line per decision in ascending candidate id, each
+ * `candidate:valence:kept_as:lineage` with empty strings for what is absent.
+ */
+export function canonicalDecisions(offerId: string, decisions: DecisionSpec[]): Buffer {
+  const lines = [...decisions]
+    .sort((a, b) => (a.candidate < b.candidate ? -1 : a.candidate > b.candidate ? 1 : 0))
+    .map((d) => `${d.candidate}:${d.valence}:${d.kept_as ?? ""}:${d.lineage ?? ""}`);
+  return Buffer.from([offerId, ...lines].join("\n"), "utf8");
+}
+
+export function signDecisions(offerId: string, decisions: DecisionSpec[]): string {
+  return sign(null, canonicalDecisions(offerId, decisions), MANDATE_KEY).toString("base64");
+}
+
+/**
+ * Post a decided set, signed as the mandate. `body` is what the probe would
+ * have sent; the signature is added over `body.decisions` when it is a list.
+ */
+export async function decide(
+  offerId: string,
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {}
+): Promise<Probe> {
+  const decisions = body.decisions;
+  const signed = Array.isArray(decisions)
+    ? { ...body, signature: signDecisions(offerId, decisions as DecisionSpec[]) }
+    : body;
+  return call("POST", `/offers/${offerId}/decisions`, signed, headers);
+}
 /**
  * §5 publishes no recommended rate, so the suite cannot assume one. The
  * deployment declares the rate it runs at and the suite checks the formula

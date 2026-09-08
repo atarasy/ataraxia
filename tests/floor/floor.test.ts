@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   call,
   conformingOffer,
+  decide,
   floorFor,
   freshHousehold,
   offerBody,
@@ -241,7 +242,7 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
     expect(created.status).toBe(201);
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
-    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+    const decided = await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",

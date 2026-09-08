@@ -3,6 +3,7 @@ import {
   call,
   conformingOffer,
   createConformingOffer,
+  decide,
   findKey,
   freshHousehold,
   HOUSEHOLD,
@@ -205,7 +206,7 @@ describe("absence: nothing names a part a member could replace (clause 3)", () =
   test("a settlement names no model, manager or provider", async () => {
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",
@@ -233,7 +234,7 @@ describe("absence: a presenter's view is vertical (clause 8)", () => {
     const household = freshHousehold();
     const offer = await createConformingOffer({ household });
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" })),
     });
     const other = await call(
@@ -402,7 +403,7 @@ describe("absence: fields that must not exist (§3.3)", () => {
     // the other.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",
@@ -562,7 +563,7 @@ describe("presence: what must not be hidden (clause 12)", () => {
     // put the curator where the seller should be.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",

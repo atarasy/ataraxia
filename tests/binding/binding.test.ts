@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   call,
   conformingOffer,
+  decide,
   HAS_PHYSICAL,
   PRICES,
   RECOVERY_GRACE_DAYS,
@@ -57,7 +58,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     await call("POST", `/offers/${offer.id}/present`, {});
 
     const [first, ...rest] = offer.candidates;
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: [
         { candidate: first!.id, valence: "lost" },
         ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
@@ -90,7 +91,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, second, ...rest] = offer.candidates;
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: [
         { candidate: first!.id, valence: "kept", kept_as: "self" },
         { candidate: second!.id, valence: "lost" },
@@ -122,7 +123,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     await call("POST", `/offers/${offer.id}/present`, {});
 
     const [first, ...rest] = offer.candidates;
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: [
         { candidate: first!.id, valence: "consumed" },
         ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
@@ -167,7 +168,7 @@ describe.if(!HAS_PHYSICAL)("binding: the physical binding is absent", () => {
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     for (const valence of ["consumed", "lost"]) {
-      const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+      const decided = await decide(offer.id, {
         decisions: [{ candidate: offer.candidates[0]!.id, valence }],
       });
       expect([400, 422]).toContain(decided.status);
@@ -200,7 +201,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     };
     await call("POST", `/offers/${one.id}/present`, {});
     const [tried, ...others] = one.candidates;
-    await call("POST", `/offers/${one.id}/decisions`, {
+    await decide(one.id, {
       decisions: [
         { candidate: tried!.id, valence: "consumed" },
         ...others.map((c) => ({ candidate: c.id, valence: "returned" })),
@@ -217,7 +218,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
       candidates: { id: string; unit_price: number; quantity: number }[];
     };
     await call("POST", `/offers/${two.id}/present`, {});
-    await call("POST", `/offers/${two.id}/decisions`, {
+    await decide(two.id, {
       decisions: two.candidates.map((c) => ({
         candidate: c.id,
         valence: "kept",

@@ -3,6 +3,7 @@ import {
   call,
   callSecond,
   createConformingOffer,
+  decide,
   freshHousehold,
   LINEAGE_EDGE,
   presenter,
@@ -41,7 +42,7 @@ async function seedSomethingToMove() {
     text: "kept for the smell",
     shared_with: [],
   });
-  await call("POST", `/offers/${offer.id}/decisions`, {
+  await decide(offer.id, {
     decisions: offer.candidates.map((c, i) => ({
       candidate: c.id,
       valence: i === 0 ? "kept" : "returned",

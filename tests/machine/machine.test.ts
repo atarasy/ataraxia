@@ -3,6 +3,7 @@ import {
   call,
   conformingOffer,
   createConformingOffer,
+  decide,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -50,7 +51,7 @@ describe("machine: withdraw (§2.1)", () => {
     await call("POST", `/offers/${offer.id}/present`, {});
     await call("POST", `/offers/${offer.id}/withdraw`, {});
 
-    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+    const decided = await decide(offer.id, {
       decisions: [
         { candidate: offer.candidates[0]!.id, valence: "kept", kept_as: "self" },
       ],
@@ -83,13 +84,13 @@ describe("machine: an offer may be decided partially (§2.1)", () => {
     await call("POST", `/offers/${offer.id}/present`, {});
 
     const [first, ...rest] = offer.candidates;
-    const partial = await call("POST", `/offers/${offer.id}/decisions`, {
+    const partial = await decide(offer.id, {
       decisions: [{ candidate: first!.id, valence: "returned" }],
     });
     expect(partial.status).toBe(200);
     expect((partial.body as { state: string }).state).toBe("presented");
 
-    const remainder = await call("POST", `/offers/${offer.id}/decisions`, {
+    const remainder = await decide(offer.id, {
       decisions: rest.map((c) => ({ candidate: c.id, valence: "returned" })),
     });
     expect(remainder.status).toBe(200);
@@ -106,10 +107,10 @@ describe("machine: an offer may be decided partially (§2.1)", () => {
     await call("POST", `/offers/${offer.id}/present`, {});
     const first = offer.candidates[0]!;
 
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: [{ candidate: first.id, valence: "returned" }],
     });
-    const again = await call("POST", `/offers/${offer.id}/decisions`, {
+    const again = await decide(offer.id, {
       decisions: [{ candidate: first.id, valence: "kept", kept_as: "self" }],
     });
     expect(again.status).toBe(409);
@@ -139,7 +140,7 @@ describe("machine: settled is terminal (§2.1)", () => {
     // means nothing.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",
@@ -153,7 +154,7 @@ describe("machine: settled is terminal (§2.1)", () => {
       const after = await call("POST", `/offers/${offer.id}/${action}`, {});
       expect(after.status).toBe(409);
     }
-    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+    const decided = await decide(offer.id, {
       decisions: [{ candidate: offer.candidates[0]!.id, valence: "returned" }],
     });
     expect(decided.status).toBe(409);
@@ -165,7 +166,7 @@ describe("machine: settled is terminal (§2.1)", () => {
     // other side. This assertion failed.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: offer.candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",
@@ -196,7 +197,7 @@ describe("machine: an offer cannot be presented twice or out of order", () => {
     // Deciding what has not been shown is a decision the household did not
     // make. This assertion failed.
     const offer = await createConformingOffer();
-    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+    const decided = await decide(offer.id, {
       decisions: [{ candidate: offer.candidates[0]!.id, valence: "returned" }],
     });
     expect(decided.status).toBe(409);

@@ -57,6 +57,7 @@ as thirteen environment variables:
 | `VALENCE_PRODUCTS` | at least three product references in that catalogue, comma separated |
 | `VALENCE_HOUSEHOLD` | a household the offers are placed with |
 | `VALENCE_MANDATE` | a mandate reference the implementation will accept |
+| `VALENCE_MANDATE_KEY` | the private half of the key registered for that mandate, base64 of a PKCS#8 PEM, so the probes can sign a decided set (§10.5) |
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
@@ -99,9 +100,9 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine, 153 probes at runtime from 140 declarations. 137 of the 140 have been
+engine, 155 probes at runtime from 142 declarations. 139 of the 142 have been
 shown to fail under a deliberate break of that engine; the three that have not
-say so in their own notes, and the ledger says why. The 122 breaks are listed
+say so in their own notes, and the ledger says why. The 124 breaks are listed
 there, and `coverage.sh` in the engine's repository measures which probe each
 one caught rather than taking the notes on trust.
 

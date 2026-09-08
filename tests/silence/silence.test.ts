@@ -5,6 +5,7 @@ import {
   conformingOffer,
   createConformingOffer,
   createMixedOffer,
+  decide,
   PRICES,
   PRICES_LATER,
   REPRICED,
@@ -80,7 +81,7 @@ describe("silence: expiry", () => {
     await call("POST", `/offers/${offer.id}/present`, {});
     await sleep(EXPIRY_MS + 500);
 
-    const decided = await call("POST", `/offers/${offer.id}/decisions`, {
+    const decided = await decide(offer.id, {
       decisions: [
         { candidate: offer.candidates[0]!.id, valence: "kept", kept_as: "self" },
       ],
@@ -237,7 +238,7 @@ describe("settlement: the offer's own prices (§6.3, §3.1)", () => {
       candidates: { id: string; unit_price: number; quantity: number }[];
     }).candidates;
 
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: candidates.map((c, i) => ({
         candidate: c.id,
         valence: i === 0 ? "kept" : "returned",
@@ -282,7 +283,7 @@ describe("settlement: terms are frozen at config_version (§6.3)", () => {
     expect(PRICES_LATER[REPRICED]).not.toBe(PRICES[REPRICED]);
 
     await call("POST", `/offers/${offer.id}/present`, {});
-    await call("POST", `/offers/${offer.id}/decisions`, {
+    await decide(offer.id, {
       decisions: candidates.map((c) => ({
         candidate: c.id,
         valence: c.id === repriced!.id ? "kept" : "returned",

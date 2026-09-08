@@ -88,8 +88,8 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 36. Unconfirmed means no order. An order is a debt; "same as last time" is never the default.
 37. Confirmation is one tap. A reminder is sent at most once.
-38. Endpoints are built to ACP and UCP so that the person's own agent can call the same ones.
-39. Confirmation is signed as an AP2 mandate.
+38. The endpoints a merchant's agent calls are the endpoints a person's own agent calls: one set, built to ACP and UCP, answering alike whoever the caller is.
+39. A confirmation is the person's signature over the decided set, in the AP2 mandate form. Nothing settles on an unsigned confirmation, and nothing settles on a set other than the one signed.
 40. The reason an order was not executed is shown to the person.
 
 ## 7. Data sovereignty
