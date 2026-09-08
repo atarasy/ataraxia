@@ -9,7 +9,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 19 and 22, and specification §7.1 and §7.5.
+ * Clauses 19 and 22, and specification §7.1 and §7.6.
  *
  * A lineage edge is recognised on its signature and never on the software
  * that produced it, and a recipient's record holds the fact of receipt and
@@ -75,7 +75,7 @@ describe("lineage: an edge is not discriminated by its client (§7.1)", () => {
   });
 });
 
-describe("lineage: the recipient's record (§7.5, clause 19)", () => {
+describe("lineage: the recipient's record (§7.6, clause 19)", () => {
   test("holds the fact of receipt and nothing that resembles a profile", async () => {
     // NOTE (mutation check, 2026-09-08): profile_from_receipt added a
     // `preference` field to each receipt row, derived from the product
@@ -97,13 +97,13 @@ describe("lineage: the recipient's record (§7.5, clause 19)", () => {
     // NOTE (mutation check, 2026-09-08): history_from_receipt added
     // the product to each receipt row. This assertion failed. A profile is
     // not the only shape a record can take; a list of what someone was given
-    // is one too, and §7.5 permits neither.
+    // is one too, and §7.6 permits neither.
     const read = await call(
       "GET",
       `/households/${encodeURIComponent(LINEAGE_RECIPIENT)}/receipts`
     );
     expect(read.status).toBe(200);
-    // §7.5 permits the fact and the time. A product reference here would make
+    // §7.6 permits the fact and the time. A product reference here would make
     // the record a history, which is what clause 19 says a recipient does not
     // acquire by receiving.
     expect(findKey(read.body, (k) => k.toLowerCase() === "product")).toEqual([]);

@@ -468,3 +468,71 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect([409, 422]).toContain(refused.status);
   });
 });
+
+describe("permissions: a grant to a computation (clauses 9, 39, §7.5)", () => {
+  /**
+   * Clause 9 admits one calculation across nodes and clause 39 names it as
+   * the one exception to a person never selling their data. What runs is not
+   * the specification's business; what a grant to it must look like is.
+   */
+  test("a computation grant names an aggregate result, or is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): computation_grant_without_form
+    // accepted a computation grant with no result form. The first assertion
+    // failed with 201.
+    const action = await liveAction();
+    const refused = await grant(HOUSEHOLD, {
+      grantee: "which-declines-predict-the-market",
+      scope: ["valences"],
+      purpose: "so makers learn what is not wanted",
+      expires_at: soon(60_000),
+      asked_from: action,
+      kind: "computation",
+    });
+    expect(refused.status).toBe(422);
+
+    const accepted = await grant(HOUSEHOLD, {
+      grantee: "which-declines-predict-the-market",
+      scope: ["valences"],
+      purpose: "so makers learn what is not wanted",
+      expires_at: soon(60_000),
+      asked_from: action,
+      kind: "computation",
+      result_form: "aggregate",
+    });
+    expect(accepted.status).toBe(201);
+    const row = accepted.body as { kind: string; result_form: string };
+    expect(row.kind).toBe("computation");
+    expect(row.result_form).toBe("aggregate");
+  });
+
+  test("raw data cannot be granted to a computation", async () => {
+    // NOTE (mutation check, 2026-09-09): computation_grant_raw admitted it.
+    // This assertion failed with 201. A model trained on raw data cannot
+    // un-train a revoked grant, and whoever held it would hold per-person
+    // events, so the limit is on what a grant can express.
+    const action = await liveAction();
+    const refused = await grant(HOUSEHOLD, {
+      grantee: "which-declines-predict-the-market",
+      scope: ["valences"],
+      purpose: "so makers learn what is not wanted",
+      expires_at: soon(60_000),
+      asked_from: action,
+      kind: "computation",
+      result_form: "raw",
+    });
+    expect(refused.status).toBe(422);
+  });
+
+  test("a party grant carries no result form", async () => {
+    const action = await liveAction();
+    const refused = await grant(HOUSEHOLD, {
+      grantee: `${HOUSEHOLD}-family`,
+      scope: ["receipts"],
+      purpose: "so they can help",
+      expires_at: soon(60_000),
+      asked_from: action,
+      result_form: "aggregate",
+    });
+    expect(refused.status).toBe(422);
+  });
+});

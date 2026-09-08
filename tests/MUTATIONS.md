@@ -145,6 +145,8 @@ can repeat any row.
 | `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
 | `merchant_export_drops_configs` | A shop's export leaves its catalogue behind | 1 |
 | `merchant_export_leaks_notes` | A shop's export carries every line on its candidates, not the shared ones | 1 |
+| `computation_grant_without_form` | A grant to a computation accepted with no result form | 2 |
+| `computation_grant_raw` | Raw data admitted as a computation's result form | 1 |
 | `unsigned_catalogue` | A catalogue accepted without the presenter's signature | 1 |
 | `presenter_always_attested` | Every presenter reported as root-endorsed. Failed no probe on its first run: the only presenter a probe read was the rooted one | 1 |
 | `loosening_without_cosigner` | A mandate loosened on the person's signature alone | 2 |
@@ -178,8 +180,8 @@ can repeat any row.
 in turn and collects the probes that failed, and the notes in the suites are
 written from its output rather than from intent. Measured on 2026-09-09 after
 the clause review, both adversarial passes and the renumbering, against the
-reference engine at an exploration rate of 0.2: **154 mutations, 175
-declarations, 189 probes at runtime.** 170 of 172 were shown to fail at that run; the
+reference engine at an exploration rate of 0.2: **156 mutations, 178
+declarations, 192 probes at runtime.** 170 of 172 were shown to fail at that run; the
 three probes added with duplicate avoidance were measured against their own
 mutations afterwards, and the third of them, which checks that no route
 enumerates a household's receipts, is covered by `received_route`.
