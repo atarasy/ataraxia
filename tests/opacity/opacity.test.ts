@@ -10,7 +10,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 16, 18 and 19, and specification §7.2, §7.4 and §7.5.
+ * Clauses 16, 18 and 19, and specification §7.2, §7.5 and §7.6.
  *
  * No surface discloses that a recipient did not act, reciprocation is never
  * prompted, and a recipient's record holds the fact of receipt and nothing
@@ -160,7 +160,7 @@ describe("opacity: reciprocation is never prompted (clause 18)", () => {
   });
 });
 
-describe("opacity: the recipient's record (clause 19, §7.4)", () => {
+describe("opacity: the recipient's record (clause 19, §7.5)", () => {
   test("a receipt carries no reference that resolves to anything", async () => {
     // NOTE (mutation check, 2026-09-08): receipt_ref_resolves put the edge id
     // back on the receipt and added GET /lineage/{id}. This assertion failed
@@ -224,7 +224,7 @@ describe("opacity: what a recipient has received is listed nowhere (clause 20)",
   });
 });
 
-describe("opacity: the lineage circle (clause 21, §7.5)", () => {
+describe("opacity: the lineage circle (clause 21, §7.6)", () => {
   test("the viewer's own edges carry no date and no product", async () => {
     // NOTE (mutation check, 2026-09-08): date_on_own_edges kept the timestamp
     // and the product on the viewer's outgoing edges. This assertion failed.

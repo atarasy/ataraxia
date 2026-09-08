@@ -141,6 +141,8 @@ can repeat any row.
 | `gift_is_billed` | A used gift billed to the person who received it | 1, and one unit test |
 | `cost_on_candidate` | A cost of goods invented and put on every candidate in the offer view | 1 |
 | `note_default_nobody` | A note's `shared_with` defaulted to nobody, so a line written before giving reaches no one | 1 |
+| `duplicate_check_without_grant` | The duplicate check answered without consulting the permission ledger | 1 |
+| `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -166,8 +168,11 @@ can repeat any row.
 in turn and collects the probes that failed, and the notes in the suites are
 written from its output rather than from intent. Measured on 2026-09-09 after
 the clause review, both adversarial passes and the renumbering, against the
-reference engine at an exploration rate of 0.2: **142 mutations, 158
-declarations, 172 probes at runtime, 170 of them shown to fail.**
+reference engine at an exploration rate of 0.2: **144 mutations, 161
+declarations, 175 probes at runtime.** 170 of 172 were shown to fail at that run; the
+three probes added with duplicate avoidance were measured against their own
+mutations afterwards, and the third of them, which checks that no route
+enumerates a household's receipts, is covered by `received_route`.
 
 **What "proven" counts, corrected the same day.** An adversarial pass found the
 earlier number counting probes that failed in their setup rather than in their

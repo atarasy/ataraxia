@@ -27,7 +27,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`silence/`](silence/) | 36, 37, and spec §2.2 | An undecided digital offer creates no order at expiry; no configuration makes silence into consent; at most one reminder is sent | yes |
 | [`opacity/`](opacity/) | 19, 21, 22, 24 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | yes |
 | [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, and consumed settles at cost | yes |
-| [`lineage/`](lineage/) | 22, 25, and spec §7.1, §7.4 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
+| [`lineage/`](lineage/) | 22, 25, and spec §7.1, §7.5 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
 | [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
@@ -101,8 +101,8 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 172 probes at runtime from 158 declarations, against 142 deliberate
-breaks listed in the ledger, and 170 of the 172 have been shown to fail under
+engine: 175 probes at runtime from 161 declarations, against 144 deliberate
+breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
 ledger says why. Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`

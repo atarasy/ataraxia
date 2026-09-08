@@ -15,7 +15,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 27, 28, 29, 30 and specification §3.3, §7.5, §9.1.
+ * Clauses 27, 28, 29, 30 and specification §3.3, §7.6, §9.1.
  *
  * Capabilities that must not exist. A clause that says a field does not exist
  * is checkable by looking for the field; a clause that says a route does not
@@ -81,7 +81,7 @@ const FORBIDDEN_KEYS = [
   "points",
 ];
 
-/** §7.5: totals, network size and popularity are not displayed. */
+/** §7.6: totals, network size and popularity are not displayed. */
 const FORBIDDEN_AGGREGATES = [
   "total",
   "total_count",
@@ -518,7 +518,7 @@ describe("absence: fields that must not exist (§3.3)", () => {
   });
 });
 
-describe("absence: aggregates that must not be displayed (§7.5)", () => {
+describe("absence: aggregates that must not be displayed (§7.6)", () => {
   test("the household's offer list carries no total and no ranking", async () => {
     // NOTE (mutation check, re-anchored 2026-09-09): list_total adds a
     // `total` beside `offers` in the list response. This assertion fails,

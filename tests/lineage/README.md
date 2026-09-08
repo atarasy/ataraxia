@@ -1,6 +1,6 @@
 # lineage
 
-**Clauses 19 and 22, and specification §7.1 and §7.4.**
+**Clauses 19 and 22, and specification §7.1 and §7.5.**
 
 A lineage edge is recognised on its signature and never on the software that
 produced it. A recipient's record holds the fact of receipt and nothing else.
@@ -23,7 +23,7 @@ was the least tested.
 before accepting an edge can exclude a fork, and everything the README says
 about certification being open stops being true.
 
-**§7.4**: a person acquired a profile by being given something. Clause 19 says a
+**§7.5**: a person acquired a profile by being given something. Clause 19 says a
 recipient's record holds nothing until that household becomes a giver, and the
 probes check for both shapes a record takes: a field that looks like a
 preference or a score, and a list of what was received.

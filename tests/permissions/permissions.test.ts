@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { call, findKey, HOUSEHOLD, meansAnyOf } from "../lib/probe.js";
+import {
+  call,
+  findKey,
+  HOUSEHOLD,
+  meansAnyOf,
+  PRODUCTS,
+  soon,
+} from "../lib/probe.js";
 
 /**
  * Clauses 37 to 42.
@@ -225,5 +232,94 @@ describe("permissions: what the ledger does not carry (clause 39, 41)", () => {
     // learn what else the household has granted, and to whom.
     const read = await call("GET", "/permissions");
     expect(read.status).toBe(404);
+  });
+});
+
+describe("permissions: the ledger is consulted (clause 20, §7.4)", () => {
+  /**
+   * The probes above prove properties of the ledger. Until 2026-09-09 no read
+   * path consulted it, so all of them proved properties of a list nothing
+   * read. Duplicate avoidance is that path: one bit, under a grant, against a
+   * live action, written into the recipient's own record.
+   */
+  test("a duplicate check without a grant is refused, and with one answers a bit", async () => {
+    // NOTE (mutation check, 2026-09-09): duplicate_check_without_grant
+    // answered without consulting the ledger. The first assertion failed
+    // with 200: the recipient alone decides whether the query runs.
+    const recipient = `${HOUSEHOLD}-recipient-${Math.random().toString(36).slice(2, 8)}`;
+    const giver = `${HOUSEHOLD}-giver`;
+    const action = await liveAction(recipient);
+
+    const refused = await call("POST", `/households/${encodeURIComponent(recipient)}/duplicate-check`, {
+      product: PRODUCTS[0],
+      asked_by: giver,
+      asked_from: action,
+    });
+    expect(refused.status).toBe(422);
+
+    const granted = await grant(recipient, {
+      grantee: giver,
+      scope: ["duplicate_check"],
+      purpose: "so a gift is not a duplicate",
+      expires_at: soon(60_000),
+      asked_from: action,
+    });
+    expect(granted.status).toBe(201);
+
+    const answered = await call("POST", `/households/${encodeURIComponent(recipient)}/duplicate-check`, {
+      product: PRODUCTS[0],
+      asked_by: giver,
+      asked_from: action,
+    });
+    expect(answered.status).toBe(200);
+    expect(typeof (answered.body as { already_received: boolean }).already_received).toBe("boolean");
+    // One bit and nothing else: no date, no merchant, no reference.
+    expect(Object.keys(answered.body as object)).toEqual(["already_received"]);
+  });
+
+  test("who asked what is in the recipient's own record", async () => {
+    // NOTE (mutation check, 2026-09-09): duplicate_check_unlogged answered
+    // without writing the row. This assertion failed: one bit at a time is
+    // still a read of the list, and the reads are the recipient's to see.
+    const recipient = `${HOUSEHOLD}-recipient-${Math.random().toString(36).slice(2, 8)}`;
+    const giver = `${HOUSEHOLD}-giver`;
+    const action = await liveAction(recipient);
+    await grant(recipient, {
+      grantee: giver,
+      scope: ["duplicate_check"],
+      purpose: "so a gift is not a duplicate",
+      expires_at: soon(60_000),
+      asked_from: action,
+    });
+    await call("POST", `/households/${encodeURIComponent(recipient)}/duplicate-check`, {
+      product: PRODUCTS[0],
+      asked_by: giver,
+      asked_from: action,
+    });
+    const record = await call("GET", `/households/${encodeURIComponent(recipient)}/queries`);
+    expect(record.status).toBe(200);
+    const rows = (record.body as { queries: { asked_by: string; product: string }[] }).queries;
+    expect(rows.length).toBe(1);
+    expect(rows[0]!.asked_by).toBe(giver);
+    expect(rows[0]!.product).toBe(PRODUCTS[0]);
+  });
+
+  test("no route enumerates what a household has received (clause 20)", async () => {
+    // The bit is the whole of what duplicate avoidance gives. A grant for it
+    // does not open a list.
+    const recipient = `${HOUSEHOLD}-recipient-${Math.random().toString(36).slice(2, 8)}`;
+    const giver = `${HOUSEHOLD}-giver`;
+    const action = await liveAction(recipient);
+    await grant(recipient, {
+      grantee: giver,
+      scope: ["duplicate_check"],
+      purpose: "so a gift is not a duplicate",
+      expires_at: soon(60_000),
+      asked_from: action,
+    });
+    for (const name of ["received", "gifts", "history", "inventory"]) {
+      const read = await call("GET", `/households/${encodeURIComponent(recipient)}/${name}`);
+      expect(read.status).toBe(404);
+    }
   });
 });
