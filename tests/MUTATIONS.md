@@ -243,6 +243,21 @@ showed in any single run:
 The lesson is the one this file opens with: a probe's note is a claim, and
 only the measurement says whether it is still true.
 
+## The reference split, 2026-09-09
+
+The engine's source moved into four directories on the day the mandate layer
+landed: `src/engine/` for the presenter's side (offers, decisions, settlement,
+the physical binding, the billing ledger), `src/hub/` for the person's (the
+approval surface, permissions, mandates, recovery, the node's export),
+`src/shared/` for what is neither (the endpoint registry, the canonical forms
+for an edge and a decided set), and `src/common/` for types, errors and the
+strict body check.
+
+Every mutation script names the file it breaks, so all 112 that pointed at the
+old flat paths were repointed in the same commit. A script whose path went
+stale would have been reported INERT by `mutate.sh` rather than passing, which
+is the check that made this safe to do at all.
+
 ## What this exercise found
 
 **The floor was satisfiable by relabelling, and the specification allowed it.**
