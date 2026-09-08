@@ -133,6 +133,41 @@ describe("absence: the infrastructure is not the intent layer (clause 1)", () =>
   }
 });
 
+describe("absence: nothing here issues an identity (clause 2)", () => {
+  /**
+   * Clause 2, as narrowed on 2026-09-09. Identity has one root outside the
+   * system, and nothing in it mints one: not the hub, not a node, not a host.
+   *
+   * The routes that exist take a public key the caller already holds and
+   * record it. That is attestation. What must not exist is a route that
+   * hands the caller a key or an identifier they did not bring, because
+   * whoever issues identity can revoke it, and revocation is the lever every
+   * other clause assumes nobody in this system holds.
+   */
+  test("no route hands out an identity", async () => {
+    // NOTE (mutation check, 2026-09-09): signup_route registered
+    // POST /signup returning a freshly generated key pair. This assertion
+    // failed with 201. A system that issues identities is one that can take
+    // them back.
+    for (const path of ["/signup", "/identities", "/households", "/keys", "/register", "/accounts"]) {
+      const minted = await call("POST", path, {});
+      expect(minted.status).toBe(404);
+    }
+  });
+
+  test("attesting a key never returns one", async () => {
+    // The attestation routes are out of the specification and exist so the
+    // probes have fixtures. Even so, their responses carry no key material:
+    // a route that attests and also returns a private key has become an
+    // issuer by another name.
+    const attested = await call("POST", "/registry/attest", {
+      merchant: "probe-merchant",
+      public_key: "not-a-real-pem",
+    });
+    expect(findKey(attested.body, meansAnyOf(["private_key", "secret", "seed", "mnemonic"]))).toEqual([]);
+  });
+});
+
 describe("absence: fields that must not exist (§3.3)", () => {
   test("a discount on a candidate is refused, not ignored", async () => {
     // NOTE (mutation check): the reference implementation's strict body check
