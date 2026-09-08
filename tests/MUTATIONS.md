@@ -68,6 +68,24 @@ can repeat any row.
 | `export_drops_settlements` | Settlements left out of the export | 2 |
 | `recoverer_owns_every_channel` | The requirement for a channel outside the recoverer's control removed | 1 |
 | `anyone_can_recover` | The check that the caller is a named recoverer removed | 1 |
+| `approval_without_deliberation` | The approval rendered from the offer alone, with no alternatives and no argument against | 1 |
+| `drop_excluded_reasons` | The excluded list emptied on the way to the screen | 1 |
+| `presentation_on_approval` | A banner and a rank added to every approval candidate | 1 |
+| `standing_never_lapses` | A standing mandate accepted with no lapse | 1 |
+| `grant_without_an_action` | A permission granted without a live action to point at | 1 |
+| `permission_never_expires` | An expiry in the past accepted and treated as unlimited | 1 |
+| `own_agent_is_a_grantee` | The household allowed to appear in its own permission ledger | 1 |
+| `revoke_deletes_the_row` | Revoking removes the permission instead of stamping it | 2 |
+| `compensation_on_permission` | A compensation figure added to each permission | 1 |
+| `model_on_permission` | The model recorded on each permission | 1 |
+| `empty_alternatives` | The check that a deliberation says anything removed, keeping only the check that it exists | 1 |
+| `markup_in_argument` | The argument against wrapped in a div | 1 |
+| `mandate_scope_blank` | The mandate's scope emptied | 1 |
+| `reminded_never_true` | `reminded` always false, and a count of reminders left added | 1 |
+| `refuse_every_grant` | Every permission grant refused | 2 |
+| `empty_scope_ok` | A permission accepted with a scope naming nothing | 1 |
+| `revoke_revokes_everything` | Revoking one permission stamps them all | 1 |
+| `global_permissions_route` | `GET /permissions` registered, listing them to anyone | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -91,8 +109,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 83 probes, 80 have been
-shown to fail under at least one of the 69 mutations. The three that have not
+written from its output rather than from intent. Of 104 probes, 101 have been
+shown to fail under at least one of the 87 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the

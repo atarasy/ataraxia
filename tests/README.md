@@ -14,7 +14,7 @@ So these tests are not a certificate of good conduct. They check the parts of th
 
 ## Suites
 
-All of them are written. Three were not in the original scoping and came from
+All nine are written. Three were not in the original scoping and came from
 reading the clause list inward rather than outward from the probes, which is
 the direction that finds what nothing checks: `lineage/` for clause 25,
 `binding/` because `lost` is reachable only through the physical binding, and
@@ -29,6 +29,8 @@ the direction that finds what nothing checks: `lineage/` for clause 25,
 | [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, and consumed settles at cost | yes |
 | [`lineage/`](lineage/) | 22, 25, and spec §7.1, §7.4 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
+| [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
+| [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
 | [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -74,7 +76,7 @@ VALENCE_CONFIG_VERSION=... VALENCE_PRODUCTS=... VALENCE_HOUSEHOLD=... \
 VALENCE_MANDATE=... VALENCE_EXPLORATION_RATE=0.2 \
 VALENCE_LINEAGE_EDGE='{"from":"...","to":"...","product":"...","merchant":"...","kind":"gift","occasion":"...","receipt":"...","signature":"..."}' \
 VALENCE_PRICES='{"tea-a":1200,"tea-b":900}' \
-  bun test absence floor silence lineage
+  bun test absence floor silence lineage approval permissions
 ```
 
 `VALENCE_EXPLORATION_RATE` is there because §5 publishes no recommended rate. Without it

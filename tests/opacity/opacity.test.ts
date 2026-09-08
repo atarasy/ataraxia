@@ -77,6 +77,10 @@ describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
   });
 
   test("no field on the giver's surface names a state of not having acted", async () => {
+    // NOTE (mutation check, 2026-09-09): inaction_field_on_acts added a
+    // `responded` flag to every act. This assertion failed. The value was
+    // always true, which is exactly what makes its absence elsewhere
+    // readable.
     const acts = await call(
       "GET",
       `/lineage/acts?giver=${encodeURIComponent(giver())}`
