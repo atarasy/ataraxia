@@ -100,7 +100,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 44. The list of permissions is always visible and each can be revoked individually.
 45. Changing the model behind an agent does not move the permission ledger or the records.
 46. An agent does not prefer merchants that do not return data.
-47. A person's data is held in a form the person can export in full at any time. A shop's ledger belongs to the shop, not to its representative, and the shop can export it in full at any time.
+47. A person's data is held in a form the person can export in full at any time. A shop's product ledger and customer ledger belong to the shop, not to its representative, and the shop can export them in full, in a standard format, at any time.
 
 ## 8. The intermediary and protection
 
@@ -114,10 +114,10 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 9. Billing and the merchant-side platform
 
-55. The billing layer's own fee is per attempt and arithmetically independent of the verdict. Neutrality is structural, not a policy.
-56. The unit of billing is work, not tokens.
-57. Payment processing passes through at cost. The platform charges for the shop's work, never touching the shop's revenue.
-58. A shop's product ledger and customer ledger belong to the shop and are exportable in a standard format at any time.
+55. Withdrawn on 2026-09-09. Clauses 55 to 58 were promises of one merchant-side platform, the operator's own, and a shop built on any other platform could not have met them; the constitution binds what the mark certifies, which is hubs and hosts, and nothing else. The four now stand in that platform's own charter. The numbers stay so that references to later clauses hold.
+56. Withdrawn on 2026-09-09, with clause 55.
+57. Withdrawn on 2026-09-09, with clause 55.
+58. Withdrawn on 2026-09-09, with clause 55. What survives of it for a host that seeks the mark is in clause 47: a shop can export its ledgers in full, in a standard format, at any time.
 
 ## 10. Keys, nodes and the hub
 
