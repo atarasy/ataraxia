@@ -135,8 +135,11 @@ describe("absence: the infrastructure is not the intent layer (clause 1)", () =>
 
 describe("absence: nothing here issues an identity (clause 2)", () => {
   /**
-   * Clause 2, as narrowed on 2026-09-09. Identity has one root outside the
-   * system, and nothing in it mints one: not the hub, not a node, not a host.
+   * Clause 2, as narrowed on 2026-09-09. Identity has a root outside the
+   * system, one per person, and nothing in it mints one: not the hub, not a
+   * node, not a host. Which root, per jurisdiction, is the architecture's
+   * question (vault 02 §3), not the constitution's. Uniqueness is the root's
+   * property and is not probed here; what is probed is that nothing issues.
    *
    * The routes that exist take a public key the caller already holds and
    * record it. That is attestation. What must not exist is a route that
