@@ -48,7 +48,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 2. Curators and merchants
 
-10. A curator cannot set a price. The price is the merchant's price. A buyer never pays more than they would buying direct.
+10. A price is the merchant's, the same to everyone, and it travels from the merchant signed by the merchant's key. No curator, representative or platform has a field, a parameter or a configuration that raises it. A buyer pays the merchant's price and nothing more.
 11. A curator is not the seller. The seller and merchant of record is always the merchant.
 12. The merchant is never hidden. Who made it and who ships it is always visible.
 13. Participation does not require a merchant to join a programme. An ACP-compatible feed is sufficient.
