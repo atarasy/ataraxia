@@ -121,7 +121,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 10. Keys, nodes and the hub
 
-59. The hub is published as open source, its enforcement of this constitution is verifiable in code, and it can be forked.
+59. The hub is open source (clause 5) and it is the enforcement point (clause 3): every refusal this constitution requires is in its code, where anyone can read it and anyone can fork it.
 60. The only thing asked of a password manager is a signature. Not the screen, not credential injection, not the recovery policy.
 61. The default host is replaceable and blind. A member can move an entire node to another host.
 62. Recovery and routine reading are separate powers. A recoverer cannot read. Recovery is logged and the person is notified.
@@ -131,7 +131,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 ## 11. Organisation
 
 65. Seats in governance are not for sale. Patrons are treated identically regardless of amount.
-66. This constitution is amended by a jury drawn by lot together with the foundation's consent. It is not amended by approval flows, which are vulnerable to mobilisation.
+66. Until the foundation exists, the founder amends this constitution, and every amendment is recorded with its reason and its cost. Once it exists, this constitution is amended by a jury drawn by lot together with the foundation's consent, and not by approval flows, which are vulnerable to mobilisation.
 67. A standing mandate lapses unless renewed. An individual approval never passes by silence.
 68. An agent's proposal carries alternatives and the argument against. Members can raise proposals themselves.
 69. Membership fees are not balances. A balance redeemable against goods is a prepaid payment instrument.
