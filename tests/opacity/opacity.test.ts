@@ -204,6 +204,26 @@ describe("opacity: the recipient's record (clause 22, §7.4)", () => {
   });
 });
 
+describe("opacity: what a recipient has received is listed nowhere (clause 23)", () => {
+  /**
+   * Clause 23, as rewritten on 2026-09-09. A giver avoids a duplicate only
+   * by asking the recipient's own node under a grant. The route that would
+   * make asking unnecessary is a list of what a household has received,
+   * under any of the names it would be given.
+   */
+  test("no route lists what a household has received", async () => {
+    // NOTE (mutation check, 2026-09-09): received_route registered
+    // GET /households/{id}/received returning the products behind the
+    // household's gifts. This assertion failed with 200. Receipts resolving
+    // to nothing (the probes below) is only a guarantee while no other route
+    // resolves them in bulk.
+    for (const name of ["received", "gifts", "gifts_received", "history", "inventory"]) {
+      const read = await call("GET", `/households/${encodeURIComponent(LINEAGE_RECIPIENT)}/${name}`);
+      expect(read.status).toBe(404);
+    }
+  });
+});
+
 describe("opacity: the lineage circle (clause 24, §7.5)", () => {
   test("the viewer's own edges carry no date and no product", async () => {
     // NOTE (mutation check, 2026-09-08): date_on_own_edges kept the timestamp

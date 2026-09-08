@@ -1,6 +1,6 @@
 # opacity
 
-**Clauses 19, 21, 22 and 24, and specification §7.2, §7.4 and §7.5.**
+**Clauses 19, 21, 22, 23 and 24, and specification §7.2, §7.4 and §7.5.**
 
 No surface discloses that a recipient did not act, reciprocation is never
 prompted, and a recipient's record holds the fact of receipt and nothing else.

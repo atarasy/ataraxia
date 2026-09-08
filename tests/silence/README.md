@@ -1,6 +1,6 @@
 # silence
 
-**Clauses 36 and 37, and specification §2.2.**
+**Clauses 26, 28, 36 and 37, and specification §2.2 and §12.**
 
 An undecided digital offer creates no order at expiry, no configuration turns
 silence into consent, and at most one reminder is sent.

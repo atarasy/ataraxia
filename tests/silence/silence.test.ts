@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   call,
+  CONFIG_VERSION_LATER,
   conformingOffer,
   createConformingOffer,
   createMixedOffer,
-  CONFIG_VERSION_LATER,
   PRICES,
   PRICES_LATER,
   REPRICED,
@@ -171,6 +171,22 @@ describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
    * This is also the row where an implementation can be quietly profitable by
    * doing nothing, which is why it is worth a probe of its own.
    */
+  test("the offer carries the band the giver chose, and a candidate outside it is refused (clause 26)", async () => {
+    // NOTE (mutation check, 2026-09-09): ignore_band kept the band on the
+    // offer and stopped checking candidates against it. The second
+    // assertion failed with 201: a candidate priced above the band was
+    // offered under it.
+    const prices = Object.values(PRICES);
+    const band = { min: Math.min(...prices), max: Math.max(...prices) };
+    const offer = await createConformingOffer({ purpose: "ceremonial", price_band: band });
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect((read.body as { price_band?: unknown }).price_band).toEqual(band);
+
+    const tooNarrow = { min: band.min, max: band.min };
+    const created = await call("POST", "/offers", conformingOffer({ purpose: "ceremonial", price_band: tooNarrow }));
+    expect(created.status).toBe(422);
+  });
+
   test("exactly one candidate is defaulted and the rest returned", async () => {
     // NOTE (mutation check, 2026-09-08): unredeemed_revenue removed the
     // ceremonial branch, so every candidate expired as `returned`. This

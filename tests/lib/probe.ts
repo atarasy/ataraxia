@@ -322,6 +322,12 @@ export function offerBody(
         c.predicted_conversion === undefined ? 0.5 : c.predicted_conversion,
       is_exploration: c.is_exploration ?? false,
     })),
+    // Clause 26. A ceremonial offer carries the band the giver chose; the
+    // default band spans every declared price so the probes that are not
+    // about the band are not refused by it.
+    ...(overrides.purpose === "ceremonial" && overrides.price_band === undefined
+      ? { price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) } }
+      : {}),
     ...overrides,
   };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { call, findKey, meansAnyOf } from "../lib/probe.js";
+import { call, findKey, meansAnyOf, conformingOffer } from "../lib/probe.js";
 
 /**
  * Clause 1, and specification §15.
@@ -162,5 +162,25 @@ describe("registry: no entry names a platform (clause 6)", () => {
     const list = await call("GET", "/registry?protocol=valence");
     expect(list.status).toBe(200);
     expect(findKey(list.body, meansAnyOf(PLATFORM_KEYS))).toEqual([]);
+  });
+});
+
+describe("registry: listing is not a condition of taking part (clause 13)", () => {
+  /**
+   * Clause 13, as rewritten on 2026-09-09. A merchant with a feed can be
+   * offered whether or not it chose to be listed. The registry resolves; it
+   * gates nothing. The probe reads the merchant off a conforming offer,
+   * confirms the registry does not know it, and confirms the offer was
+   * created anyway.
+   */
+  test("an offer names a merchant the registry does not list, and is created", async () => {
+    // NOTE (mutation check, 2026-09-09): require_registered_merchant refused
+    // an offer whose candidates name an unlisted merchant. This assertion
+    // failed with 422. A registry that gates is a programme by another name.
+    const created = await call("POST", "/offers", conformingOffer());
+    expect(created.status).toBe(201);
+    const merchant = (created.body as { candidates: { merchant: string }[] }).candidates[0]!.merchant;
+    const resolved = await call("GET", `/registry/${encodeURIComponent(merchant)}`);
+    expect(resolved.status).toBe(404);
   });
 });

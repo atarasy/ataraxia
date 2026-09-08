@@ -99,9 +99,9 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine, 146 probes at runtime from 133 declarations. 130 of the 133 have been
+engine, 149 probes at runtime from 136 declarations. 133 of the 136 have been
 shown to fail under a deliberate break of that engine; the three that have not
-say so in their own notes, and the ledger says why. The 115 breaks are listed
+say so in their own notes, and the ledger says why. The 118 breaks are listed
 there, and `coverage.sh` in the engine's repository measures which probe each
 one caught rather than taking the notes on trust.
 

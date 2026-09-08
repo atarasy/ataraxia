@@ -51,29 +51,29 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 10. A price is the merchant's, the same to everyone, and it travels from the merchant's own feed. No curator, representative or platform has a field, a parameter or a configuration that raises it. A buyer pays the merchant's price and nothing more.
 11. A curator is not the seller. The merchant of record is the merchant, named on every line of every receipt; a curator that signs a receipt signs as the merchant's disclosed agent.
 12. The merchant is never hidden. Every candidate, every receipt and every edge names who made it and who ships it.
-13. Participation does not require a merchant to join a programme. An ACP-compatible feed is sufficient.
+13. Taking part requires no programme, no approval and no registration: a merchant with an ACP-compatible feed can be offered, and the endpoint registry resolves a merchant that chose to be listed and gates nothing.
 14. A brand cannot buy a slot. Its contribution is the cost of goods offered, and payment is on outcome only. Ranking, exposure and placement are not for sale.
-15. There is an upper bound on households per representative.
-16. There is no broadcast, no segment extraction, and no automated recommendation to the person. A message has one household as its recipient. Predictions are handed to a human, and the human chooses.
-17. We do not promise that marketing becomes unnecessary. We say a merchant joins a network.
+15. Withdrawn on 2026-09-09. The clause set an upper bound on households per representative and named no value; a bound without a value forbids nothing. The bound is a design parameter of the specification, and the number stays numbered so that references to later clauses hold.
+16. A message has one household as its recipient: no broadcast, no segment. Nothing is presented to a person that was not drafted for that person alone, by their own agent or by the merchant's representative, with the prediction shown as the presenter's own guess; and nothing is decided until the person decides.
+17. Withdrawn on 2026-09-09. The clause was a statement of position, not a prohibition, and it now stands in the vision document. The number stays so that references to later clauses hold.
 
 ## 3. Gifts and the network
 
-18. You cannot give what you have not tried. Sampling is required, not optional.
+18. Withdrawn on 2026-09-09. Trying before giving is what the 見計らい box offers a giver; it is value delivered, not a thing that cannot be done, and it now stands in the vision document. The number stays so that references to later clauses hold.
 19. No negative signal is returned to the giver. The absence of a reorder, an unopened parcel, silence: none of these appear on the giver's screen.
 20. Positive signals are visible only as acts of the recipient, such as giving the item onward, reciprocating, or writing thanks. Purchases the system observed are never shown.
 21. Reciprocation is never prompted. It is made easy; it is not notified and it has no deadline.
 22. A recipient's profile starts empty. Beyond the fact of receipt, nothing is recorded until they become a giver themselves.
-23. Whether a recipient's list may be used to avoid duplicate gifts is decided by the recipient alone.
+23. What a recipient has received is known to no one but the recipient: no route lists it, a receipt resolves to nothing, and a giver avoids a duplicate only by asking the recipient's own node, under a grant that recipient gave for that giver and that use.
 24. Lineage shows people and does not hide merchants. Network size is never displayed. What is shown is density within one's own circle.
 25. A lineage edge is recognised by the person's key and the merchant's receipt. It is not discriminated by which hub produced it.
 
 ## 4. Replacing the catalogue gift
 
-26. Price tiers remain. Legibility of price band is not sacrificed.
+26. The band a giver chose for a ceremonial gift is never hidden from the recipient, and no candidate in it lies outside that band.
 27. The recipient chooses. The giver does not see the candidates.
 28. If nothing is chosen before the deadline, a default item ships. No revenue is earned from unredeemed gifts.
-29. Cards and wrapping match the incumbent exactly, down to denominational wording.
+29. Withdrawn on 2026-09-09. That cards, wrapping and denominational wording match local convention exactly is an implementation requirement, stated in the specification's section on ceremonial offers, and not a thing that cannot be done. The number stays so that references to later clauses hold.
 
 ## 5. Models and the engine
 

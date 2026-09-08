@@ -114,6 +114,9 @@ can repeat any row.
 | `platform_reinfers` | Each prediction scaled by the return rate of the same product across every household seen | 1 |
 | `hide_merchant_on_candidate` | `merchant` and `ships` dropped from the candidate serialisation | 1 |
 | `settlement_lines_without_merchant` | The receipt's lines kept, with the merchant blanked on each | 1 |
+| `require_registered_merchant` | An offer refused when its candidates name a merchant the registry does not list | 1, and every probe that creates an offer, 62 in all: the reference catalogue's maker is unlisted, so the gate refuses everything |
+| `received_route` | `GET /households/{id}/received` registered, returning the products behind the household's gifts | 1 |
+| `ignore_band` | The band kept on a ceremonial offer and candidates no longer checked against it | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -137,8 +140,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 133 probes, 130 have been
-shown to fail under at least one of the 115 mutations. The three that have not
+written from its output rather than from intent. Of 136 probes, 133 have been
+shown to fail under at least one of the 118 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
