@@ -9,6 +9,7 @@ import {
   PRODUCTS,
   RECOVERY_GRACE_DAYS,
   sleep,
+  soon,
 } from "../lib/probe.js";
 
 /**
@@ -22,6 +23,10 @@ import {
  * lose. That is a real answer rather than an untested one, and the deployment
  * says which case it is in `VALENCE_BINDINGS`.
  */
+
+// Short enough to wait for in a probe; the deployment declares its grace.
+const EXPIRY_MS = 1500;
+const GRACE_MS = RECOVERY_GRACE_DAYS * 86_400_000;
 
 const physicalOffer = (overrides: Record<string, unknown> = {}) =>
   conformingOffer({ binding: "physical", ...overrides });
@@ -51,21 +56,19 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     // model is the point of clause 30's neighbouring rule here: loss falls on
     // whoever holds stock risk, and a loss rate is an operating metric rather
     // than a receivable.
-    const created = await call("POST", "/offers", physicalOffer());
+    // §11. Lost is what the deadline decides about goods nobody collected.
+    // Since 2026-09-09 no household or presenter can declare it: the offer
+    // expires, the grace period passes with no collection, and the goods
+    // are lost. The refutation pass found the earlier version of this probe
+    // signing "lost" as the household, which is the hole it now checks.
+    const created = await call("POST", "/offers", physicalOffer({ expires_at: soon(EXPIRY_MS) }));
     expect(created.status).toBe(201);
     const offer = created.body as {
       id: string;
       candidates: { id: string; product: string; unit_price: number }[];
     };
     await call("POST", `/offers/${offer.id}/present`, {});
-
-    const [first, ...rest] = offer.candidates;
-    await decide(offer.id, {
-      decisions: [
-        { candidate: first!.id, valence: "lost" },
-        ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
-      ],
-    });
+    await sleep(EXPIRY_MS + GRACE_MS + 500);
 
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
@@ -74,7 +77,8 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
       consumed_amount: number;
       lost_amount: number;
     };
-    expect(settlement.lost_amount).toBe(first!.unit_price);
+    const everything = offer.candidates.reduce((sum, c) => sum + c.unit_price, 0);
+    expect(settlement.lost_amount).toBe(everything);
     expect(settlement.kept_amount).toBe(0);
     expect(settlement.consumed_amount).toBe(0);
     // The breakdown is not the bill. The first version of this probe checked
@@ -89,17 +93,20 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     // lost_amount to the committed total. The probe above did not catch it and
     // this one does, which is why §6 of the specification now names the
     // charged amount rather than leaving it implied by three others.
-    const created = await call("POST", "/offers", physicalOffer());
+    const created = await call("POST", "/offers", physicalOffer({ expires_at: soon(EXPIRY_MS) }));
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, second, ...rest] = offer.candidates;
+    // The household keeps one and leaves the rest; the second is never
+    // collected and the deadline makes it lost.
     await decide(offer.id, {
       decisions: [
         { candidate: first!.id, valence: "kept", kept_as: "self" },
-        { candidate: second!.id, valence: "lost" },
         ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
       ],
     });
+    void second;
+    await sleep(EXPIRY_MS + GRACE_MS + 500);
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
     const amounts = settled.body as {
@@ -124,13 +131,13 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     };
     await call("POST", `/offers/${offer.id}/present`, {});
 
+    // §11. Consumed is what the collection found, not a verdict.
     const [first, ...rest] = offer.candidates;
-    await decide(offer.id, {
-      decisions: [
-        { candidate: first!.id, valence: "consumed" },
-        ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
-      ],
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [first!.id],
     });
+    expect(collected.status).toBe(200);
 
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     const settlement = settled.body as {
@@ -178,6 +185,34 @@ describe.if(!HAS_PHYSICAL)("binding: the physical binding is absent", () => {
   });
 });
 
+describe.if(HAS_PHYSICAL)("binding: consumed and lost are the collection's, never a decision (§11)", () => {
+  test("a household cannot declare its own goods consumed or lost", async () => {
+    // NOTE (mutation check, 2026-09-09): household_declares_consumed let a
+    // household decide consumed and lost in the physical binding. Both
+    // assertions failed with 200. The refutation pass measured the hole:
+    // a household that signs its goods "consumed" pays cost instead of
+    // price, and one that signs them "lost" pays nothing.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, second, ...rest] = offer.candidates;
+    for (const valence of ["consumed", "lost"]) {
+      const refused = await decide(offer.id, {
+        decisions: [
+          { candidate: first!.id, valence },
+          { candidate: second!.id, valence: "returned" },
+          ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
+        ],
+      });
+      expect(refused.status).toBe(422);
+    }
+    const read = await call("GET", `/offers/${offer.id}`);
+    for (const c of (read.body as { candidates: { valence: string }[] }).candidates) {
+      expect(c.valence).toBe("offered");
+    }
+  });
+});
+
 describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
   /**
    * The positive half of §6.1, and the last part of §13 condition 5 that was
@@ -208,11 +243,10 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     };
     await call("POST", `/offers/${one.id}/present`, {});
     const [tried, ...others] = one.candidates;
-    await decide(one.id, {
-      decisions: [
-        { candidate: tried!.id, valence: "consumed" },
-        ...others.map((c) => ({ candidate: c.id, valence: "returned" })),
-      ],
+    // The trial: the collection finds one used and the rest unopened.
+    await call("POST", `/offers/${one.id}/recovery`, {
+      returned: others.map((c) => c.id),
+      consumed: [tried!.id],
     });
     const trial = await call("POST", `/offers/${one.id}/settle`, {});
     const trialCharge = (trial.body as { charged: number }).charged;
@@ -271,11 +305,10 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
     const [tried, ...others] = one.candidates;
-    await decide(one.id, {
-      decisions: [
-        { candidate: tried!.id, valence: "consumed" },
-        ...others.map((c) => ({ candidate: c.id, valence: "returned" })),
-      ],
+    // The trial: the collection finds one used and the rest unopened.
+    await call("POST", `/offers/${one.id}/recovery`, {
+      returned: others.map((c) => c.id),
+      consumed: [tried!.id],
     });
     await call("POST", `/offers/${one.id}/settle`, {});
 

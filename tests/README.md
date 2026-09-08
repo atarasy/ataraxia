@@ -31,7 +31,7 @@ the direction that finds what nothing checks: `lineage/` for clause 25,
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
 | [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
-| [`registry/`](registry/) | 1, 64, and spec §15 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
+| [`registry/`](registry/) | 1, 64, and spec §16 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -62,6 +62,7 @@ as thirteen environment variables:
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
+| `VALENCE_CONFIG_VERSION_NARROW` | a catalogue version under the same presenter naming only a subset of the products (§5: the floor counts what the presenter still has across every catalogue) |
 | `VALENCE_PRICES_LATER` | the prices in that later catalogue, as JSON |
 | `VALENCE_BINDINGS` | which bindings this deployment implements, comma separated |
 | `VALENCE_RECOVERY_GRACE_DAYS` | days after the recovery deadline before an uncollected candidate is lost |
@@ -100,11 +101,13 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine, 157 probes at runtime from 144 declarations. 141 of the 144 have been
-shown to fail under a deliberate break of that engine; the three that have not
-say so in their own notes, and the ledger says why. The 128 breaks are listed
-there, and `coverage.sh` in the engine's repository measures which probe each
-one caught rather than taking the notes on trust.
+engine, 170 probes at runtime from 157 declarations, against 139 deliberate
+breaks listed in the ledger. The proven count is being re-measured under a
+corrected rule: two of those breaks stop any offer being created, so probes
+that failed only in their setup were being counted as shown-to-fail. The
+ledger says what changed and `coverage.sh` now excludes those two, reports any
+mutation that changed nothing, and measures which probe each break caught
+rather than taking the notes on trust.
 
 `opacity/` and `exit/` were the last two written, and later than the rest for a
 reason that was not schedule. Both test a hub rather than an offer engine:

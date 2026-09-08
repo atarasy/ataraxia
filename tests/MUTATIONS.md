@@ -126,6 +126,18 @@ can repeat any row.
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
 | `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
 | `floor_ignores_exhaustion` | The cap on the floor dropped, so a household that has seen every product can never be offered again | 1 |
+| `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and one unit test |
+| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 1, and 16 more across the suites that read a state the refusal left behind |
+| `withdraw_after_decision` | Withdraw allowed after a signed decision | 1 |
+| `charge_the_recipient` | A ceremonial offer reserved and committed against the household on the offer, the recipient | 1 |
+| `default_beside_kept` | A default shipped at expiry beside a candidate the recipient had kept | 1 |
+| `band_on_unit` | The band checked against the unit price rather than the line | 1 |
+| `allow_duplicate_products` | The same product allowed on two lines of one offer | 1 |
+| `novelty_from_this_catalogue` | What the presenter still has counted over the catalogue the offer names | 1 |
+| `import_trusts_everything` | Import writes what it is handed: unverified edges, another household's offers | 1 |
+| `notes_append` | A second line by the same author appended to a candidate | 1 |
+| `attest_overwrites` | A merchant's attested key replaced by a later caller | 1 |
+| `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval | 2 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -149,9 +161,25 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 144 probes, 141 have been
-shown to fail under at least one of the 128 mutations. The three that have not
-say so in their own notes and are counted as unproven:
+written from its output rather than from intent. There are **139 mutations and
+157 declarations**; the proven count is being re-measured under the rule below
+and is not quoted here until it is.
+
+**What "proven" counts, corrected on 2026-09-09.** An adversarial pass found the
+earlier number counting probes that failed in their setup rather than in their
+assertion. Two mutations, `require_registered_merchant` and
+`reject_foreign_offer_client`, break `POST /offers` for the whole suite, so
+every probe that creates an offer fails under them whatever it asserts.
+`coverage.sh` now names those two and leaves them out of the count; they are
+still run, and what they catch is recorded in their own rows. The same pass
+found the ledger claiming 128 mutations against 127 scripts, and claiming that
+every script asserts its anchor when sixty do not. Both are fixed at the
+harness rather than in the scripts: `mutate.sh` now exits 2 when a mutation
+changes nothing in `src`, so an anchor that drifts is reported as INERT instead
+of passing quietly, and `coverage.sh` lists any it found.
+
+The probes that have not been shown to fail say so in their own notes and are
+counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
   reference engine is not

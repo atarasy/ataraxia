@@ -8,6 +8,7 @@ import {
   decide,
   PRICES,
   PRICES_LATER,
+  PRODUCTS,
   REPRICED,
   sleep,
   soon,
@@ -185,6 +186,62 @@ describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
 
     const tooNarrow = { min: band.min, max: band.min };
     const created = await call("POST", "/offers", conformingOffer({ purpose: "ceremonial", price_band: tooNarrow }));
+    expect(created.status).toBe(422);
+  });
+
+  test("the giver pays a ceremonial offer, never the recipient (clause 28)", async () => {
+    // NOTE (mutation check, 2026-09-09): charge_the_recipient reserved and
+    // committed against the household on the offer, which on a ceremonial
+    // offer is the recipient. This assertion failed: the settlement named
+    // the recipient as payer. The refutation pass measured a return gift
+    // billed to the person it was sent to.
+    const offer = await createConformingOffer({ purpose: "ceremonial" });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await decide(offer.id, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const view = read.body as { household: string; giver: string };
+    const payer = (settled.body as { payer: string }).payer;
+    expect(payer).toBe(view.giver);
+    expect(payer).not.toBe(view.household);
+  });
+
+  test("a recipient who chose one item is sent no default (clause 28)", async () => {
+    // NOTE (mutation check, 2026-09-09): default_beside_kept shipped a
+    // default at expiry whenever a candidate was undecided, even beside a
+    // kept one. This assertion failed: two items shipped and the giver paid
+    // twice. "If nothing is chosen" is the whole condition.
+    const offer = await createConformingOffer({ purpose: "ceremonial", expires_at: soon(EXPIRY_MS) });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [chosen] = offer.candidates;
+    await decide(offer.id, { decisions: [{ candidate: chosen!.id, valence: "kept", kept_as: "self" }] });
+    await sleep(EXPIRY_MS + 500);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { valence: string }[] }).candidates;
+    expect(candidates.filter((c) => c.valence === "defaulted").length).toBe(0);
+    expect(candidates.filter((c) => c.valence === "kept").length).toBe(1);
+  });
+
+  test("the band bounds the line, not the unit (clause 26)", async () => {
+    // NOTE (mutation check, 2026-09-09): band_on_unit checked the unit price
+    // against the band and let five units of the cheapest product through
+    // inside a band that one unit fits. This assertion failed with 201.
+    const prices = Object.values(PRICES);
+    const band = { min: Math.min(...prices), max: Math.max(...prices) };
+    const cheapest = PRODUCTS.find((p) => PRICES[p] === band.min)!;
+    const many = Math.ceil(band.max / band.min) + 1;
+    const created = await call("POST", "/offers", conformingOffer({
+      purpose: "ceremonial",
+      price_band: band,
+      candidates: [{ product: cheapest, quantity: many, predicted_conversion: 0.5, is_exploration: true }],
+    }));
     expect(created.status).toBe(422);
   });
 

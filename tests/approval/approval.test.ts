@@ -6,6 +6,7 @@ import {
   decide,
   findKey,
   meansAnyOf,
+  PRICES,
   signDecisions,
 } from "../lib/probe.js";
 
@@ -280,6 +281,67 @@ describe("approval: a confirmation is the person's signature (clause 39)", () =>
 
     const signed = await decide(offer.id, { decisions: set });
     expect(signed.status).toBe(200);
+  });
+});
+
+describe("approval: a refused set writes nothing (§10.5)", () => {
+  test("a set with one bad line leaves every candidate as it was", async () => {
+    // NOTE (mutation check, 2026-09-09): decide_writes_on_refusal wrote each
+    // line as it was checked, so a set refused on its second line left its
+    // first line kept. This assertion failed: the offer read back with one
+    // candidate decided under a signature that covered a different set.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, second, ...rest] = offer.candidates;
+    const refused = await decide(offer.id, {
+      decisions: [
+        { candidate: first!.id, valence: "kept", kept_as: "self" },
+        { candidate: second!.id, valence: "kept" },
+        ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
+      ],
+    });
+    expect([400, 422]).toContain(refused.status);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const body = read.body as { state: string; candidates: { valence: string }[] };
+    expect(body.state).toBe("presented");
+    for (const c of body.candidates) expect(c.valence).toBe("offered");
+  });
+});
+
+describe("approval: the screen names who made it, who ships it, and the band (clauses 12, 26)", () => {
+  test("every candidate on the screen names its maker and its carrier", async () => {
+    // NOTE (mutation check, 2026-09-09): approval_hides_maker dropped
+    // merchant and ships from the rendered candidate and blanked the band.
+    // This assertion failed. The refutation pass found clause 12 probed on
+    // the offer view while the screen a person signs from named neither.
+    const { offer } = await deliberated();
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const body = approval.body as { candidates: { merchant?: unknown; ships?: unknown }[] };
+    for (const c of body.candidates) {
+      expect(typeof c.merchant).toBe("string");
+      expect(c.merchant).not.toBe("");
+      expect(typeof c.ships).toBe("string");
+      expect(c.ships).not.toBe("");
+    }
+  });
+
+  test("a ceremonial screen carries the band the giver chose", async () => {
+    const prices = Object.values(PRICES);
+    const band = { min: Math.min(...prices), max: Math.max(...prices) };
+    const offer = await createConformingOffer({ purpose: "ceremonial", price_band: band });
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["another in the band"], argument_against: "you may not need it" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    expect((approval.body as { price_band?: unknown }).price_band).toEqual(band);
   });
 });
 

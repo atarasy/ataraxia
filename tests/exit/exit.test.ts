@@ -202,6 +202,32 @@ describe("exit: the move (clause 61)", () => {
     }
   });
 
+  test("an import verifies the edges it is handed and refuses another household's offers", async () => {
+    // NOTE (mutation check, 2026-09-09): import_trusts_everything wrote
+    // whatever the export said. Both assertions failed with 201: an edge
+    // with a broken signature entered the second host's lineage, and an
+    // offer belonging to one household was written under another's path.
+    // The refutation pass measured a bogus edge blocking a product as
+    // exploration for the household it named.
+    await call("POST", "/lineage", LINEAGE_EDGE);
+    const giver = LINEAGE_EDGE.from as string;
+    const exported = await call("GET", `/households/${encodeURIComponent(giver)}/export`);
+    const node = exported.body as { lineage: { signature: string }[] };
+    expect(node.lineage.length).toBeGreaterThan(0);
+    const tampered = {
+      ...node,
+      lineage: node.lineage.map((e) => ({ ...e, signature: "not-a-signature" })),
+    };
+    const badEdge = await callSecond("POST", `/households/${encodeURIComponent(giver)}/import`, tampered);
+    expect(badEdge.status).toBe(422);
+
+    const offer = await seedSomethingToMove();
+    void offer;
+    const mine = await call("GET", `/households/${encodeURIComponent(household())}/export`);
+    const elsewhere = await callSecond("POST", `/households/${encodeURIComponent(freshHousehold())}/import`, mine.body);
+    expect(elsewhere.status).toBe(422);
+  });
+
   test("an export in an unknown format is refused rather than half read", async () => {
     // NOTE (mutation check, 2026-09-09): import_accepts_anything accepted
     // any document. An import that reads what it does not understand loses

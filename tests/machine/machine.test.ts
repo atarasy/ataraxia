@@ -62,6 +62,26 @@ describe("machine: withdraw (§2.1)", () => {
     expect(settled.status).toBe(409);
   });
 
+  test("a signed decision cannot be withdrawn from under the household", async () => {
+    // NOTE (mutation check, 2026-09-09): withdraw_after_decision let a
+    // presenter withdraw a decided offer. This assertion failed with 200:
+    // the household's signed keep was voided and the settle that followed
+    // was refused. §2.1 lets withdraw leave from drafted or presented only.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await decide(offer.id, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const withdrawn = await call("POST", `/offers/${offer.id}/withdraw`, {});
+    expect(withdrawn.status).toBe(409);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+  });
+
   test("withdrawing twice is refused", async () => {
     // NOTE (mutation check, 2026-09-09): withdraw_twice allowed it. A
     // second withdrawal of an offer already withdrawn is a presenter

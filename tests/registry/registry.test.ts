@@ -1,8 +1,9 @@
+import { generateKeyPairSync } from "node:crypto";
 import { describe, expect, test } from "bun:test";
 import { call, findKey, meansAnyOf, conformingOffer } from "../lib/probe.js";
 
 /**
- * Clause 1, and specification §15.
+ * Clause 1, and specification §16.
  *
  * The endpoint registry resolves and does not rank. It is the one piece of
  * shared infrastructure that could become the place where things are found,
@@ -29,7 +30,7 @@ const RANKING_KEYS = [
   "boost",
 ];
 
-describe("registry: an entry resolves (§15.1)", () => {
+describe("registry: an entry resolves (§16.1)", () => {
   test("a merchant resolves to its endpoints by key", async () => {
     // NOTE (mutation check, 2026-09-09): registry_resolve_404 made every
     // resolution a 404. This assertion failed. A registry that cannot
@@ -47,7 +48,7 @@ describe("registry: an entry resolves (§15.1)", () => {
   });
 });
 
-describe("registry: no order that means anything (§15.2)", () => {
+describe("registry: no order that means anything (§16.2)", () => {
   test("the list is in key order", async () => {
     // NOTE (mutation check, 2026-09-09): registry_by_registration returned
     // entries in the order they registered, which the seed arranges to differ
@@ -79,7 +80,7 @@ describe("registry: no order that means anything (§15.2)", () => {
   });
 });
 
-describe("registry: no query by intent (§15.2)", () => {
+describe("registry: no query by intent (§16.2)", () => {
   test("a query by what a person wants is not a parameter", async () => {
     // NOTE (mutation check, 2026-09-09): registry_search accepted ?q= and
     // matched it against endpoint URLs. This assertion failed with 200. The
@@ -102,7 +103,7 @@ describe("registry: no query by intent (§15.2)", () => {
   });
 });
 
-describe("registry: the same answer to every caller (§15.2)", () => {
+describe("registry: the same answer to every caller (§16.2)", () => {
   test("two callers get the same list", async () => {
     // NOTE (mutation check, 2026-09-09): registry_personalised put the entry
     // matching the caller's `x-household` first. This assertion failed. An
@@ -122,7 +123,7 @@ describe("registry: the same answer to every caller (§15.2)", () => {
   });
 });
 
-describe("registry: the mark is not a gate (clause 64, §15.2)", () => {
+describe("registry: the mark is not a gate (clause 64, §16.2)", () => {
   test("an entry without the mark is listed", async () => {
     // NOTE (mutation check, 2026-09-09): registry_requires_mark dropped
     // unmarked entries from every list. This assertion failed. Clause 64 says
@@ -182,5 +183,24 @@ describe("registry: listing is not a condition of taking part (clause 13)", () =
     const merchant = (created.body as { candidates: { merchant: string }[] }).candidates[0]!.merchant;
     const resolved = await call("GET", `/registry/${encodeURIComponent(merchant)}`);
     expect(resolved.status).toBe(404);
+  });
+});
+
+
+describe("registry: an attested key is not replaced (§16.1)", () => {
+  test("a second attestation with a different key is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): attest_overwrites let a later caller
+    // replace a merchant's attested key. This assertion failed with 201.
+    // Whoever can overwrite the key can sign the merchant's entry, and the
+    // same map is what clauses 25 and 39 resolve to.
+    const merchant = `probe-merchant-${Math.random().toString(36).slice(2, 8)}`;
+    const one = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString();
+    const two = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString();
+    const first = await call("POST", "/registry/attest", { merchant, public_key: one });
+    expect(first.status).toBe(201);
+    const again = await call("POST", "/registry/attest", { merchant, public_key: one });
+    expect(again.status).toBe(201);
+    const replaced = await call("POST", "/registry/attest", { merchant, public_key: two });
+    expect(replaced.status).toBe(409);
   });
 });

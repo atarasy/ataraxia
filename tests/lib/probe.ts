@@ -23,6 +23,8 @@ function required(name: string): string {
 
 export const BASE = required("VALENCE_BASE_URL").replace(/\/+$/, "");
 export const CONFIG_VERSION = required("VALENCE_CONFIG_VERSION");
+/** §5. A narrower catalogue under the same presenter, for the trimming probe. */
+export const CONFIG_VERSION_NARROW = required("VALENCE_CONFIG_VERSION_NARROW");
 export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
 
 /**
@@ -393,6 +395,11 @@ export function offerBody(
     // about the band are not refused by it.
     ...(overrides.purpose === "ceremonial" && overrides.price_band === undefined
       ? { price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) } }
+      : {}),
+    // Clause 28, §12. A ceremonial offer names its giver, who pays; the
+    // household on the offer is the recipient, who chooses.
+    ...(overrides.purpose === "ceremonial" && overrides.giver === undefined
+      ? { giver: `${HOUSEHOLD}-giver` }
       : {}),
     ...overrides,
   };

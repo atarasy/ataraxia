@@ -303,8 +303,11 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
     // every note to whoever asked as the merchant. The first assertion
     // failed with 200. A line the writer kept to themselves had reached
     // the maker.
+    // Two candidates, because a writer has one line per candidate (the
+    // second line by the same author is refused, probed below).
     const offer = await createConformingOffer();
     const candidate = offer.candidates[0]!.id;
+    const other = offer.candidates[1]!.id;
     const kept = await call("POST", `/candidates/${candidate}/note`, {
       author: HOUSEHOLD,
       text: "kept for the smell",
@@ -314,17 +317,33 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
     const unshared = await call("GET", `/candidates/${candidate}/note?as=merchant`);
     expect(unshared.status).toBe(404);
 
-    const shared = await call("POST", `/candidates/${candidate}/note`, {
+    const shared = await call("POST", `/candidates/${other}/note`, {
       author: HOUSEHOLD,
       text: "the tin is hard to open",
       shared_with: ["merchant"],
     });
     expect(shared.status).toBe(201);
-    const read = await call("GET", `/candidates/${candidate}/note?as=merchant`);
+    const read = await call("GET", `/candidates/${other}/note?as=merchant`);
     expect(read.status).toBe(200);
     const notes = (read.body as { notes: { text: string }[] }).notes;
     expect(notes.map((n) => n.text)).toEqual(["the tin is hard to open"]);
     expect(findKey(read.body, meansAnyOf(["rating", "score", "stars", "sentiment", "count", "total"]))).toEqual([]);
+  });
+
+  test("a writer has one line per candidate", async () => {
+    // NOTE (mutation check, 2026-09-09): notes_append let the same author
+    // add a second line to a candidate. This assertion failed with 201. A
+    // list of lines per candidate is a count, and a count is an aggregate.
+    const offer = await createConformingOffer();
+    const candidate = offer.candidates[0]!.id;
+    const first = await call("POST", `/candidates/${candidate}/note`, {
+      author: HOUSEHOLD, text: "kept for the smell", shared_with: [],
+    });
+    expect(first.status).toBe(201);
+    const second = await call("POST", `/candidates/${candidate}/note`, {
+      author: HOUSEHOLD, text: "and the colour", shared_with: [],
+    });
+    expect(second.status).toBe(409);
   });
 
   test("no route turns lines into a number", async () => {
@@ -472,8 +491,11 @@ describe("absence: fields that must not exist (§3.3)", () => {
 
 describe("absence: aggregates that must not be displayed (§7.5)", () => {
   test("the household's offer list carries no total and no ranking", async () => {
-    // NOTE (mutation check): a `total` field was added alongside `offers` in
-    // the list response. This assertion failed, naming `total`. Removed.
+    // NOTE (mutation check, re-anchored 2026-09-09): list_total adds a
+    // `total` beside `offers` in the list response. This assertion fails,
+    // naming `total`. The script's anchor had drifted when the list gained a
+    // presenter, so it silently changed nothing for a while; mutate.sh now
+    // refuses a mutation that changes nothing.
     const list = await call(
       "GET",
       `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent(await presenter())}`

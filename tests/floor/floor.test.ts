@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   call,
+  CONFIG_VERSION_NARROW,
   conformingOffer,
   decide,
   floorFor,
@@ -202,6 +203,47 @@ describe("floor: the boundary", () => {
     );
     const created = await call("POST", "/offers", body);
     expect(created.status).toBe(422);
+  });
+});
+
+describe("floor: what counts as novelty cannot be manufactured (§5)", () => {
+  test("a product listed twice in one offer is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): allow_duplicate_products let a
+    // product appear twice, so one never-offered product met a floor of two.
+    // This assertion failed with 201. Quantity is what a line carries.
+    const [a, b] = PRODUCTS;
+    const created = await call("POST", "/offers", offerBody([
+      { product: a!, predicted_conversion: 0.5, is_exploration: true },
+      { product: a!, predicted_conversion: 0.5, is_exploration: true },
+      { product: b!, predicted_conversion: 0.5, is_exploration: false },
+    ]));
+    expect(created.status).toBe(400);
+  });
+
+  test("a narrower catalogue does not shrink what the presenter still has to offer", async () => {
+    // NOTE (mutation check, 2026-09-09): novelty_from_this_catalogue counted
+    // what the presenter still has over the catalogue the offer named, so a
+    // presenter that registered a two-product version after showing those
+    // two owed no exploration. This assertion failed with 201.
+    const household = freshHousehold();
+    const [a, b] = PRODUCTS;
+    const first = await call("POST", "/offers", offerBody(
+      [
+        { product: a!, predicted_conversion: 0.5, is_exploration: true },
+        { product: b!, predicted_conversion: 0.5, is_exploration: true },
+      ],
+      { household }
+    ));
+    expect(first.status).toBe(201);
+    await call("POST", `/offers/${(first.body as { id: string }).id}/present`, {});
+    const trimmed = await call("POST", "/offers", offerBody(
+      [
+        { product: a!, predicted_conversion: 0.5, is_exploration: false },
+        { product: b!, predicted_conversion: 0.5, is_exploration: false },
+      ],
+      { household, config_version: CONFIG_VERSION_NARROW }
+    ));
+    expect(trimmed.status).toBe(422);
   });
 });
 
