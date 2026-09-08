@@ -4,17 +4,18 @@ A test that cannot fail is not a test. Every probe in these suites was run
 against a reference implementation that had been deliberately broken, and this
 file records which break each one caught.
 
-The mutations are one Python script each, and applying and reverting them is
-one command per row:
+The mutations are one Python script each, in
+[`atarasy/valence`](https://github.com/atarasy/valence) under
+`engine/scripts/mutations/`. Applying and reverting one is a single command:
 
 ```
+cd engine
 ./scripts/mutate.sh no_floor python3 scripts/mutations/no_floor.py
 ```
 
-Measured 2026-09-08 against the Valence reference engine, running the digital
-binding at an exploration rate of 0.2, and again at 0.6 for the two rows that
-say so. See "Where the engine is" at the end: it is not published yet, which
-makes this ledger a record rather than something a reader can rerun today.
+Measured 2026-09-08 against that engine, running the digital binding at an
+exploration rate of 0.2, and again at 0.6 for the two rows that say so. Anyone
+can repeat any row.
 
 | Mutation | What it changed | Probes that failed |
 |---|---|---|
@@ -149,9 +150,13 @@ two of the three gaps close.
 
 ## Where the engine is
 
-The reference engine is a local repository with no remote. This ledger names
-its mutations by file so they can be read alongside the probes, but a reader of
-the public repository cannot rerun them today. Either the engine is published
-or these rows stay a record of what was done rather than an invitation to
-repeat it. The suites themselves have no such problem: they run against any
-implementation, and the six variables in the README are all they need.
+`engine/` in the specification's repository, published on 2026-09-08. It went
+there rather than into a repository of its own because the constitution's
+README and clause table both already said the engine is published at
+`atarasy/valence`.
+
+The engine is one subject, not the subject. These suites run against any
+implementation and import nothing from this one; the eight variables in the
+README are all they need. What the engine gives the ledger is a place where
+every row can be reproduced, which is the difference between a claim that the
+probes can fail and evidence of it.
