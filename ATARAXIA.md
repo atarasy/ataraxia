@@ -38,7 +38,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 1. The infrastructure does not sit in the intent layer. It resolves and does not rank: it has no search, no ranking, and no answer that depends on who asks or on what they want.
 2. Identity has a root outside this system, one per person. Nothing here issues an identity: not the hub, not a node, not a host.
-3. Only the hub and this constitution are not replaceable, and both are published and forkable.
+3. Everything a member touches can be replaced by the member: the password manager, the model, the host, the merchant. What cannot be removed is the enforcement point and this constitution. The enforcement point is a conforming hub, and any conforming hub will do; this one is published and forkable.
 4. The person-side layer (hub, node, keeper of the constitution) and the merchant-side platform (endpoints, operational AI, billing, inter-firm settlement) are separate legal entities and do not share revenue.
 5. The merchant-side platform is open source and self-hostable. The hosted edition has no capability the self-hosted edition lacks.
 6. A person's agent does not prefer merchants because they run on a particular platform. Its routing rules are published and auditable.

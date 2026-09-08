@@ -171,6 +171,50 @@ describe("absence: nothing here issues an identity (clause 2)", () => {
   });
 });
 
+describe("absence: nothing names a part a member could replace (clause 3)", () => {
+  /**
+   * Clause 3, as rewritten on 2026-09-09. Everything a member touches can be
+   * replaced by the member: the password manager, the model, the host, the
+   * merchant. A document that names one of them has bound itself to it, and
+   * a part that must be present by name is no longer replaceable. Host
+   * replacement is exercised end to end in exit/; this walk checks the
+   * documents the member carries between parts.
+   */
+  const REPLACEABLE_PARTS = [
+    "model",
+    "llm",
+    "provider",
+    "password_manager",
+    "manager",
+    "vendor",
+  ];
+
+  test("an offer names no model, manager or provider", async () => {
+    // NOTE (mutation check, 2026-09-09): name_the_model added
+    // `model: "gpt-5"` to the offer serialisation. This assertion failed,
+    // naming `model`.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    expect(findKey(read.body, looksLike(REPLACEABLE_PARTS))).toEqual([]);
+  });
+
+  test("a settlement names no model, manager or provider", async () => {
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect(findKey(settled.body, looksLike(REPLACEABLE_PARTS))).toEqual([]);
+  });
+});
+
 describe("absence: fields that must not exist (§3.3)", () => {
   test("a discount on a candidate is refused, not ignored", async () => {
     // NOTE (mutation check): the reference implementation's strict body check

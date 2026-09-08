@@ -1,10 +1,14 @@
 # absence
 
-**Clauses 31, 32, 33, 34, and specification §3.3, §7.5, §9.1.**
+**Clauses 1, 2, 3, 31, 32, 33, 34, and specification §3.3, §7.5, §9.1.**
 
 Capabilities that must not exist. A discount object, a star rating, an urgency
 field, a per-person tracking identifier, a tracking socket, and the routes that
-would carry segments and broadcasts.
+would carry segments and broadcasts. Since the clause review of 2026-09-09,
+also the three structural clauses at the head of the constitution: no search,
+ranking or discovery route (clause 1), no route that issues an identity
+(clause 2), and no document that names a part the member could replace, the
+model, the manager or a provider (clause 3).
 
 ## What a failure means
 

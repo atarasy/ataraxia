@@ -98,16 +98,16 @@ gate that overstates itself is worse than one that does not exist.
 
 ## Status
 
-September 2026. All seven suites are written and pass against the reference
-engine, 91 probes at runtime from 83 declarations. Eighty of the 83 have been
+September 2026. All eleven suites are written and pass against the reference
+engine, 139 probes at runtime from 126 declarations. 123 of the 126 have been
 shown to fail under a deliberate break of that engine; the three that have not
-say so in their own notes, and the ledger says why. The 69 breaks are listed
+say so in their own notes, and the ledger says why. The 108 breaks are listed
 there, and `coverage.sh` in the engine's repository measures which probe each
 one caught rather than taking the notes on trust.
 
-`opacity/` and `exit/` are still scoped rather than written, and the reason is
-not schedule. Both test a hub rather than an offer engine: `exit/` needs a node
-that can be exported and moved between hosts, and `opacity/` has to probe for
-inference on a giver's response surface, which means having a surface. Writing
-either against the offer engine alone would fix the wrong interface, which is
-the objection this directory started with.
+`opacity/` and `exit/` were the last two written, and later than the rest for a
+reason that was not schedule. Both test a hub rather than an offer engine:
+`exit/` needs a node that can be exported and moved between hosts, and
+`opacity/` has to probe for inference on a giver's response surface, which
+means having a surface. Both waited until the hub surfaces were specified, so
+that neither would fix the wrong interface.

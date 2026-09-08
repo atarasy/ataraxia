@@ -105,6 +105,8 @@ can repeat any row.
 | `registry_echoes_caller` | The caller's household echoed in the response | 2 |
 | `registry_ignores_mark_filter` | `?mark=true` ignored | 1 |
 | `signup_route` | `POST /signup` registered, returning a freshly generated key pair | 1 |
+| `name_the_model` | `model: "gpt-5"` put on the offer serialisation | 1 |
+| `name_the_model_settlement` | `model: "gpt-5"` put on the settlement record, which is built in the engine and not in the view | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -128,8 +130,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 124 probes, 121 have been
-shown to fail under at least one of the 106 mutations. The three that have not
+written from its output rather than from intent. Of 126 probes, 123 have been
+shown to fail under at least one of the 108 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
