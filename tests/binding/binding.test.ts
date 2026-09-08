@@ -3,8 +3,10 @@ import {
   call,
   conformingOffer,
   decide,
+  freshHousehold,
   HAS_PHYSICAL,
   PRICES,
+  PRODUCTS,
   RECOVERY_GRACE_DAYS,
   sleep,
 } from "../lib/probe.js";
@@ -193,7 +195,12 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     // cost against the household and took it off the next settlement. This
     // assertion failed on the second charge. A balance that is only ever spent
     // down is still a balance.
-    const first = await call("POST", "/offers", physicalOffer());
+    // One household for both offers: a balance carried forward is only
+    // visible to a second offer to the same household, and since exploration
+    // became what a household has never been offered, every offer defaults
+    // to a fresh one unless named.
+    const household = freshHousehold();
+    const first = await call("POST", "/offers", physicalOffer({ household }));
     expect(first.status).toBe(201);
     const one = first.body as {
       id: string;
@@ -212,7 +219,18 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     expect(trialCharge).toBeGreaterThan(0);
 
     // A second offer to the same household, kept in full.
-    const second = await call("POST", "/offers", physicalOffer());
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      // Everything was offered to this household by the first offer, so
+      // nothing here is exploration and none is marked (§5.1); the floor
+      // asks for what exists (§5).
+      candidates: PRODUCTS.map((product) => ({
+        product,
+        quantity: 1,
+        predicted_conversion: 0.5,
+        is_exploration: false,
+      })),
+    }));
     const two = second.body as {
       id: string;
       candidates: { id: string; unit_price: number; quantity: number }[];
@@ -245,7 +263,35 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     // The other shape the same defect takes. Instead of a balance, the
     // discount arrives as a lower price on the next offer, which clause 10
     // forbids from the other direction and clause 32 forbids by name.
-    const created = await call("POST", "/offers", physicalOffer());
+    // Self-contained since 2026-09-09: the trial happens here, on one
+    // household, rather than being inherited from the probe above.
+    const household = freshHousehold();
+    const first = await call("POST", "/offers", physicalOffer({ household }));
+    expect(first.status).toBe(201);
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [tried, ...others] = one.candidates;
+    await decide(one.id, {
+      decisions: [
+        { candidate: tried!.id, valence: "consumed" },
+        ...others.map((c) => ({ candidate: c.id, valence: "returned" })),
+      ],
+    });
+    await call("POST", `/offers/${one.id}/settle`, {});
+
+    const created = await call("POST", "/offers", physicalOffer({
+      household,
+      // Everything was offered to this household by the first offer, so
+      // nothing here is exploration and none is marked (§5.1); the floor
+      // asks for what exists (§5).
+      candidates: PRODUCTS.map((product) => ({
+        product,
+        quantity: 1,
+        predicted_conversion: 0.5,
+        is_exploration: false,
+      })),
+    }));
+    expect(created.status).toBe(201);
     const offer = created.body as {
       candidates: { product: string; unit_price: number }[];
     };

@@ -25,7 +25,7 @@ can repeat any row.
 | `accepts_unit_price` | `unit_price` accepted from the request and stored on the candidate | 1 |
 | `leak_field_offer_view` | Added `rating: 4` to the candidate serialisation | 1 |
 | `leak_field_settlement` | Added `tracking_id` to the settlement record | 1 |
-| `list_total` | Added `total` beside `offers` in the household's list | 1 |
+| `list_total` | Added `total` beside `offers` in the household's list. Re-anchored 2026-09-09 after the list gained a presenter; it had gone silently inert, which is why every script now asserts its anchor | 1 |
 | `lineage_acts_total` | Added `network_size` beside `acts` | 1 |
 | `balance_route` | Registered `GET /households/{id}/balance` returning 0 | 1 |
 | `invent_product` | A missing catalogue entry falls back to a price of 1000 | 1 |
@@ -60,7 +60,7 @@ can repeat any row.
 | `second_degree_circle` | The circle walked one hop further out | 1 |
 | `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 2 |
 | `consumed_at_price` | A consumed candidate settled at price rather than cost | 1 |
-| `credit_the_trial` | What was consumed accrued as a balance and taken off the next settlement | 1 |
+| `credit_the_trial` | What was consumed accrued as a balance and taken off the next settlement. Re-measured 2026-09-09 after every offer took a fresh household, which had made a per-household balance invisible; the probe now names one household | 1 |
 | `withdraw_keeps_decided` | Withdrawing left the undecided candidates as `offered` | 1 |
 | `decide_all_or_nothing` | A decision naming fewer than every candidate refused | 3 |
 | `settled_is_not_terminal` | A withdraw accepted after settlement | 2 |
@@ -124,12 +124,14 @@ can repeat any row.
 | `accept_unsigned_decisions` | The signature check on a decided set skipped | 1 |
 | `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 1, and every probe that creates an offer without naming a user-agent, 79 in all |
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
+| `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
+| `floor_ignores_exhaustion` | The cap on the floor dropped, so a household that has seen every product can never be offered again | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
 | `decide_before_present` | Decisions accepted on a drafted offer | 1 |
 | `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
-| `discount_after_trial` | A tenth off the price for a household that had consumed something | 1 |
+| `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
 | `export_no_format` | The export's format string blanked | 3 |
 | `ignore_config_version` | The first catalogue resolved whatever version the offer named | 1 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
@@ -147,8 +149,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 143 probes, 140 have been
-shown to fail under at least one of the 125 mutations. The three that have not
+written from its output rather than from intent. Of 144 probes, 141 have been
+shown to fail under at least one of the 128 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
@@ -157,6 +159,34 @@ say so in their own notes and are counted as unproven:
   authenticates nothing, so they are identical for the wrong reason
 - one is covered only when the suite runs at an exploration rate above 0.5,
   which was done and is recorded
+
+## What the full re-measurement of 2026-09-09 found
+
+`coverage.sh` was run over every mutation after the clause review, with no
+edits pending. Two kinds of drift had crept in during the day and neither
+showed in any single run:
+
+- **A mutation gone silently inert.** `list_total` anchored on the household
+  list's old signature; when the list gained a presenter the anchor stopped
+  matching, the script's `replace` did nothing, and the suite stayed green
+  against an unmutated engine. Scripts without an assert on their anchor
+  cannot report this; every script now has one.
+- **Probes weakened by a fixture change.** When every offer began taking a
+  fresh household (needed once exploration became what a household has never
+  been offered), the two probes that check nothing carries forward across a
+  trial and a purchase were creating their two offers for two different
+  households, so a balance or a discount keyed on the household could never
+  be seen. `credit_the_trial` and `discount_after_trial` ran clean. Both
+  probes now name one household, and the second offer carries no exploration
+  marks, which is what the same change turned up next:
+- **A rule the suite contradicted.** Under §5.1 a five-product catalogue had
+  no exploration left after one offer, so a second offer to the same
+  household was refused for lacking what could not exist. §5 now caps the
+  floor at the novelty the presenter still holds, and `floor_ignores_exhaustion`
+  is the mutation for it.
+
+The lesson is the one this file opens with: a probe's note is a claim, and
+only the measurement says whether it is still true.
 
 ## What this exercise found
 

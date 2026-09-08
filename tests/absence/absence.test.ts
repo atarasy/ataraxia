@@ -163,6 +163,9 @@ describe("absence: nothing here issues an identity (clause 2)", () => {
   });
 
   test("attesting a key never returns one", async () => {
+    // NOTE (mutation check, 2026-09-09): attest_returns_private_key made the
+    // attestation route generate a key pair and return the private half.
+    // This assertion failed, naming private_key.
     // The attestation routes are out of the specification and exist so the
     // probes have fixtures. Even so, their responses carry no key material:
     // a route that attests and also returns a private key has become an

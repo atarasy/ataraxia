@@ -205,6 +205,28 @@ describe("floor: the boundary", () => {
   });
 });
 
+describe("floor: the floor asks for what exists (§5)", () => {
+  test("a presenter that has offered a household everything owes it no exploration", async () => {
+    // NOTE (mutation check, 2026-09-09): floor_ignores_exhaustion dropped
+    // the cap on the floor, so a second offer to a household that had seen
+    // every product was refused for lacking exploration it could not have.
+    // This assertion failed with 422.
+    const household = freshHousehold();
+    const first = await call("POST", "/offers", conformingOffer({ household }));
+    expect(first.status).toBe(201);
+    await call("POST", `/offers/${(first.body as { id: string }).id}/present`, {});
+    const second = await call(
+      "POST",
+      "/offers",
+      offerBody(
+        PRODUCTS.map((product) => ({ product, predicted_conversion: 0.5, is_exploration: false })),
+        { household }
+      )
+    );
+    expect(second.status).toBe(201);
+  });
+});
+
 describe("floor: the floor cannot be padded (§5.1)", () => {
   /**
    * The probe that matters most in this suite, and the one that was missing

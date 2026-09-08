@@ -77,7 +77,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 5. Models and the engine
 
-30. Selling out is prohibited by specification. Every offer contains a minimum number of candidates this household has never been offered by this presenter: nothing it has bought, nothing it has been given, nothing it has declined. Which of those the presenter picks is its own best guess, and the floor does not judge the guess. This is the exploration floor.
+30. Selling out is prohibited by specification. Every offer contains a minimum number of candidates this household has never been offered by this presenter: nothing it has bought, nothing it has been given, nothing it has declined, as many as the presenter still has to offer. Which of those the presenter picks is its own best guess, and the floor does not judge the guess. This is the exploration floor.
 31. There are no star ratings and no public reviews. The only review is one line written by oneself, visible to oneself, to the recipient if the writer says so, and to the merchant if the writer says so. A line is shown to no one else, and it never becomes a number.
 32. There are no discount codes. A price that differs by who holds a code is not the same to everyone (clause 10), and a code's deadline is urgency (clause 34).
 33. Analytics are aggregate only, in a form from which no person can be recovered. Beyond the transaction record a person can export, nothing per person is stored: no event, no pixel, no socket for a third party, which is what makes retargeting impossible.
