@@ -50,11 +50,20 @@ can repeat any row.
 | `per_person_events` | A per-person event store on `/analytics` and a pixel socket on `/px` | 1 |
 | `reminder_rate_limit` | The reminder refusal turned into a five-second backoff | 1 |
 | `silence_consent_non_exploration` | Ordinary candidates kept at expiry, exploration candidates returned | 3 |
-| `no_reserve_ceiling` | The ledger accepts a commit above the reserved amount | 1, in the engine's own tests |
-| `settle_at_current_price` | Settlement reads the live catalogue instead of the frozen version | **0. See below.** |
+| `no_reserve_ceiling` | The in-memory ledger accepts a commit above the reserved amount | 1, in the engine's own tests |
+| `adapter_trusts_the_ledger` | The Meter adapter delegates the reserve ceiling to Meter | 1, in the engine's own tests |
+| `sent_list_on_giver_surface` | The giver's own gifts added to the acts stream | 1 |
+| `period_on_acts` | A `from` and `to` window framing the acts response | 1 |
+| `nudge_route` | `POST /lineage/nudge` registered | 1 |
+| `receipt_ref_resolves` | The edge id put back on the receipt, and a route that resolves it | 1 |
+| `date_on_own_edges` | The date and product kept on the viewer's own lineage edges | 1 |
+| `second_degree_circle` | The circle walked one hop further out | 1 |
+| `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 2 |
+| `consumed_at_price` | A consumed candidate settled at price rather than cost | 1 |
+| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 4 |
 
 Every probe in the four suites appears in the "probes that failed" column of at
-least one row, except the one named under `settle_at_current_price`.
+least one row.
 
 ## What this exercise found
 
@@ -75,13 +84,21 @@ deployment's floor was one. An implementation demanding twice the declared rate
 would have passed. The deployment now declares its rate to the suite so the
 formula in §5 can be checked from both sides.
 
-**One mutation is recorded as caught by nothing.** `settle_at_current_price`
-makes the settlement read the presenter's live catalogue instead of the version
-frozen on the offer, which is a direct breach of §6.3. Against a single
-catalogue version the two agree, so no probe sees it. Catching it needs a
-second catalogue version at a changed price, which is a fixture the suite does
-not yet ask for. The row stays in this table because a mutation that survives
-is the most useful thing in it.
+**A mutation that survives is not always a hole in the probes.** For four
+versions of this ledger, `settle_at_current_price` was recorded as a breach of
+§6.3 that no probe caught, and it was treated as the suite's most useful row.
+Reading it again showed why nothing caught it: the code it substituted resolved
+the *frozen* config by another route and computed the same amount. It was not a
+breach at all, and no probe could have failed on it.
+
+The real breach is `settle_at_latest_config`, which resolves the presenter's
+newest catalogue instead. Catching that needs a second catalogue version at a
+changed price, which the suite now asks for as `VALENCE_CONFIG_VERSION_LATER`.
+Four probes fail under it.
+
+The lesson is not about §6.3. **A surviving mutation says either that the
+probes are weak or that the mutation is inert, and telling those apart means
+reading the substituted code rather than trusting the label on it.**
 
 **Five mutations passed the suite before it was finished, and each named a
 different way to obey the letter.** They came from an adversarial pass on
@@ -114,6 +131,20 @@ The first three were defects in the probes and are fixed. The last two are
 limits of black-box conformance testing, and they are stated here rather than
 left for someone to discover by exploiting them.
 
+**A harness that runs one suite measures one suite.** For most of this ledger
+`mutate.sh` ran only the conformance probes, which talk HTTP and never reach a
+ledger adapter. It reported "0 fail" for a mutation that removed the reserve
+ceiling from the Meter adapter, which is the single requirement that adapter
+exists to satisfy. It runs both suites now and says so explicitly when nothing
+failed.
+
+**A restore only restores what git tracks.** `mutate.sh` reverts with
+`git checkout -- src`, and a mutation applied to an untracked new file survives
+it. That happened to `meter-ledger.ts` before it was committed, and every run
+afterwards was measuring a mutated engine while reporting on a clean one. The
+harness now refuses to start when `src` holds an untracked file, for the same
+reason it refuses when `src` is dirty.
+
 **Two probes that look redundant are not.** The forbidden-field walk runs
 separately over an offer and over a settlement because they are built in
 different layers: `leak_field_settlement` shows in one and
@@ -129,24 +160,28 @@ describe.
 ## What §13 actually gates
 
 §13 lists eight conditions and says passing the tests is what entitles an
-implementation to the mark. Three are covered, three partially, two not at all.
+implementation to the mark. Six are covered and two partially. None is unchecked.
 Counted against the probes, not asserted.
 
 | §13 condition | Gated? | By what, or why not |
 |---|---|---|
-| 1 state machine and expiry defaults | partial | The digital and ceremonial rows of §2.2 are probed. The physical row, `withdraw`, partial decide, and "settled is terminal" are not |
+| 1 state machine and expiry defaults | partial | The digital, ceremonial and physical rows of §2.2 are probed. `withdraw`, partial decide, and "settled is terminal" are not |
 | 2 exploration floor, no bypass | yes | Eleven probes, both sides of the formula, six bypass shapes, and padding |
 | 3 no §9.1 route, no §3.3 field | yes | Ten route probes, three refusal probes, and a key walk over four documents. The walk does not cover every response shape |
-| 4 no recipient inaction disclosed | **no** | Needs a giver's response surface and inference probes. This is `opacity/`, unwritten |
+| 4 no recipient inaction disclosed | yes | Ten probes in `opacity/`: giving changes nothing on the giver's surface, no period frames an empty response, no route prompts reciprocation, a receipt resolves to nothing, and the viewer's own lineage edges carry no date |
 | 5 no household balance | partial | Two route shapes and six field names in any spelling. The positive half of §6.1, that a trial is deducted rather than credited, is not exercised |
-| 6 terms frozen at `config_version` | partial | A settlement is checked against the offer's own prices. Varying the catalogue between offer and settlement is not, and `settle_at_current_price` survives because of it |
+| 6 terms frozen at `config_version` | yes | The deployment declares a second, later catalogue with one product repriced, and a settlement against the earlier one is checked to charge the earlier price |
 | 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
-| 8 no household billed for `lost` | **no** | `lost` exists only in the physical binding and every probe runs the digital one |
+| 8 no household billed for `lost` | yes | `binding/` runs the physical binding where the deployment declares it, and checks that what is charged equals the breakdown |
 
-An implementation that reprices a settlement against a newer catalogue, leaks
-recipient inaction, and bills households for lost goods passes all 48 probes.
-That is the honest state of the gate, and the two unwritten suites are where
-two of the three gaps close.
+What remains partial is narrow and named: four transitions of the state machine
+(`withdraw`, `settle_default`, a partial decide, and "settled is terminal"), and
+the positive half of §6.1, that a trial is deducted from a later charge rather
+than credited to a balance. Neither gap lets an implementation do something the
+constitution forbids; both let one omit something the specification requires.
+
+`exit/` is still unwritten, and clauses 47, 61 and 62 are unchecked because of
+it. They are not part of §13.
 
 ## Where the engine is
 

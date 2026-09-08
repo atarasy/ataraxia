@@ -116,6 +116,63 @@ export const PRICES: Record<string, number> = (() => {
   return prices as Record<string, number>;
 })();
 
+/**
+ * A catalogue version registered after `VALENCE_CONFIG_VERSION`, in which at
+ * least one product has a different price, and the prices it carries.
+ *
+ * §6.3 says a settlement uses the version stamped on the offer at creation.
+ * That is only checkable against a catalogue that has since moved: with a
+ * single version, an implementation that reads the live catalogue and one that
+ * reads the frozen one return the same amount, and the probe passes either
+ * way. The first version of this suite had exactly that blind spot, and the
+ * mutation written for it survived.
+ */
+export const CONFIG_VERSION_LATER = required("VALENCE_CONFIG_VERSION_LATER");
+
+export const PRICES_LATER: Record<string, number> = (() => {
+  const raw = required("VALENCE_PRICES_LATER");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_PRICES_LATER is not valid JSON");
+  }
+  const prices = parsed as Record<string, number>;
+  const moved = Object.keys(prices).filter((k) => prices[k] !== PRICES[k]);
+  if (moved.length === 0) {
+    throw new Error(
+      "VALENCE_PRICES_LATER must differ from VALENCE_PRICES for at least one " +
+        "product, or the freeze cannot be observed"
+    );
+  }
+  return prices;
+})();
+
+/** A product whose price differs between the two catalogue versions. */
+export const REPRICED = Object.keys(PRICES_LATER).find(
+  (k) => PRICES_LATER[k] !== PRICES[k]
+)!;
+
+/**
+ * The bindings this deployment implements, comma separated.
+ *
+ * §3.2 puts `consumed` and `lost` in the physical binding only, so an
+ * implementation that offers the digital binding alone cannot bill a household
+ * for goods it lost: it has no such goods. Declaring the bindings lets the
+ * probes for §13 condition 8 run where they mean something and say so where
+ * they do not, rather than skipping quietly.
+ */
+export const BINDINGS = required("VALENCE_BINDINGS")
+  .split(",")
+  .map((b) => b.trim())
+  .filter(Boolean);
+
+if (!BINDINGS.includes("digital")) {
+  throw new Error("VALENCE_BINDINGS must include digital");
+}
+
+export const HAS_PHYSICAL = BINDINGS.includes("physical");
+
 export type Probe = {
   status: number;
   body: unknown;

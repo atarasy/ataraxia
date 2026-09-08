@@ -4,6 +4,10 @@ import {
   conformingOffer,
   createConformingOffer,
   createMixedOffer,
+  CONFIG_VERSION_LATER,
+  PRICES,
+  PRICES_LATER,
+  REPRICED,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -229,5 +233,65 @@ describe("settlement: the offer's own prices (§6.3, §3.1)", () => {
     expect((settled.body as { kept_amount: number }).kept_amount).toBe(
       candidates[0]!.unit_price * candidates[0]!.quantity
     );
+  });
+});
+
+describe("settlement: terms are frozen at config_version (§6.3)", () => {
+  /**
+   * The probe this suite was missing. A settlement that reads the presenter's
+   * live catalogue instead of the version stamped on the offer agrees with a
+   * conforming one whenever there is only one catalogue, which is why the
+   * mutation written for §6.3 survived the first four versions of these
+   * suites.
+   *
+   * So the deployment declares a second, later catalogue in which one product
+   * has moved, and the probe settles an offer made against the first.
+   */
+  test("a settlement uses the price stamped on the offer, not the current one", async () => {
+    // NOTE (mutation check, 2026-09-08): settle_at_latest_config made the
+    // settlement resolve the presenter's newest catalogue rather than the
+    // offer's own. This assertion failed, charging the later price. Its
+    // predecessor, settle_at_current_price, read the frozen config by another
+    // route and was caught by nothing; MUTATIONS.md records both.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as {
+      candidates: { id: string; product: string; unit_price: number; quantity: number }[];
+    }).candidates;
+
+    const repriced = candidates.find((c) => c.product === REPRICED);
+    expect(repriced).toBeDefined();
+    // The offer was stamped with the earlier catalogue.
+    expect(repriced!.unit_price).toBe(PRICES[REPRICED]);
+    expect(PRICES_LATER[REPRICED]).not.toBe(PRICES[REPRICED]);
+
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: candidates.map((c) => ({
+        candidate: c.id,
+        valence: c.id === repriced!.id ? "kept" : "returned",
+        ...(c.id === repriced!.id ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect((settled.body as { kept_amount: number }).kept_amount).toBe(
+      PRICES[REPRICED] * repriced!.quantity
+    );
+  });
+
+  test("an offer made against the later catalogue carries the later price", async () => {
+    // Guards the probe above from passing because the second catalogue is
+    // inert. If this offer also came out at the earlier price, the deployment
+    // is not honouring config_version at creation either and the freeze probe
+    // would be vacuous.
+    const body = conformingOffer({ config_version: CONFIG_VERSION_LATER });
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const candidates = (created.body as {
+      candidates: { product: string; unit_price: number }[];
+    }).candidates;
+    const repriced = candidates.find((c) => c.product === REPRICED);
+    expect(repriced!.unit_price).toBe(PRICES_LATER[REPRICED]);
   });
 });

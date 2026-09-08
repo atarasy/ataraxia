@@ -14,16 +14,18 @@ So these tests are not a certificate of good conduct. They check the parts of th
 
 ## Suites
 
-Four suites are written and two are not, for the reason given under Status.
-`lineage/` was not in the original scoping; it was added when reading from the
-clause list inward found clause 25 covered by nothing.
+Six suites are written and one is not. `lineage/`, `opacity/` and `binding/`
+were not all in the original scoping: `lineage/` was added when reading from
+the clause list inward found clause 25 covered by nothing, and `binding/` when
+`lost` turned out to be reachable only through the physical binding.
 
 | Suite | Clauses | What it checks | Written |
 |---|---|---|---|
 | [`absence/`](absence/) | 31, 32, 33, 34, and §9.1 of the spec | Capabilities that must not exist: discount objects, ratings, urgency fields, per-person event stores, tracking sockets, broadcast and segment routes | yes |
 | [`floor/`](floor/) | 30 | An offer below the exploration floor is refused with `422`, no configuration bypasses the check, and the rate cannot reach zero | yes |
 | [`silence/`](silence/) | 36, 37, and spec §2.2 | An undecided digital offer creates no order at expiry; no configuration makes silence into consent; at most one reminder is sent | yes |
-| [`opacity/`](opacity/) | 19, 21, 22 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | no |
+| [`opacity/`](opacity/) | 19, 21, 22, 24 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | yes |
+| [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, and consumed settles at cost | yes |
 | [`lineage/`](lineage/) | 22, 25, and spec §7.1, §7.4 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
 | [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | no |
 
@@ -41,7 +43,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as eight environment variables:
+as eleven environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -53,10 +55,13 @@ as eight environment variables:
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
+| `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
+| `VALENCE_PRICES_LATER` | the prices in that later catalogue, as JSON |
+| `VALENCE_BINDINGS` | which bindings this deployment implements, comma separated |
 
 Seeding a catalogue and attesting a key are deployment plumbing the
 specification does not describe, so the suite refuses to guess at routes for
-them and asks for the results instead. None of the eight is optional: a probe
+them and asks for the results instead. None of the eleven is optional: a probe
 that skips when its fixture is missing is a probe an implementation passes by
 omission.
 
@@ -79,20 +84,23 @@ suites, and `MUTATIONS.md` records how it was found.
 
 Read [`MUTATIONS.md`](MUTATIONS.md) before quoting a pass. It counts the eight
 conformance conditions in the specification's §13 against the probes that exist:
-three are gated, three partially, two not at all. An implementation that
-reprices a settlement against a newer catalogue, discloses that a recipient did
-not respond, and bills households for goods it lost passes all forty-eight
-probes.
+six are gated and two partially, and none is unchecked. What remains partial is
+four transitions of the state machine and the positive half of §6.1, and the
+ledger names both.
 
 That is stated here rather than left to be discovered, because §13 sends the
-reader to these tests as the thing that entitles an implementation to the mark,
-and half of §13 is not yet in the gate.
+reader to these tests as the thing that entitles an implementation to the
+mark.
 
 ## Status
 
-September 2026. `absence/`, `floor/`, `silence/` and `lineage/` are written and
-pass against the reference engine; each probe has been shown to fail under a
-deliberate break of that engine, with one exception named in the ledger.
+September 2026. `absence/`, `floor/`, `silence/`, `lineage/`, `opacity/` and
+`binding/` are written and pass against the reference engine. Every probe has
+been shown to fail under a deliberate break of that engine, and the forty-two
+breaks are listed in the ledger.
+
+`exit/` is not written. It needs two hosts and a node moved between them, which
+is a hub rather than an offer engine.
 
 `opacity/` and `exit/` are still scoped rather than written, and the reason is
 not schedule. Both test a hub rather than an offer engine: `exit/` needs a node
