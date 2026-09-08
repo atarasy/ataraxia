@@ -14,7 +14,7 @@ So these tests are not a certificate of good conduct. They check the parts of th
 
 ## Suites
 
-All nine are written. Three were not in the original scoping and came from
+All ten are written. Three were not in the original scoping and came from
 reading the clause list inward rather than outward from the probes, which is
 the direction that finds what nothing checks: `lineage/` for clause 25,
 `binding/` because `lost` is reachable only through the physical binding, and
@@ -31,6 +31,7 @@ the direction that finds what nothing checks: `lineage/` for clause 25,
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
 | [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
+| [`registry/`](registry/) | 1, 64, and spec §15 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -77,7 +78,7 @@ VALENCE_CONFIG_VERSION=... VALENCE_PRODUCTS=... VALENCE_HOUSEHOLD=... \
 VALENCE_MANDATE=... VALENCE_EXPLORATION_RATE=0.2 \
 VALENCE_LINEAGE_EDGE='{"from":"...","to":"...","product":"...","merchant":"...","kind":"gift","occasion":"...","receipt":"...","signature":"..."}' \
 VALENCE_PRICES='{"tea-a":1200,"tea-b":900}' \
-  bun test absence floor silence lineage approval permissions
+  bun test absence floor silence lineage approval permissions registry
 ```
 
 `VALENCE_EXPLORATION_RATE` is there because §5 publishes no recommended rate. Without it

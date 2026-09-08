@@ -94,6 +94,16 @@ can repeat any row.
 | `collect_twice` | A second collection accepted for one offer | 1 |
 | `returned_and_consumed_ok` | A candidate accepted as both returned and consumed | 1 |
 | `search_route` | `GET /search` registered, returning a ranked list | 1 |
+| `registry_by_registration` | The registry listed in registration order rather than key order | 1 |
+| `registry_featured` | A `featured` flag added to marked entries | 1 |
+| `registry_search` | `?q=` accepted and matched against endpoint URLs | 1 |
+| `registry_personalised` | The entry matching the caller's key put first | 1 |
+| `registry_requires_mark` | Unmarked entries dropped from every list | 2 |
+| `registry_resolve_404` | Every resolution by key returns 404 | 1 |
+| `registry_accepts_sort` | `?sort=`, `?order=` and `?orderBy=` let through the parameter check | 1 |
+| `registry_products_on_entry` | Two product references put on each entry | 1 |
+| `registry_echoes_caller` | The caller's household echoed in the response | 2 |
+| `registry_ignores_mark_filter` | `?mark=true` ignored | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -117,8 +127,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 112 probes, 109 have been
-shown to fail under at least one of the 95 mutations. The three that have not
+written from its output rather than from intent. Of 121 probes, 118 have been
+shown to fail under at least one of the 105 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
@@ -193,6 +203,16 @@ one of them worked on the first attempt.
 The first three were defects in the probes and are fixed. The last two are
 limits of black-box conformance testing, and they are stated here rather than
 left for someone to discover by exploiting them.
+
+**The one clause whose review changed the constitution twice.** Clause 1 was
+first narrowed, when "and no structure that could acquire them" turned out to
+name nothing a probe could reach. Reviewing it then produced a proposal that
+went past its wording: a registry of commerce information queried by agents,
+so that conformance to the protocols becomes what optimising for search once
+was. That is the intent layer, and it is the seat the preamble predicts the
+founder will be asked to sell. The line that let it close is between resolving
+and ranking, and `registry/` is that line as five probes. The clause now names
+it: the infrastructure resolves and does not rank.
 
 **A harness that runs one suite measures one suite.** For most of this ledger
 `mutate.sh` ran only the conformance probes, which talk HTTP and never reach a

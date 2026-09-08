@@ -314,6 +314,10 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
   });
 
   test("a candidate cannot be both returned and consumed", async () => {
+    // NOTE (mutation check, 2026-09-09): returned_and_consumed_ok accepted
+    // a candidate in both lists. This assertion failed with 200. One item
+    // cannot have come back unopened and also been used, and a collection
+    // that says so is reporting two worlds.
     const offer = await placed();
     const both = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: [offer.candidates[0]!.id],
@@ -323,6 +327,10 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
   });
 
   test("collecting twice is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): collect_twice accepted a second
+    // collection for one offer. This assertion failed with 200. A second
+    // report could overwrite the first with a friendlier one, and the
+    // settlement would follow the friendlier.
     const offer = await placed();
     const body = { returned: offer.candidates.map((c) => c.id), consumed: [] };
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(200);

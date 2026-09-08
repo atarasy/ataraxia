@@ -1,0 +1,147 @@
+import { describe, expect, test } from "bun:test";
+import { call, findKey, meansAnyOf } from "../lib/probe.js";
+
+/**
+ * Clause 1, and specification §15.
+ *
+ * The endpoint registry resolves and does not rank. It is the one piece of
+ * shared infrastructure that could become the place where things are found,
+ * and these probes are the line that keeps it from becoming that.
+ *
+ * The test for every probe here is the same: does the answer depend on
+ * anything but the question? An order that means something, a field that
+ * scores, a query by what a person wants, or an answer that differs by who
+ * asks, and the registry has become the intent layer under the name of a
+ * directory.
+ */
+
+const RANKING_KEYS = [
+  "rank",
+  "score",
+  "relevance",
+  "popularity",
+  "featured",
+  "recommended",
+  "sponsored",
+  "priority",
+  "weight",
+  "position",
+  "boost",
+];
+
+describe("registry: an entry resolves (§15.1)", () => {
+  test("a merchant resolves to its endpoints by key", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_resolve_404 made every
+    // resolution a 404. This assertion failed. A registry that cannot
+    // resolve is a list, and the list is the half that must not become
+    // discovery.
+    const list = await call("GET", "/registry?protocol=valence");
+    expect(list.status).toBe(200);
+    const entries = (list.body as { entries: { merchant: string }[] }).entries;
+    expect(entries.length).toBeGreaterThan(0);
+
+    const one = await call("GET", `/registry/${encodeURIComponent(entries[0]!.merchant)}`);
+    expect(one.status).toBe(200);
+    const entry = one.body as { endpoints: Record<string, string> };
+    expect(typeof entry.endpoints.valence).toBe("string");
+  });
+});
+
+describe("registry: no order that means anything (§15.2)", () => {
+  test("the list is in key order", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_by_registration returned
+    // entries in the order they registered, which the seed arranges to differ
+    // from key order. This assertion failed. Registration order rewards being
+    // early, which is a ranking with a polite name.
+    const list = await call("GET", "/registry?protocol=valence");
+    const keys = (list.body as { entries: { merchant: string }[] }).entries.map((e) => e.merchant);
+    expect(keys.length).toBeGreaterThan(1);
+    expect([...keys].sort()).toEqual(keys);
+  });
+
+  test("no entry carries a rank, a score, or a flag that promotes it", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_featured added a `featured`
+    // flag to marked entries. This assertion failed, naming it. A flag that
+    // promotes is a rank with one level.
+    const list = await call("GET", "/registry");
+    expect(findKey(list.body, meansAnyOf(RANKING_KEYS))).toEqual([]);
+  });
+
+  test("there is no parameter that sorts", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_accepts_sort let ?sort=
+    // through the parameter check. This assertion failed with 200. A sort
+    // parameter the caller supplies is a ranking the caller chose, and the
+    // registry has still served it.
+    for (const param of ["sort=popularity", "order=rank", "sort=mark", "orderBy=registered_at"]) {
+      const sorted = await call("GET", `/registry?${param}`);
+      expect(sorted.status).toBe(404);
+    }
+  });
+});
+
+describe("registry: no query by intent (§15.2)", () => {
+  test("a query by what a person wants is not a parameter", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_search accepted ?q= and
+    // matched it against endpoint URLs. This assertion failed with 200. The
+    // moment a registry answers a want, it has decided what a person sees.
+    for (const param of ["q=tea", "product=tea-a", "category=tea", "occasion=birth", "price=1200", "search=gift"]) {
+      const asked = await call("GET", `/registry?${param}`);
+      expect(asked.status).toBe(404);
+    }
+  });
+
+  test("an entry carries no product data", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_products_on_entry put
+    // two product references on each entry. This assertion failed, naming
+    // products. A registry that copies what merchants sell has an index,
+    // and whoever holds the index takes the rent.
+    const list = await call("GET", "/registry");
+    expect(
+      findKey(list.body, meansAnyOf(["product", "products", "catalogue", "catalog", "items", "sku", "price", "category"]))
+    ).toEqual([]);
+  });
+});
+
+describe("registry: the same answer to every caller (§15.2)", () => {
+  test("two callers get the same list", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_personalised put the entry
+    // matching the caller's `x-household` first. This assertion failed. An
+    // answer that depends on who asked is a recommendation.
+    const a = await call("GET", "/registry?protocol=valence", undefined, { "x-household": "household-a" });
+    const b = await call("GET", "/registry?protocol=valence", undefined, { "x-household": "household-b" });
+    expect(a.body).toEqual(b.body);
+  });
+
+  test("no field names who asked", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_echoes_caller echoed the
+    // x-household header in the response. This assertion failed. A field
+    // that names the asker is the first half of an answer that depends on
+    // them.
+    const list = await call("GET", "/registry", undefined, { "x-household": "household-a" });
+    expect(findKey(list.body, meansAnyOf(["household", "caller", "asked_by", "viewer", "for"]))).toEqual([]);
+  });
+});
+
+describe("registry: the mark is not a gate (clause 64, §15.2)", () => {
+  test("an entry without the mark is listed", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_requires_mark dropped
+    // unmarked entries from every list. This assertion failed. Clause 64 says
+    // the mark attaches to software and hosts and never gates a merchant, and
+    // a registry that lists only the marked has made the mark a gate.
+    const list = await call("GET", "/registry?protocol=valence");
+    const entries = (list.body as { entries: { mark: boolean }[] }).entries;
+    expect(entries.some((e) => e.mark === false)).toBe(true);
+    expect(entries.some((e) => e.mark === true)).toBe(true);
+  });
+
+  test("filtering on the mark happens only when the caller asks by name", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_ignores_mark_filter
+    // ignored ?mark=true and returned every entry. This assertion failed.
+    // The mark may be preferred by a caller who asks; a registry that
+    // cannot honour the ask has made the mark meaningless from the other
+    // side.
+    const only = await call("GET", "/registry?mark=true");
+    const entries = (only.body as { entries: { mark: boolean }[] }).entries;
+    expect(entries.every((e) => e.mark === true)).toBe(true);
+  });
+});
