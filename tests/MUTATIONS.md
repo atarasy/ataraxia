@@ -227,7 +227,7 @@ only the measurement says whether it is still true.
 threshold or unknown to the household. That is a permission on the presenter
 and it forbade nothing: an implementation could accept a candidate the model
 fully expects to be kept, count it toward the floor, and pass every reading of
-§5. Clause 30 would then cost nothing to obey. The specification was corrected
+§5. Clause 26 would then cost nothing to obey. The specification was corrected
 to forbid counting such a candidate, and `pad_the_floor` is the mutation that
 now catches it.
 
@@ -279,7 +279,7 @@ one of them worked on the first attempt.
 - **A capability on a route nobody listed.** §9.1 names five routes and
   `/analytics` was not one of them. The probe now tries ten plausible names.
   This one cannot be closed either. Enumerating the routes an implementation
-  does not have is not possible from outside, and clause 33 forbids the
+  does not have is not possible from outside, and clause 29 forbids the
   capability rather than the path.
 
 The first three were defects in the probes and are fixed. The last two are
@@ -339,7 +339,7 @@ Counted against the probes, not asserted.
 | 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
 | 8 no household billed for `lost` | yes | `binding/` runs the physical binding where the deployment declares it, and checks that what is charged equals the breakdown |
 
-Clauses 47, 61 and 62 are outside §13 and are covered by `exit/`, which runs
+Clauses 43, 52 and 53 are outside §13 and are covered by `exit/`, which runs
 against two hosts and asks each surface whether the second answers as the first
 did.
 

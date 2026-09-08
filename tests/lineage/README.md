@@ -1,6 +1,6 @@
 # lineage
 
-**Clauses 22 and 25, and specification §7.1 and §7.4.**
+**Clauses 19 and 22, and specification §7.1 and §7.4.**
 
 A lineage edge is recognised on its signature and never on the software that
 produced it. A recipient's record holds the fact of receipt and nothing else.
@@ -9,10 +9,10 @@ produced it. A recipient's record holds the fact of receipt and nothing else.
 
 It was not in the original list. The five suites were scoped before there was
 an implementation, and the reverse reading, from the clause list inward rather
-than from the probes outward, found clause 25 uncovered by any of them.
+than from the probes outward, found clause 22 uncovered by any of them.
 
 That clause is the one the mark rests on. The constitution says the mark
-attaches to software and hosts and never to people, and clause 25 is where that
+attaches to software and hosts and never to people, and clause 22 is where that
 promise becomes a mechanism: a gift from a fork's hub must land exactly as one
 from the reference hub. Without a probe, the strongest claim in the repository
 was the least tested.
@@ -23,7 +23,7 @@ was the least tested.
 before accepting an edge can exclude a fork, and everything the README says
 about certification being open stops being true.
 
-**§7.4**: a person acquired a profile by being given something. Clause 22 says a
+**§7.4**: a person acquired a profile by being given something. Clause 19 says a
 recipient's record holds nothing until that household becomes a giver, and the
 probes check for both shapes a record takes: a field that looks like a
 preference or a score, and a list of what was received.

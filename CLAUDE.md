@@ -20,7 +20,7 @@ A merchant exposes Valence-conformant endpoints and carries the Ataraxia mark. A
 
 ## Rules the text depends on
 
-**"Cannot" is not "will not".** Clause 33 says no capability exists to store per-person events. Clause 34 says no API exists for countdown timers. These are claims about structure, not promises about conduct. If an edit softens one into a policy statement, the clause has been destroyed even though it still reads well. The method is borrowed from Omarchy: removing a setting removes the temptation with it.
+**"Cannot" is not "will not".** Clause 29 says no capability exists to store per-person events. Clause 30 says no API exists for countdown timers. These are claims about structure, not promises about conduct. If an edit softens one into a policy statement, the clause has been destroyed even though it still reads well. The method is borrowed from Omarchy: removing a setting removes the temptation with it.
 
 **Three admissions are deliberate. Do not tidy them away.**
 
@@ -32,9 +32,9 @@ Each was written after considering whether to omit it. An editor who removes the
 
 **The trademarks are unregistered and no application has been filed.** An earlier draft said "registration is in progress" — that was false and was corrected in `f2665d9`. Never restate it. Filing is deliberately deferred until the指定 goods and services can be written properly, which needs decisions that have not been made.
 
-**The mark never attaches to people** (clause 64). It attaches to software and hosts. Merchant endpoints and gift lineage do not discriminate on it. Excluding a fork happens only inside one person's own mandate, decided by whoever is protecting them. Any proposal that turns the mark into a gate contradicts both clause 64 and the section on what the constitution does not protect.
+**The mark never attaches to people** (clause 55). It attaches to software and hosts. Merchant endpoints and gift lineage do not discriminate on it. Excluding a fork happens only inside one person's own mandate, decided by whoever is protecting them. Any proposal that turns the mark into a gate contradicts both clause 55 and the section on what the constitution does not protect.
 
-**Amendment is by sortition jury plus the foundation's consent** (clause 66), not by any flow that can be mobilised. Neither the founder nor a pull request amends it. Corrections of fact, ambiguity and untestable wording are welcome; the prohibitions are not open for negotiation, and `README.md#contributing` says so.
+**Amendment is by sortition jury plus the foundation's consent** (clause 57), not by any flow that can be mobilised. Neither the founder nor a pull request amends it. Corrections of fact, ambiguity and untestable wording are welcome; the prohibitions are not open for negotiation, and `README.md#contributing` says so.
 
 ## `tests/`
 

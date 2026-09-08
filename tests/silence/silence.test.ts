@@ -15,7 +15,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 36, 37 and specification §2.2.
+ * Clauses 32, 33 and specification §2.2.
  *
  * An undecided digital offer creates no order at expiry, no configuration
  * makes silence into consent, and at most one reminder is sent.
@@ -23,7 +23,7 @@ import {
  * The probes wait out a real expiry rather than asking the implementation to
  * pretend one happened. An implementation that only expires on a nudge from
  * the presenter has left the default in the presenter's hands, which is the
- * arrangement clause 36 exists to forbid.
+ * arrangement clause 32 exists to forbid.
  */
 
 const EXPIRY_MS = 2_000;
@@ -125,7 +125,7 @@ describe("silence: no configuration makes it consent", () => {
   });
 });
 
-describe("silence: reminders (clause 37)", () => {
+describe("silence: reminders (clause 33)", () => {
   test("the second reminder is refused", async () => {
     // NOTE (mutation check, 2026-09-08): many_reminders raised the
     // limit to five. This assertion failed with 200 on the second call.
@@ -163,17 +163,17 @@ describe("silence: reminders (clause 37)", () => {
   }, 30_000);
 });
 
-describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
+describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
   /**
    * The third row of the §2.2 table, and the only one where expiry ships
    * something. A recipient who chooses nothing still receives, because the
-   * giver has already paid a price band and clause 28 forbids earning
+   * giver has already paid a price band and clause 25 forbids earning
    * anything from an offer nobody redeemed.
    *
    * This is also the row where an implementation can be quietly profitable by
    * doing nothing, which is why it is worth a probe of its own.
    */
-  test("the offer carries the band the giver chose, and a candidate outside it is refused (clause 26)", async () => {
+  test("the offer carries the band the giver chose, and a candidate outside it is refused (clause 23)", async () => {
     // NOTE (mutation check, 2026-09-09): ignore_band kept the band on the
     // offer and stopped checking candidates against it. The second
     // assertion failed with 201: a candidate priced above the band was
@@ -189,7 +189,7 @@ describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
     expect(created.status).toBe(422);
   });
 
-  test("the giver pays a ceremonial offer, never the recipient (clause 28)", async () => {
+  test("the giver pays a ceremonial offer, never the recipient (clause 25)", async () => {
     // NOTE (mutation check, 2026-09-09): charge_the_recipient reserved and
     // committed against the household on the offer, which on a ceremonial
     // offer is the recipient. This assertion failed: the settlement named
@@ -213,7 +213,7 @@ describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
     expect(payer).not.toBe(view.household);
   });
 
-  test("a recipient who chose one item is sent no default (clause 28)", async () => {
+  test("a recipient who chose one item is sent no default (clause 25)", async () => {
     // NOTE (mutation check, 2026-09-09): default_beside_kept shipped a
     // default at expiry whenever a candidate was undecided, even beside a
     // kept one. This assertion failed: two items shipped and the giver paid
@@ -229,7 +229,7 @@ describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
     expect(candidates.filter((c) => c.valence === "kept").length).toBe(1);
   });
 
-  test("the band bounds the line, not the unit (clause 26)", async () => {
+  test("the band bounds the line, not the unit (clause 23)", async () => {
     // NOTE (mutation check, 2026-09-09): band_on_unit checked the unit price
     // against the band and let five units of the cheapest product through
     // inside a band that one unit fits. This assertion failed with 201.

@@ -1,6 +1,6 @@
 # floor
 
-**Clause 30, and specification §5.**
+**Clause 26, and specification §5.**
 
 An offer below the exploration floor is refused with `422`, no configuration
 bypasses the check, and the rate cannot reach zero. Since 2026-09-09 an
@@ -13,7 +13,7 @@ catalogue.
 
 ## What a failure means
 
-The implementation can be made to sell out. Clause 30 exists because an engine
+The implementation can be made to sell out. Clause 26 exists because an engine
 that maximises the kept ratio stops exploring, removes the household's freedom
 to decline, and destroys the only output that cannot be obtained elsewhere.
 Selling out is meant not to be an achievable state, and a failure here means it

@@ -1,6 +1,6 @@
 # opacity
 
-**Clauses 19, 21, 22, 23 and 24, and specification §7.2, §7.4 and §7.5.**
+**Clauses 16, 18, 19, 20 and 21, and specification §7.2, §7.4 and §7.5.**
 
 No surface discloses that a recipient did not act, reciprocation is never
 prompted, and a recipient's record holds the fact of receipt and nothing else.
@@ -21,7 +21,7 @@ tables rather than its field lists.
 
 A person acquired something by being given something: a profile, a record of
 what they were given, or a place in someone else's list of people who have not
-yet answered. Clause 19 is not about tact. A layer that reports silence back to
+yet answered. Clause 16 is not about tact. A layer that reports silence back to
 the giver has made not answering expensive, and the gift stops being a gift.
 
 ## The channels, and which ones close
@@ -38,8 +38,8 @@ the giver has made not answering expensive, and the gift stops being a gift.
 
 ## What this suite does not reach
 
-**The circle and the acts stream can be differenced.** Clause 24 requires the
-viewer's own circle to be shown, and clause 20 permits acts to be shown, so
+**The circle and the acts stream can be differenced.** Clause 21 requires the
+viewer's own circle to be shown, and clause 17 permits acts to be shown, so
 both exist and a reader who holds both can subtract. Dropping the date and the
 product from the viewer's own edges reduces what that yields to "A is in my
 circle and has never acted", and nothing removes it.

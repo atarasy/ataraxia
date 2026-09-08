@@ -7,16 +7,16 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 22 and 25, and specification §7.1 and §7.4.
+ * Clauses 19 and 22, and specification §7.1 and §7.4.
  *
  * A lineage edge is recognised on its signature and never on the software
  * that produced it, and a recipient's record holds the fact of receipt and
  * nothing else.
  *
  * These are the two clauses the mark rests on that nothing else here reaches.
- * Clause 25 is what stops the conformance mark from becoming a gate: a fork's
+ * Clause 22 is what stops the conformance mark from becoming a gate: a fork's
  * gift must land exactly as the reference hub's does, or the mark has attached
- * itself to people after all. Clause 22 is what stops a recipient from
+ * itself to people after all. Clause 19 is what stops a recipient from
  * acquiring a profile by having been given something.
  */
 
@@ -65,7 +65,7 @@ describe("lineage: an edge is not discriminated by its client (§7.1)", () => {
   test("an edge with a broken signature is refused", async () => {
     // NOTE (mutation check, 2026-09-08): accept_any_signature removed
     // the verification. The tampered edge was stored with 201 and this
-    // assertion failed. Clause 25 says an edge is recognised on its
+    // assertion failed. Clause 22 says an edge is recognised on its
     // signature, which is only a guarantee if the signature is checked.
     const tampered = { ...LINEAGE_EDGE, signature: "not-a-signature" };
     const posted = await call("POST", "/lineage", tampered);
@@ -73,7 +73,7 @@ describe("lineage: an edge is not discriminated by its client (§7.1)", () => {
   });
 });
 
-describe("lineage: the recipient's record (§7.4, clause 22)", () => {
+describe("lineage: the recipient's record (§7.4, clause 19)", () => {
   test("holds the fact of receipt and nothing that resembles a profile", async () => {
     // NOTE (mutation check, 2026-09-08): profile_from_receipt added a
     // `preference` field to each receipt row, derived from the product
@@ -102,7 +102,7 @@ describe("lineage: the recipient's record (§7.4, clause 22)", () => {
     );
     expect(read.status).toBe(200);
     // §7.4 permits the fact and the time. A product reference here would make
-    // the record a history, which is what clause 22 says a recipient does not
+    // the record a history, which is what clause 19 says a recipient does not
     // acquire by receiving.
     expect(findKey(read.body, (k) => k.toLowerCase() === "product")).toEqual([]);
   });

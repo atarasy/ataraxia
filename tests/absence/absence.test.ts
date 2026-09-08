@@ -15,7 +15,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 31, 32, 33, 34 and specification §3.3, §7.5, §9.1.
+ * Clauses 27, 28, 29, 30 and specification §3.3, §7.5, §9.1.
  *
  * Capabilities that must not exist. A clause that says a field does not exist
  * is checkable by looking for the field; a clause that says a route does not
@@ -292,9 +292,9 @@ describe("absence: the platform infers nothing across nodes (clause 9)", () => {
   });
 });
 
-describe("absence: a line is shown to whom the writer says, and never becomes a number (clause 31)", () => {
+describe("absence: a line is shown to whom the writer says, and never becomes a number (clause 27)", () => {
   /**
-   * Clause 31, as rewritten on 2026-09-09. A line may reach the recipient
+   * Clause 27, as rewritten on 2026-09-09. A line may reach the recipient
    * and the merchant, each only when the writer said so, and nothing turns
    * lines into a number.
    */
@@ -346,7 +346,7 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
     expect(second.status).toBe(409);
   });
 
-  test("a line reaches the recipient unless the writer says otherwise (clause 31)", async () => {
+  test("a line reaches the recipient unless the writer says otherwise (clause 27)", async () => {
     // NOTE (mutation check, 2026-09-09): note_default_nobody defaulted
     // shared_with to nobody, so a line written before giving reached no one.
     // The first assertion failed with 404. A default of nobody makes a
@@ -398,9 +398,9 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
   });
 });
 
-describe("absence: no identity and no credential reaches the merchant (clause 53)", () => {
+describe("absence: no identity and no credential reaches the merchant (clause 49)", () => {
   /**
-   * Clause 53, as rewritten on 2026-09-09. An offer, a receipt and a
+   * Clause 49, as rewritten on 2026-09-09. An offer, a receipt and a
    * delivery carry a key, a token and a delivery code, and no field for a
    * name, an address, a card or a contact. The walk covers the documents a
    * merchant-side implementation returns about a household.
@@ -606,7 +606,7 @@ describe("absence: capabilities under another name", () => {
     // POST and GET /analytics and a /px pixel socket. §9.1 names five routes
     // and none of them was it, so the suite passed. This probe widens the
     // search; it cannot close it. Enumerating the routes an implementation
-    // does not have is not possible from outside, and clause 33 forbids the
+    // does not have is not possible from outside, and clause 29 forbids the
     // capability rather than the path. The gap is named in MUTATIONS.md.
     for (const path of [
       "/analytics",

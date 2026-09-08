@@ -138,7 +138,7 @@ describe("machine: an offer may be decided partially (§2.1)", () => {
 });
 
 describe("machine: settled is terminal (§2.1)", () => {
-  test("an offer nobody has decided cannot be settled (clause 35)", async () => {
+  test("an offer nobody has decided cannot be settled (clause 31)", async () => {
     // NOTE (mutation check, 2026-09-09): settle_anything let an offer be
     // settled in any state. Both assertions failed with 200: a drafted
     // offer and a presented one were closed before the household had

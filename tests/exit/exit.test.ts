@@ -10,13 +10,13 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 47, 61 and 62.
+ * Clauses 43, 52 and 53.
  *
  * A household exports what it holds, moves its node to another host intact,
  * and recovery is a power separate from reading.
  *
  * The suite runs against two hosts of the same implementation. With one, the
- * strongest question available is whether a file was produced, and clause 47
+ * strongest question available is whether a file was produced, and clause 43
  * asks for something else: that the data be held in a form the customer can
  * export **in full**. Fullness is not a field list, because a surface added
  * later can be missing from the export while the export still matches its own
@@ -25,7 +25,7 @@ import {
  */
 
 // Each test moves a household of its own. Since exploration became what a
-// household has never been offered (clause 30), a second offer to the same
+// household has never been offered (clause 26), a second offer to the same
 // household marking every product as exploration is refused, so the fixed
 // household cannot be seeded twice.
 let current = freshHousehold();
@@ -53,13 +53,13 @@ async function seedSomethingToMove() {
   return offer;
 }
 
-describe("exit: the export (clause 47)", () => {
+describe("exit: the export (clause 43)", () => {
   test("the export names its format and its version", async () => {
     // NOTE (mutation check, 2026-09-09): export_no_format blanked the
-    // format string. Clause 59 permits forks, and a fork has to know what
+    // format string. Clause 50 permits forks, and a fork has to know what
     // it is holding. This assertion failed.
     // A format only the implementation that wrote it can read is not a format.
-    // Clause 59 permits forks, and a fork has to know what it is holding.
+    // Clause 50 permits forks, and a fork has to know what it is holding.
     const exported = await call(
       "GET",
       `/households/${encodeURIComponent(household())}/export`
@@ -111,7 +111,7 @@ describe("exit: the export (clause 47)", () => {
   });
 });
 
-describe("exit: the move (clause 61)", () => {
+describe("exit: the move (clause 52)", () => {
   test("the second host answers as the first did", async () => {
     // NOTE (mutation check, 2026-09-09): export_drops_settlements left the
     // settlements out of the export. The schema was still valid and the file
@@ -185,7 +185,7 @@ describe("exit: the move (clause 61)", () => {
     // Every edge the first host served is served by the second. Not the same
     // count: other probes in this suite post edges of their own, and a count
     // comparison made this probe fail for a reason that has nothing to do with
-    // the move. What clause 61 asks is that nothing stops resolving.
+    // the move. What clause 52 asks is that nothing stops resolving.
     const key = (e: { from: string; to: string; merchant: string }) =>
       `${e.from}|${e.to}|${e.merchant}`;
     const beforeEdges = (before.body as {
@@ -241,13 +241,13 @@ describe("exit: the move (clause 61)", () => {
   });
 });
 
-describe("exit: recovery is not reading (clause 62)", () => {
+describe("exit: recovery is not reading (clause 53)", () => {
   const HOUSE = "household-recovery-probe";
 
   test("a recoverer cannot be named without a channel it does not control", async () => {
     // NOTE (mutation check, 2026-09-09): recoverer_owns_every_channel dropped
     // the requirement. This assertion failed with 201. A recoverer holding the
-    // only channel can recover in silence, and clause 62's notice becomes
+    // only channel can recover in silence, and clause 53's notice becomes
     // decorative.
     const refused = await call("POST", "/_node/channels", {
       household: HOUSE,
@@ -267,7 +267,7 @@ describe("exit: recovery is not reading (clause 62)", () => {
 
   test("recovery is logged, and the log names who did it", async () => {
     // NOTE (mutation check, 2026-09-09): recovery_not_logged stopped
-    // writing the log. Clause 62 asks for a record the person can read
+    // writing the log. Clause 53 asks for a record the person can read
     // afterwards. This assertion failed.
     await call("POST", "/_node/channels", {
       household: HOUSE,
@@ -303,11 +303,11 @@ describe("exit: recovery is not reading (clause 62)", () => {
     // NOTE (no mutation, 2026-09-09): this probe has never been shown to fail.
     // The reference engine authenticates nothing, so a recoverer's view and a
     // stranger's are identical for a reason that has nothing to do with
-    // clause 62, and no mutation of it can separate them. The probe bites only
+    // clause 53, and no mutation of it can separate them. The probe bites only
     // against an implementation that authenticates reads. It is counted as
     // unproven and left in place, because the clause is worth asserting and
     // the alternative is asserting nothing.
-    // The separation clause 62 asks for. Being named a recoverer, and using
+    // The separation clause 53 asks for. Being named a recoverer, and using
     // it, must not put anyone on the reading side of the household's data.
     await call("POST", "/_node/recoverers", {
       household: HOUSE,

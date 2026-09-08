@@ -123,10 +123,10 @@ describe("registry: the same answer to every caller (§16.2)", () => {
   });
 });
 
-describe("registry: the mark is not a gate (clause 64, §16.2)", () => {
+describe("registry: the mark is not a gate (clause 55, §16.2)", () => {
   test("an entry without the mark is listed", async () => {
     // NOTE (mutation check, 2026-09-09): registry_requires_mark dropped
-    // unmarked entries from every list. This assertion failed. Clause 64 says
+    // unmarked entries from every list. This assertion failed. Clause 55 says
     // the mark attaches to software and hosts and never gates a merchant, and
     // a registry that lists only the marked has made the mark a gate.
     const list = await call("GET", "/registry?protocol=valence");
@@ -192,7 +192,7 @@ describe("registry: an attested key is not replaced (§16.1)", () => {
     // NOTE (mutation check, 2026-09-09): attest_overwrites let a later caller
     // replace a merchant's attested key. This assertion failed with 201.
     // Whoever can overwrite the key can sign the merchant's entry, and the
-    // same map is what clauses 25 and 39 resolve to.
+    // same map is what clauses 22 and 35 resolve to.
     const merchant = `probe-merchant-${Math.random().toString(36).slice(2, 8)}`;
     const one = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString();
     const two = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString();

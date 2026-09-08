@@ -53,7 +53,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
   test("a lost candidate is reported and is not charged", async () => {
     // NOTE (mutation check, 2026-09-08): bill_the_household_for_lost added
     // lost_amount into the charged total. This assertion failed. The trust
-    // model is the point of clause 30's neighbouring rule here: loss falls on
+    // model is the point of clause 26's neighbouring rule here: loss falls on
     // whoever holds stock risk, and a loss rate is an operating metric rather
     // than a receivable.
     // §11. Lost is what the deadline decides about goods nobody collected.
@@ -340,11 +340,11 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
   test("the price a household is shown does not move after a trial", async () => {
     // NOTE (mutation check, 2026-09-09): discount_after_trial shaved a
     // tenth off the price for a household that had consumed something. A
-    // discount is a discount whatever it is called, and clause 32 says
+    // discount is a discount whatever it is called, and clause 28 says
     // there are none. This assertion failed.
     // The other shape the same defect takes. Instead of a balance, the
     // discount arrives as a lower price on the next offer, which clause 10
-    // forbids from the other direction and clause 32 forbids by name.
+    // forbids from the other direction and clause 28 forbids by name.
     // Self-contained since 2026-09-09: the trial happens here, on one
     // household, rather than being inherited from the probe above.
     const household = freshHousehold();

@@ -14,7 +14,7 @@ written and why they are easy to leave out.
 
 They matter anyway. An offer that can be decided after it settles has a receipt
 that means nothing. One that cannot be decided twice forces a household to
-answer for everything at once, which is the opposite of what clause 37's one
+answer for everything at once, which is the opposite of what clause 33's one
 tap is for.
 
 ## What a failure means

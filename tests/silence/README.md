@@ -1,6 +1,6 @@
 # silence
 
-**Clauses 26, 28, 36 and 37, and specification §2.2 and §12.**
+**Clauses 23, 25, 32 and 33, and specification §2.2 and §12.**
 
 An undecided digital offer creates no order at expiry, no configuration turns
 silence into consent, and at most one reminder is sent.
@@ -8,7 +8,7 @@ silence into consent, and at most one reminder is sent.
 ## What a failure means
 
 An order is a debt. An implementation that creates one because a household said
-nothing has made not answering expensive, which is the arrangement clause 36
+nothing has made not answering expensive, which is the arrangement clause 32
 exists to forbid.
 
 ## The probes wait
@@ -24,6 +24,6 @@ consent is caught by three probes here and by nothing in the other two suites.
 
 ## Reminders
 
-The second reminder is refused, and refused again a second later. Clause 37 is
+The second reminder is refused, and refused again a second later. Clause 33 is
 a count, not a rate limit, and an implementation that returns a retry-after has
 turned a prohibition into a delay.

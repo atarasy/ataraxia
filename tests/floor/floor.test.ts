@@ -12,7 +12,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clause 30 and specification §5.
+ * Clause 26 and specification §5.
  *
  * An offer below the exploration floor is refused with 422, no configuration
  * bypasses the check, and the rate cannot reach zero.
@@ -252,7 +252,7 @@ describe("floor: a presenter with nothing new makes no offer (§5)", () => {
     // NOTE (mutation check, 2026-09-09): floor_ignores_exhaustion lets the
     // offer through with no exploration, which is the sell-out a cap on the
     // floor would have licensed. This assertion failed with 201.
-    // Clause 30's first sentence is only true if the floor does not bend to
+    // Clause 26's first sentence is only true if the floor does not bend to
     // what the presenter has left: a small catalogue would otherwise reach
     // "everything shown" once and sell to that household for ever after.
     const household = freshHousehold();
@@ -279,7 +279,7 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
    *
    * Refusing an offer that is short of the floor is worth nothing if the
    * count can be met by relabelling. A presenter marks the items it most
-   * expects to be kept, the arithmetic passes, and clause 30 costs nothing.
+   * expects to be kept, the arithmetic passes, and clause 26 costs nothing.
    *
    * So the probe teaches the implementation that a product is known and
    * wanted, by having the household keep it, and then offers the same product

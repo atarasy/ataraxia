@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { call, findKey, HOUSEHOLD, meansAnyOf } from "../lib/probe.js";
 
 /**
- * Clauses 41 to 46.
+ * Clauses 37 to 42.
  *
  * Permission is asked at the moment of use, scoped and time-limited. Blanket
  * consent in a settings screen does not exist. The list is always visible and
  * each entry is revoked on its own.
  *
  * The ledger is a list of exceptions to "nobody but me", and the household's
- * own agent is not in it: clause 42 makes the person the default recipient,
+ * own agent is not in it: clause 38 makes the person the default recipient,
  * which is not a permission. If it were, it could be revoked, and the hub
  * would stop working.
  */
@@ -28,7 +28,7 @@ async function liveAction(household = HOUSEHOLD) {
 const grant = (household: string, body: Record<string, unknown>) =>
   call("POST", `/households/${encodeURIComponent(household)}/permissions`, body);
 
-describe("permissions: asked at the moment of use (clause 41)", () => {
+describe("permissions: asked at the moment of use (clause 37)", () => {
   test("a grant that names no live action is refused", async () => {
     // NOTE (mutation check, 2026-09-09): grant_without_an_action removed the
     // requirement. This assertion failed with 201, which is blanket consent in
@@ -61,7 +61,7 @@ describe("permissions: asked at the moment of use (clause 41)", () => {
   test("a permission with no expiry cannot be expressed", async () => {
     // NOTE (mutation check, 2026-09-09): permission_never_expires accepted an
     // expires_at in the past and treated it as unlimited. This assertion
-    // failed. Clause 41 requires time limits, and a null that means "never" is
+    // failed. Clause 37 requires time limits, and a null that means "never" is
     // how they come back.
     const action = await liveAction();
     for (const expires of [0, Date.now() - 1000]) {
@@ -79,7 +79,7 @@ describe("permissions: asked at the moment of use (clause 41)", () => {
   test("a scope naming nothing is refused", async () => {
     // NOTE (mutation check, 2026-09-09): empty_scope_ok accepted an empty
     // scope. This assertion failed. A permission that names no field is
-    // not scoped, which is half of clause 41.
+    // not scoped, which is half of clause 37.
     const action = await liveAction();
     const refused = await grant(HOUSEHOLD, {
       grantee: "merchant-1",
@@ -92,7 +92,7 @@ describe("permissions: asked at the moment of use (clause 41)", () => {
   });
 });
 
-describe("permissions: the person is not a grantee (clause 42)", () => {
+describe("permissions: the person is not a grantee (clause 38)", () => {
   test("the household's own agent cannot be granted a permission", async () => {
     // NOTE (mutation check, 2026-09-09): own_agent_is_a_grantee allowed it.
     // This assertion failed with 201. An entry for the person themselves is
@@ -109,7 +109,7 @@ describe("permissions: the person is not a grantee (clause 42)", () => {
   });
 });
 
-describe("permissions: always visible, revoked one at a time (clause 44)", () => {
+describe("permissions: always visible, revoked one at a time (clause 40)", () => {
   test("revoking appends rather than removing", async () => {
     // NOTE (mutation check, 2026-09-09): revoke_deletes_the_row dropped the
     // permission from the list instead of stamping it. This assertion failed
@@ -146,7 +146,7 @@ describe("permissions: always visible, revoked one at a time (clause 44)", () =>
 
   test("revoking one leaves the others standing", async () => {
     // NOTE (mutation check, 2026-09-09): revoke_revokes_everything stamped
-    // the whole list. This assertion failed. Clause 44 says each is
+    // the whole list. This assertion failed. Clause 40 says each is
     // revoked individually.
     const action = await liveAction();
     const a = await grant(HOUSEHOLD, {
@@ -194,10 +194,10 @@ describe("permissions: always visible, revoked one at a time (clause 44)", () =>
   });
 });
 
-describe("permissions: what the ledger does not carry (clause 43, 45)", () => {
+describe("permissions: what the ledger does not carry (clause 39, 41)", () => {
   test("no field prices a permission", async () => {
     // NOTE (mutation check, 2026-09-09): compensation_on_permission added a
-    // `compensation` to each row. This assertion failed. Clause 43 says no
+    // `compensation` to each row. This assertion failed. Clause 39 says no
     // capability to sell data is built, and a price on a permission is that
     // capability in one column.
     const read = await call("GET", `/households/${encodeURIComponent(HOUSEHOLD)}/permissions`);
@@ -209,7 +209,7 @@ describe("permissions: what the ledger does not carry (clause 43, 45)", () => {
 
   test("no field names a model", async () => {
     // NOTE (mutation check, 2026-09-09): model_on_permission recorded which
-    // model the grant was made against. This assertion failed. Clause 45 says
+    // model the grant was made against. This assertion failed. Clause 41 says
     // changing the model behind an agent moves neither the ledger nor the
     // records, and a model named on a row is a ledger that follows the model.
     const read = await call("GET", `/households/${encodeURIComponent(HOUSEHOLD)}/permissions`);

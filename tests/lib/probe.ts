@@ -29,7 +29,7 @@ export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
 
 /**
  * A household nobody has offered anything to. Since 2026-09-09 exploration
- * is what a household has never been offered by this presenter (clause 30,
+ * is what a household has never been offered by this presenter (clause 26,
  * §5.1), so an offer marking every product as exploration is conforming only
  * for a household that has seen none of them. Offers default to a fresh one;
  * a probe that needs the same household twice names it.
@@ -40,7 +40,7 @@ export function freshHousehold(): string {
 export const MANDATE = required("VALENCE_MANDATE");
 
 /**
- * Clause 39. The private half of the key registered for the mandate, base64
+ * Clause 35. The private half of the key registered for the mandate, base64
  * of a PKCS#8 PEM. The probes confirm with it; an implementation that
  * settles on an unsigned confirmation, or on a set other than the one
  * signed, is caught in approval/.
@@ -244,9 +244,9 @@ export const HAS_PHYSICAL = BINDINGS.includes("physical");
 /**
  * A second host of the same implementation, empty of this household's node.
  *
- * Clause 61 says a member can move an entire node to another host. Checking
+ * Clause 52 says a member can move an entire node to another host. Checking
  * that against one host can only ask whether a file was produced, which is the
- * weakest possible reading of clause 47. With two, the question becomes whether
+ * weakest possible reading of clause 43. With two, the question becomes whether
  * the second answers as the first did, which is the reading `exit/` uses.
  */
 export const SECOND_HOST = required("VALENCE_SECOND_HOST_URL").replace(/\/+$/, "");
@@ -390,13 +390,13 @@ export function offerBody(
         c.predicted_conversion === undefined ? 0.5 : c.predicted_conversion,
       is_exploration: c.is_exploration ?? false,
     })),
-    // Clause 26. A ceremonial offer carries the band the giver chose; the
+    // Clause 23. A ceremonial offer carries the band the giver chose; the
     // default band spans every declared price so the probes that are not
     // about the band are not refused by it.
     ...(overrides.purpose === "ceremonial" && overrides.price_band === undefined
       ? { price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) } }
       : {}),
-    // Clause 28, §12. A ceremonial offer names its giver, who pays; the
+    // Clause 25, §12. A ceremonial offer names its giver, who pays; the
     // household on the offer is the recipient, who chooses.
     ...(overrides.purpose === "ceremonial" && overrides.giver === undefined
       ? { giver: `${HOUSEHOLD}-giver` }
@@ -464,7 +464,7 @@ let cachedPresenter: string | undefined;
 /**
  * The presenter this deployment offers as. Read from an offer rather than
  * from an environment variable, because the offer view is where a
- * conforming implementation has to say it (clause 40's `hide_presenter`).
+ * conforming implementation has to say it (clause 36's `hide_presenter`).
  */
 export async function presenter(): Promise<string> {
   if (cachedPresenter) return cachedPresenter;

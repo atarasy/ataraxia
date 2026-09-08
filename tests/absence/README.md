@@ -1,6 +1,6 @@
 # absence
 
-**Clauses 1, 2, 3, 8, 9, 11, 12, 31, 32, 33, 34, 53, and specification §3.3, §6, §7.5, §9.1.**
+**Clauses 1, 2, 3, 8, 9, 11, 12, 27, 28, 29, 30, 49, and specification §3.3, §6, §7.5, §9.1.**
 
 Capabilities that must not exist. A discount object, a star rating, an urgency
 field, a per-person tracking identifier, a tracking socket, and the routes that
@@ -12,14 +12,14 @@ model, the manager or a provider (clause 3). And clause 8: a presenter's view
 of a household is its own offers and nothing declined to anyone else, and no
 list can be asked for without naming a presenter. And clause 9: the
 prediction that comes back is the prediction that was sent, so the platform
-ran no model across nodes. And clause 31: a line reaches the merchant only
+ran no model across nodes. And clause 27: a line reaches the merchant only
 when the writer shared it, nothing turns lines into a number, and a line
 cannot be shared with anyone but the recipient and the merchant.
 
 ## What a failure means
 
 A field or a route the constitution says has no implementation has one. Clause
-33 and clause 34 are claims about structure, not promises about conduct, so a
+29 and clause 30 are claims about structure, not promises about conduct, so a
 failure here is not a policy lapse to be corrected by an operator. It is the
 clause being false.
 

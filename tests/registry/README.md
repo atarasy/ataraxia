@@ -1,6 +1,6 @@
 # registry
 
-**Clauses 1, 6, 13 and 64, and specification §16.**
+**Clauses 1, 6, 13 and 55, and specification §16.**
 
 The endpoint registry resolves and does not rank.
 
@@ -30,7 +30,7 @@ the name of a directory.
 **A score or a flag**: a rank with a name that sounds like a fact.
 **A query by intent**: the registry has decided what a person sees.
 **Different answers to different callers**: a recommendation.
-**Only the marked listed**: clause 64 is false, and the mark has become a gate.
+**Only the marked listed**: clause 55 is false, and the mark has become a gate.
 
 ## What it does not reach
 

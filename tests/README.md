@@ -16,7 +16,7 @@ So these tests are not a certificate of good conduct. They check the parts of th
 
 All ten are written. Three were not in the original scoping and came from
 reading the clause list inward rather than outward from the probes, which is
-the direction that finds what nothing checks: `lineage/` for clause 25,
+the direction that finds what nothing checks: `lineage/` for clause 22,
 `binding/` because `lost` is reachable only through the physical binding, and
 `machine/` for the four transitions no other suite touched.
 

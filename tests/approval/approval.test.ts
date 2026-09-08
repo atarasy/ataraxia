@@ -11,7 +11,7 @@ import {
 } from "../lib/probe.js";
 
 /**
- * Clauses 40, 63, 67 and 68, and §10 of the specification.
+ * Clauses 36, 54, 58 and 59, and §10 of the specification.
  *
  * The screen a household is asked to sign, drawn by a party to no transaction.
  *
@@ -63,14 +63,14 @@ async function deliberated(overrides: Record<string, unknown> = {}) {
   return { offer, recorded };
 }
 
-describe("approval: what a proposal must carry (clause 68)", () => {
+describe("approval: what a proposal must carry (clause 59)", () => {
   test("every candidate carries alternatives and the argument against it", async () => {
     // NOTE (mutation check, 2026-09-09): approval_without_deliberation
     // rendered the screen from the offer alone. This assertion failed.
     // NOTE (mutation check, 2026-09-09): approval_without_deliberation rendered
     // the screen from the offer alone. This assertion failed. An agent that
     // proposes without saying what else it considered has made the household's
-    // tap a formality, which is what clause 68 exists to prevent.
+    // tap a formality, which is what clause 59 exists to prevent.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
     expect(approval.status).toBe(200);
@@ -113,17 +113,17 @@ describe("approval: what a proposal must carry (clause 68)", () => {
     // NOTE (mutation check, 2026-09-09): approval_without_deliberation
     // rendered from the offer alone, with no deliberation recorded at all.
     // This assertion failed. A hub that draws a screen anyway has made
-    // clause 68 advisory.
+    // clause 59 advisory.
     // The half that matters more. A hub that renders a screen anyway has made
-    // clause 68 advisory.
+    // clause 59 advisory.
     const offer = await createConformingOffer();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
     expect([404, 422]).toContain(approval.status);
   });
 
-  test("the reason a candidate was left out is shown (clause 40)", async () => {
+  test("the reason a candidate was left out is shown (clause 36)", async () => {
     // NOTE (mutation check, 2026-09-09): drop_excluded_reasons emptied the
-    // excluded list on the way to the screen. This assertion failed. Clause 40
+    // excluded list on the way to the screen. This assertion failed. Clause 36
     // is about what did not happen, which no other surface reports.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
@@ -146,11 +146,11 @@ describe("approval: what a proposal must carry (clause 68)", () => {
   });
 });
 
-describe("approval: the merchant does not draw the screen (clause 63)", () => {
+describe("approval: the merchant does not draw the screen (clause 54)", () => {
   test("no field carries presentation", async () => {
     // NOTE (mutation check, 2026-09-09): presentation_on_approval added a
     // `banner` and a `rank` to each candidate. This assertion failed, naming
-    // both. Clause 63 says the screen is drawn by a party to no transaction,
+    // both. Clause 54 says the screen is drawn by a party to no transaction,
     // and one field a merchant can fill is enough to make that false.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
@@ -193,12 +193,12 @@ describe("approval: the merchant does not draw the screen (clause 63)", () => {
   });
 });
 
-describe("approval: the mandate (clauses 37, 67)", () => {
+describe("approval: the mandate (clauses 33, 58)", () => {
   test("a standing mandate cannot be recorded without a lapse", async () => {
     // NOTE (mutation check, 2026-09-09): standing_never_lapses accepted one
-    // with no lapses_at. This assertion failed with 201. Clause 67 says a
+    // with no lapses_at. This assertion failed with 201. Clause 58 says a
     // standing mandate lapses unless renewed, and a mandate with no lapse is
-    // the blanket consent clause 41 removes from the settings screen arriving
+    // the blanket consent clause 37 removes from the settings screen arriving
     // by another door.
     const offer = await createConformingOffer();
     const perCandidate: Record<string, unknown> = {};
@@ -216,7 +216,7 @@ describe("approval: the mandate (clauses 37, 67)", () => {
     expect([400, 422]).toContain(recorded.status);
   });
 
-  test("the mandate arrives complete, so one tap is enough (clause 37)", async () => {
+  test("the mandate arrives complete, so one tap is enough (clause 33)", async () => {
     // NOTE (mutation check, 2026-09-09): mandate_scope_blank emptied the
     // scope. This assertion failed. A mandate with no scope is not one a
     // person can sign in one tap.
@@ -247,9 +247,9 @@ describe("approval: the mandate (clauses 37, 67)", () => {
   });
 });
 
-describe("approval: a confirmation is the person's signature (clause 39)", () => {
+describe("approval: a confirmation is the person's signature (clause 35)", () => {
   /**
-   * Clause 39, as rewritten on 2026-09-09. The decided set is signed as the
+   * Clause 35, as rewritten on 2026-09-09. The decided set is signed as the
    * mandate, and nothing settles on an unsigned set or on a set other than
    * the one signed. The probe posts the same set three ways: unsigned,
    * signed over a different set, and signed.
@@ -308,7 +308,7 @@ describe("approval: a refused set writes nothing (§10.5)", () => {
   });
 });
 
-describe("approval: the screen names who made it, who ships it, and the band (clauses 12, 26)", () => {
+describe("approval: the screen names who made it, who ships it, and the band (clauses 12, 23)", () => {
   test("every candidate on the screen names its maker and its carrier", async () => {
     // NOTE (mutation check, 2026-09-09): approval_hides_maker dropped
     // merchant and ships from the rendered candidate and blanked the band.
@@ -345,12 +345,12 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
   });
 });
 
-describe("approval: one set of endpoints, whoever calls (clause 38)", () => {
+describe("approval: one set of endpoints, whoever calls (clause 34)", () => {
   test("an offer is accepted from another client as it is from the reference hub", async () => {
     // NOTE (mutation check, 2026-09-09): reject_foreign_offer_client refused
     // POST /offers unless the user-agent was the reference hub's. The second
     // assertion failed with 403. The person's own agent calls the same
-    // endpoints the merchant's does, or clause 38 is a sentence.
+    // endpoints the merchant's does, or clause 34 is a sentence.
     const fromReference = await call("POST", "/offers", conformingOffer(), {
       "user-agent": "atarasy-reference/0.0.0",
     });

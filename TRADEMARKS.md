@@ -38,7 +38,7 @@ only sanction, and it is deliberately the only one.
 
 The mark attaches to **software and hosts**. It never attaches to people. No
 mark grading members will be created, and merchant endpoints and gift lineage
-do not discriminate on it — see clause 64 of the constitution.
+do not discriminate on it — see clause 55 of the constitution.
 
 ## Status
 
