@@ -1,6 +1,6 @@
 # floor
 
-**Clause 26, and specification §5.**
+**Clause 26, and specification §5, including §5.2 on what a presenter is.**
 
 An offer below the exploration floor is refused with `422`, no configuration
 bypasses the check, and the rate cannot reach zero. Since 2026-09-09 an

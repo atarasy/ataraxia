@@ -25,6 +25,16 @@ export const BASE = required("VALENCE_BASE_URL").replace(/\/+$/, "");
 export const CONFIG_VERSION = required("VALENCE_CONFIG_VERSION");
 /** §5. A narrower catalogue under the same presenter, for the trimming probe. */
 export const CONFIG_VERSION_NARROW = required("VALENCE_CONFIG_VERSION_NARROW");
+/**
+ * §5.2. A catalogue of a presenter whose key no identity root endorsed, which
+ * is what a rename looks like from outside: a second identity, visibly not
+ * the same one.
+ */
+export const CONFIG_VERSION_UNROOTED = required("VALENCE_CONFIG_VERSION_UNROOTED");
+export const PRODUCTS_UNROOTED = required("VALENCE_PRODUCTS_UNROOTED")
+  .split(",")
+  .map((p) => p.trim())
+  .filter(Boolean);
 export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
 
 /**

@@ -65,6 +65,8 @@ as thirteen environment variables:
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
 | `VALENCE_CONFIG_VERSION_NARROW` | a catalogue version under the same presenter naming only a subset of the products (§5: the floor counts what the presenter still has across every catalogue) |
+| `VALENCE_CONFIG_VERSION_UNROOTED` | a catalogue version of a presenter whose key no identity root endorsed (§5.2) |
+| `VALENCE_PRODUCTS_UNROOTED` | products in that catalogue, comma separated |
 | `VALENCE_PRICES_LATER` | the prices in that later catalogue, as JSON |
 | `VALENCE_BINDINGS` | which bindings this deployment implements, comma separated |
 | `VALENCE_RECOVERY_GRACE_DAYS` | days after the recovery deadline before an uncollected candidate is lost |
@@ -103,7 +105,7 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 187 probes at runtime from 173 declarations, against 152 deliberate
+engine: 189 probes at runtime from 175 declarations, against 154 deliberate
 breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
 ledger says why. Two of the breaks stop any offer being created, so probes

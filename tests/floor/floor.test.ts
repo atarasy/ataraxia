@@ -2,13 +2,16 @@ import { describe, expect, test } from "bun:test";
 import {
   call,
   CONFIG_VERSION_NARROW,
+  CONFIG_VERSION_UNROOTED,
   conformingOffer,
+  createConformingOffer,
   decide,
   floorFor,
   freshHousehold,
   offerBody,
   presenter,
   PRODUCTS,
+  PRODUCTS_UNROOTED,
 } from "../lib/probe.js";
 
 /**
@@ -143,7 +146,7 @@ describe("floor: no bypass", () => {
 });
 
 describe("floor: what qualifies", () => {
-  test("exploration candidates are not concealed from the household (§5.3)", async () => {
+  test("exploration candidates are not concealed from the household (§5.4)", async () => {
     // NOTE (mutation check, 2026-09-08): hide_exploration dropped
     // `is_exploration` from the candidate serialisation. This assertion
     // failed: a household cannot decline what it cannot see is a guess.
@@ -332,5 +335,49 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
     );
     const refused = await call("POST", "/offers", padded);
     expect(refused.status).toBe(422);
+  });
+});
+
+describe("floor: a presenter is a key, not a name (§5.2)", () => {
+  /**
+   * The floor counts what this presenter has offered this household, so what
+   * a presenter is decides what the floor is worth. An adversarial pass on
+   * 2026-09-09 renamed one and watched a household's history disappear.
+   */
+  test("a catalogue is refused unless the presenter it names signed it", async () => {
+    // NOTE (mutation check, 2026-09-09): unsigned_catalogue accepted one
+    // without a signature. This assertion failed with 201: anybody could
+    // publish catalogues under anybody's name, and a fresh name is a fresh
+    // household history.
+    const unsigned = await call("POST", "/_presenter/configs", {
+      version: `cfg-unsigned-${Math.random().toString(36).slice(2, 8)}`,
+      presenter: await presenter(),
+      products: {
+        "probe-a": { merchant: "maker-a", ships: "carrier-a", price: 100 },
+      },
+    });
+    expect([400, 422]).toContain(unsigned.status);
+  });
+
+  test("an offer says whether a root endorsed the presenter", async () => {
+    // NOTE (mutation check, 2026-09-09): presenter_always_attested said yes
+    // for every presenter. This assertion failed: the deployment's second
+    // presenter is registered and not root-endorsed, which is what a rename
+    // looks like from outside, and a household is entitled to see it.
+    const rooted = await createConformingOffer();
+    const readRooted = await call("GET", `/offers/${rooted.id}`);
+    expect(readRooted.status).toBe(200);
+    expect((readRooted.body as { presenter_attested: boolean }).presenter_attested).toBe(true);
+
+    const other = await call("POST", "/offers", offerBody(
+      PRODUCTS_UNROOTED.map((product, i) => ({
+        product,
+        predicted_conversion: 0.5,
+        is_exploration: i === 0,
+      })),
+      { household: freshHousehold(), config_version: CONFIG_VERSION_UNROOTED }
+    ));
+    expect(other.status).toBe(201);
+    expect((other.body as { presenter_attested: boolean }).presenter_attested).toBe(false);
   });
 });
