@@ -60,6 +60,7 @@ as thirteen environment variables:
 | `VALENCE_MANDATE_KEY` | the private half of the key registered for that mandate, base64 of a PKCS#8 PEM, so the probes can sign a decided set (§10.5) |
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
+| `VALENCE_UNATTESTED_EDGE` | a well-formed, signed edge whose giver's key no identity root endorsed (§7.1) |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
 | `VALENCE_CONFIG_VERSION_NARROW` | a catalogue version under the same presenter naming only a subset of the products (§5: the floor counts what the presenter still has across every catalogue) |
@@ -101,7 +102,7 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 178 probes at runtime from 164 declarations, against 147 deliberate
+engine: 181 probes at runtime from 167 declarations, against 149 deliberate
 breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
 ledger says why. Two of the breaks stop any offer being created, so probes

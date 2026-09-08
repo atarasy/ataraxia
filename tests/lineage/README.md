@@ -1,6 +1,6 @@
 # lineage
 
-**Clauses 19 and 22, and specification §7.1 and §7.5.**
+**Clauses 2, 19 and 22, and specification §7.1 and §7.5.**
 
 A lineage edge is recognised on its signature and never on the software that
 produced it. A recipient's record holds the fact of receipt and nothing else.

@@ -4,6 +4,8 @@ import {
   findKey,
   LINEAGE_EDGE,
   LINEAGE_RECIPIENT,
+  offerBody,
+  UNATTESTED_EDGE,
 } from "../lib/probe.js";
 
 /**
@@ -105,5 +107,52 @@ describe("lineage: the recipient's record (§7.5, clause 19)", () => {
     // the record a history, which is what clause 19 says a recipient does not
     // acquire by receiving.
     expect(findKey(read.body, (k) => k.toLowerCase() === "product")).toEqual([]);
+  });
+});
+
+describe("lineage: an edge says whether a root endorsed its giver (§7.1, clause 2)", () => {
+  /**
+   * Clause 2 says identity has a root outside this system, one per person,
+   * and the concept documents record that a jurisdiction without one leaves
+   * edges unattested rather than impossible. An unattested edge is accepted,
+   * shown as unattested, and makes nothing known.
+   */
+  test("an unattested edge is accepted and marked", async () => {
+    // NOTE (mutation check, 2026-09-09): edge_always_attested marked every
+    // edge attested. This assertion failed. A viewer is entitled to know
+    // which of their edges rest on a root and which are somebody's word.
+    const posted = await call("POST", "/lineage", UNATTESTED_EDGE);
+    expect(posted.status).toBe(201);
+    expect((posted.body as { attested: boolean }).attested).toBe(false);
+
+    const rooted = await call("POST", "/lineage", LINEAGE_EDGE);
+    expect(rooted.status).toBe(201);
+    expect((rooted.body as { attested: boolean }).attested).toBe(true);
+  });
+
+  test("an unattested edge does not make its product known to the household", async () => {
+    // NOTE (mutation check, 2026-09-09): unattested_counts_as_given counted
+    // it. This assertion failed with 422 not_exploration: a stranger who
+    // registers a key could empty a household's exploration floor by
+    // writing edges at it.
+    const posted = await call("POST", "/lineage", UNATTESTED_EDGE);
+    expect(posted.status).toBe(201);
+    const product = UNATTESTED_EDGE.product as string;
+    const household = UNATTESTED_EDGE.to as string;
+    const created = await call("POST", "/offers", offerBody(
+      [{ product, predicted_conversion: 0.5, is_exploration: true }],
+      { household }
+    ));
+    expect(created.status).toBe(201);
+  });
+
+  test("the circle says which edges rest on a root", async () => {
+    await call("POST", "/lineage", UNATTESTED_EDGE);
+    const viewer = UNATTESTED_EDGE.to as string;
+    const circle = await call("GET", `/lineage/circle?viewer=${encodeURIComponent(viewer)}`);
+    expect(circle.status).toBe(200);
+    const edges = (circle.body as { edges: { attested: boolean }[] }).edges;
+    expect(edges.length).toBeGreaterThan(0);
+    for (const e of edges) expect(typeof e.attested).toBe("boolean");
   });
 });

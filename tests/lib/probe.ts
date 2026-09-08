@@ -156,6 +156,22 @@ export const LINEAGE_EDGE: Record<string, unknown> = (() => {
 export const LINEAGE_RECIPIENT = LINEAGE_EDGE.to as string;
 
 /**
+ * §7.1. A well-formed edge signed with a key no identity root endorsed. It is
+ * accepted and recorded, it shows as unattested, and it makes nothing known
+ * to the household it names.
+ */
+export const UNATTESTED_EDGE: Record<string, unknown> = (() => {
+  const raw = required("VALENCE_UNATTESTED_EDGE");
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (typeof parsed !== "object" || parsed === null) throw new Error("not an object");
+    return parsed;
+  } catch {
+    throw new Error("VALENCE_UNATTESTED_EDGE is not a JSON object");
+  }
+})();
+
+/**
  * The merchant's own price for each product in `VALENCE_PRODUCTS`, as JSON.
  *
  * Clause 10 says a household never pays more through an offer than buying
