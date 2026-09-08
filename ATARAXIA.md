@@ -48,9 +48,9 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 2. Curators and merchants
 
-10. A price is the merchant's, the same to everyone, and it travels from the merchant signed by the merchant's key. No curator, representative or platform has a field, a parameter or a configuration that raises it. A buyer pays the merchant's price and nothing more.
-11. A curator is not the seller. The seller and merchant of record is always the merchant.
-12. The merchant is never hidden. Who made it and who ships it is always visible.
+10. A price is the merchant's, the same to everyone, and it travels from the merchant's own feed. No curator, representative or platform has a field, a parameter or a configuration that raises it. A buyer pays the merchant's price and nothing more.
+11. A curator is not the seller. The merchant of record is the merchant, named on every line of every receipt; a curator that signs a receipt signs as the merchant's disclosed agent.
+12. The merchant is never hidden. Every candidate, every receipt and every edge names who made it and who ships it.
 13. Participation does not require a merchant to join a programme. An ACP-compatible feed is sufficient.
 14. A brand cannot buy a slot. Its contribution is the cost of goods offered, and payment is on outcome only. Ranking, exposure and placement are not for sale.
 15. There is an upper bound on households per representative.

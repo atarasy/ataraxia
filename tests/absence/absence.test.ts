@@ -476,6 +476,55 @@ describe("presence: what must not be hidden (clause 12)", () => {
     expect(typeof body.presenter).toBe("string");
     expect(body.presenter).not.toBe("");
   });
+
+  test("every candidate names who made it and who ships it", async () => {
+    // NOTE (mutation check, 2026-09-09): hide_merchant_on_candidate dropped
+    // `merchant` and `ships` from the candidate serialisation. This assertion
+    // failed. The probe above reads the presenter, which is the curator; the
+    // maker was invisible on every candidate until this probe asked, and in
+    // a gift flow the maker is the party clause 12 is about.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { merchant?: unknown; ships?: unknown }[] }).candidates;
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const c of candidates) {
+      expect(typeof c.merchant).toBe("string");
+      expect(c.merchant).not.toBe("");
+      expect(typeof c.ships).toBe("string");
+      expect(c.ships).not.toBe("");
+    }
+  });
+
+  test("every line of a receipt names its merchant of record (clause 11)", async () => {
+    // NOTE (mutation check, 2026-09-09): settlement_lines_without_merchant
+    // kept the lines and blanked the merchant on each. This assertion
+    // failed. A receipt that totals without saying who sold each item has
+    // put the curator where the seller should be.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const body = settled.body as {
+      lines?: { merchant?: unknown }[];
+      signed_by?: unknown;
+      signed_as?: unknown;
+    };
+    expect(Array.isArray(body.lines)).toBe(true);
+    expect(body.lines!.length).toBeGreaterThan(0);
+    for (const line of body.lines!) {
+      expect(typeof line.merchant).toBe("string");
+      expect(line.merchant).not.toBe("");
+    }
+    expect(body.signed_as).toBe("agent");
+    expect(typeof body.signed_by).toBe("string");
+  });
 });
 
 describe("absence: the store itself", () => {
