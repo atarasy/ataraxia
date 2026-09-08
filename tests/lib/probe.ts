@@ -380,6 +380,22 @@ export async function createMixedOffer(
   };
 }
 
+let cachedPresenter: string | undefined;
+
+/**
+ * The presenter this deployment offers as. Read from an offer rather than
+ * from an environment variable, because the offer view is where a
+ * conforming implementation has to say it (clause 40's `hide_presenter`).
+ */
+export async function presenter(): Promise<string> {
+  if (cachedPresenter) return cachedPresenter;
+  const offer = await createConformingOffer();
+  const read = await call("GET", `/offers/${offer.id}`);
+  cachedPresenter = (read.body as { presenter: string }).presenter;
+  if (!cachedPresenter) throw new Error("setup failed: the offer view names no presenter");
+  return cachedPresenter;
+}
+
 export async function createConformingOffer(
   overrides: Record<string, unknown> = {}
 ): Promise<{ id: string; candidates: { id: string }[] }> {

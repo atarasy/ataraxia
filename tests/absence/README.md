@@ -8,7 +8,9 @@ would carry segments and broadcasts. Since the clause review of 2026-09-09,
 also the three structural clauses at the head of the constitution: no search,
 ranking or discovery route (clause 1), no route that issues an identity
 (clause 2), and no document that names a part the member could replace, the
-model, the manager or a provider (clause 3).
+model, the manager or a provider (clause 3). And clause 8: a presenter's view
+of a household is its own offers and nothing declined to anyone else, and no
+list can be asked for without naming a presenter.
 
 ## What a failure means
 

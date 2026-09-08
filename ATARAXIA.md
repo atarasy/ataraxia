@@ -42,8 +42,8 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 4. No fee on the person side is a function of what was bought, and no fee on the merchant side is a share of what was sold. One party may operate both sides; the party that certifies conformance operates neither.
 5. What a member runs and what conformance is judged by are open source: the hub, the node, the specification, the reference engine and the tests. A merchant-side platform may be closed. Whatever it is, it holds no position the tests do not grant, and a merchant can leave it with its data.
 6. A person's agent prefers a merchant for what it does, never for where it is hosted: no entry, endpoint or feed names a platform, and the agent has no field to prefer on. Conformance is the one property of a host it may weigh. Every exclusion the agent makes shows the person the published rule that made it.
-7. Data stays at its source. Only permission moves. Nothing requires data to be relocated first.
-8. Data about what was *not* bought originates on the person's side and stays there.
+7. Data is used where it is. A grant moves; the data it covers does not, and nothing here needs a copy of it first. What does travel, an edge, a receipt, a history returned, travels toward the person and never toward a centre.
+8. What was declined is recorded where it was decided, in the person's node, across every merchant. A merchant holds what was declined to it and nothing declined elsewhere. No party but the person holds the union.
 9. Preference models exist vertically, per retailer or per node. No inference is performed across them.
 
 ## 2. Curators and merchants

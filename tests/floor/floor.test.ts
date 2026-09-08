@@ -6,6 +6,7 @@ import {
   HOUSEHOLD,
   offerBody,
   PRODUCTS,
+  presenter,
 } from "../lib/probe.js";
 
 /**
@@ -22,7 +23,7 @@ import {
 const countOf = async (): Promise<number> => {
   const list = await call(
     "GET",
-    `/offers?household=${encodeURIComponent(HOUSEHOLD)}`
+    `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent(await presenter())}`
   );
   const body = list.body as { offers?: unknown[] };
   return body.offers?.length ?? 0;

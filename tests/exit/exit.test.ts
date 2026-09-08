@@ -5,6 +5,7 @@ import {
   createConformingOffer,
   HOUSEHOLD,
   LINEAGE_EDGE,
+  presenter,
 } from "../lib/probe.js";
 
 /**
@@ -108,6 +109,10 @@ describe("exit: the move (clause 61)", () => {
     // was still produced; this assertion failed because the second host
     // answered a question differently. That is the whole reason the probe
     // compares answers rather than field names.
+    // Read the presenter before anything is exported: the helper creates an
+    // offer to read it from, and an offer created after the export is a
+    // difference between the hosts that the move did not make.
+    const who = await presenter();
     const offer = await seedSomethingToMove();
 
     const exported = await call(
@@ -129,7 +134,7 @@ describe("exit: the move (clause 61)", () => {
     for (const path of [
       `/offers/${offer.id}`,
       `/offers/${offer.id}/settlement`,
-      `/offers?household=${encodeURIComponent(household())}`,
+      `/offers?household=${encodeURIComponent(household())}&presenter=${encodeURIComponent(who)}`,
       `/households/${encodeURIComponent(household())}/receipts`,
     ]) {
       const first = await call("GET", path);

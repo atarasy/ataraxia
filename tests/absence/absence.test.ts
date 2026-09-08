@@ -8,6 +8,7 @@ import {
   meansAnyOf,
   PRICES,
   PRODUCTS,
+  presenter,
 } from "../lib/probe.js";
 
 /**
@@ -215,6 +216,40 @@ describe("absence: nothing names a part a member could replace (clause 3)", () =
   });
 });
 
+describe("absence: a presenter's view is vertical (clause 8)", () => {
+  /**
+   * Clause 8, as rewritten on 2026-09-09. A merchant holds what was declined
+   * to it and nothing declined elsewhere, and no party but the person holds
+   * the union. The engine's household list filtered by household alone
+   * until that day, so a deployment serving two presenters showed each the
+   * other's declines under the name of a vertical view.
+   */
+  test("another presenter's view holds nothing this presenter was declined", async () => {
+    // NOTE (mutation check, 2026-09-09): vertical_view_not_vertical dropped
+    // the presenter filter from the list. This assertion failed: the offer
+    // declined here appeared in the view asked for under another name.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" })),
+    });
+    const other = await call(
+      "GET",
+      `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent("someone-else")}`
+    );
+    expect(other.status).toBe(200);
+    const ids = ((other.body as { offers: { id: string }[] }).offers ?? []).map((o) => o.id);
+    expect(ids).not.toContain(offer.id);
+  });
+
+  test("the list is one presenter's view, never the household's union", async () => {
+    // A list that can be asked for without naming a presenter is the union
+    // by omission.
+    const union = await call("GET", `/offers?household=${encodeURIComponent(HOUSEHOLD)}`);
+    expect(union.status).toBe(400);
+  });
+});
+
 describe("absence: fields that must not exist (§3.3)", () => {
   test("a discount on a candidate is refused, not ignored", async () => {
     // NOTE (mutation check): the reference implementation's strict body check
@@ -290,7 +325,7 @@ describe("absence: aggregates that must not be displayed (§7.5)", () => {
     // the list response. This assertion failed, naming `total`. Removed.
     const list = await call(
       "GET",
-      `/offers?household=${encodeURIComponent(HOUSEHOLD)}`
+      `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent(await presenter())}`
     );
     expect(list.status).toBe(200);
     expect(findKey(list.body, looksLike(FORBIDDEN_AGGREGATES))).toEqual([]);
