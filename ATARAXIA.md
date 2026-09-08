@@ -149,6 +149,23 @@ It protects the person. It does not protect other people, and it does not protec
 
 ----
 
+## What this constitution costs
+
+A list of things that cannot be done is also a list of things given up. The review of 2026-09-09 found the cost missing from nearly every clause, and rather than lengthen each one, the price is written here, once, section by section. Where a cost was already borne by design it is named anyway, so that no one reading a clause mistakes its absence for free.
+
+- **Structure (1 to 9).** No place of discovery, and therefore no rent from it: the infrastructure resolves and cannot be the layer that is paid to rank. Identity rooted outside the system is a dependence on that root, and in a jurisdiction without one, lineage that cannot be attested. Every part being replaceable means someone has to choose a default for each, and the coupling to each part is thinned to what the standards have in common. Fees fixed in shape forgo the advertising and the share of sales that pay for most commerce platforms. Data used where it is means no central view: no overall conversion, no member count, no population model, and a prediction that is only ever the merchant's own guess from its own ledger.
+- **Curators and merchants (10 to 14).** A curator earns no margin; a maker prices the same to everyone or does not take part; a maker is the seller of record and carries first-line liability for what it sold. With no gate on taking part, quality assurance falls to the curator. Nothing is sold to a brand, so a brand's marketing budget has nowhere to go here.
+- **Gifts and the network (19 to 25).** A giver never learns whether a gift landed unless the recipient acts; a giver cannot avoid a duplicate alone; nobody sees how large the network is. Anyone may make a lineage edge, so an edge weighs what the key's root weighs and no more.
+- **Replacing the catalogue gift (26 to 28).** The giver of a ceremonial gift gives up choosing the item; someone holds the stock and the carriage of the default item that ships when nothing is chosen.
+- **Models and the engine (30 to 35).** The presenter carries, every time, candidates the household has never been offered, and in the physical binding they move and come back. There is no social proof, no promotion and no urgency to sell with; measurement of behaviour is forgone with retargeting. An agent that stops and asks is slower than one that decides.
+- **Drafts and approval (36 to 40).** Nothing ships that a person did not confirm, so a person who does not answer receives nothing; one reminder is all the nudging there is. Every hub must hold a key to confirm with.
+- **Data sovereignty (41 to 47).** No standing consent means being asked again, at the moment of use, every time. Data returned as function is data never sold, including by people who would have liked to. A shop's ledger that leaves with the shop is a shop that can leave.
+- **The intermediary and protection (48 to 53).** The hub cannot search on a person's behalf across everything; a ceiling a person set cannot be raised for them in an emergency by anyone else; a protection set while a person had capacity cannot be loosened by one party alone, including the person. Refusing dark patterns refuses some merchants.
+- **Keys, nodes and the hub (59 to 64).** Open code can be read by those who would evade it as well as those who would check it. A blind host cannot help a member who lost their key; a recoverer who cannot read cannot answer a question about the data either. The mark that attaches to no person cannot be used to exclude a person who is causing harm.
+- **Organisation (65 to 70).** Seats that cannot be bought cannot be sold to fund the foundation. A jury drawn by lot is slower than a vote. No balance means no float and no prepaid revenue; no escrow means custody is someone else's fee.
+
+----
+
 ## The family
 
 | Name | What it names |
