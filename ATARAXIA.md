@@ -79,10 +79,10 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 30. Selling out is prohibited by specification. Every offer contains a minimum number of candidates this household has never been offered by this presenter: nothing it has bought, nothing it has been given, nothing it has declined. Which of those the presenter picks is its own best guess, and the floor does not judge the guess. This is the exploration floor.
 31. There are no star ratings and no public reviews. The only review is one line written by oneself, visible to oneself, to the recipient if the writer says so, and to the merchant if the writer says so. A line is shown to no one else, and it never becomes a number.
-32. There are no discount codes.
-33. Analytics are aggregate only. No capability exists to store per-person events. There is no socket for third-party pixels, which makes retargeting technically impossible.
+32. There are no discount codes. A price that differs by who holds a code is not the same to everyone (clause 10), and a code's deadline is urgency (clause 34).
+33. Analytics are aggregate only, in a form from which no person can be recovered. Beyond the transaction record a person can export, nothing per person is stored: no event, no pixel, no socket for a third party, which is what makes retargeting impossible.
 34. No API exists to implement countdown timers, scarcity pressure, exit-intent interstitials, or automated abandoned-cart mail.
-35. The agent does not interpret. When interpretation is required it stops and hands the decision to a human. Escalation beats any terminal action.
+35. No terminal action is the agent's. A settlement follows a person's decisions or the expiry rule, a signature is the person's, and where a mandate or a clause is unclear the agent stops and asks rather than deciding.
 
 ## 6. Drafts and approval
 

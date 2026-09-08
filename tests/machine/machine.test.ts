@@ -117,6 +117,21 @@ describe("machine: an offer may be decided partially (§2.1)", () => {
 });
 
 describe("machine: settled is terminal (§2.1)", () => {
+  test("an offer nobody has decided cannot be settled (clause 35)", async () => {
+    // NOTE (mutation check, 2026-09-09): settle_anything let an offer be
+    // settled in any state. Both assertions failed with 200: a drafted
+    // offer and a presented one were closed before the household had
+    // decided anything, which is a terminal action the agent took alone.
+    const drafted = await createConformingOffer();
+    const early = await call("POST", `/offers/${drafted.id}/settle`, {});
+    expect(early.status).toBe(409);
+
+    const presented = await createConformingOffer();
+    await call("POST", `/offers/${presented.id}/present`, {});
+    const undecided = await call("POST", `/offers/${presented.id}/settle`, {});
+    expect(undecided.status).toBe(409);
+  });
+
   test("nothing moves an offer out of settled", async () => {
     // NOTE (mutation check, 2026-09-09): settled_is_not_terminal allowed a
     // withdraw after settlement. This assertion failed. §2.1 says corrections

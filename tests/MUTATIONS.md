@@ -120,6 +120,7 @@ can repeat any row.
 | `merchant_sees_every_note` | Every note returned to whoever asks as the merchant | 1 |
 | `notes_summary_route` | `GET /notes/summary?product=` registered, returning a count and a sentiment | 1 |
 | `any_party_note` | Any party name accepted in a note's `shared_with` | 1 |
+| `settle_anything` | The state guard on settlement removed, so an offer settles in any state | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -143,8 +144,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 139 probes, 136 have been
-shown to fail under at least one of the 121 mutations. The three that have not
+written from its output rather than from intent. Of 140 probes, 137 have been
+shown to fail under at least one of the 122 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the
