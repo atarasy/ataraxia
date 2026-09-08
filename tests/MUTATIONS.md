@@ -31,7 +31,7 @@ can repeat any row.
 | `invent_product` | A missing catalogue entry falls back to a price of 1000 | 1 |
 | `hide_presenter` | Dropped `presenter` from the offer serialisation | 1 |
 | `no_floor` | The exploration floor check disabled | 5 |
-| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count | 1 |
+| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1 |
 | `floor_bypass_field` | `exploration_floor_met` accepted from the request and honoured | 1 |
 | `floor_too_strict` | Comparison tightened to `marked <= required` | 1 |
 | `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 5, and 2 more at rate 0.6 |
@@ -117,6 +117,9 @@ can repeat any row.
 | `require_registered_merchant` | An offer refused when its candidates name a merchant the registry does not list | 1, and every probe that creates an offer, 62 in all: the reference catalogue's maker is unlisted, so the gate refuses everything |
 | `received_route` | `GET /households/{id}/received` registered, returning the products behind the household's gifts | 1 |
 | `ignore_band` | The band kept on a ceremonial offer and candidates no longer checked against it | 1 |
+| `merchant_sees_every_note` | Every note returned to whoever asks as the merchant | 1 |
+| `notes_summary_route` | `GET /notes/summary?product=` registered, returning a count and a sentiment | 1 |
+| `any_party_note` | Any party name accepted in a note's `shared_with` | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -140,8 +143,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 136 probes, 133 have been
-shown to fail under at least one of the 118 mutations. The three that have not
+written from its output rather than from intent. Of 139 probes, 136 have been
+shown to fail under at least one of the 121 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the

@@ -3,7 +3,9 @@
 **Clause 30, and specification §5.**
 
 An offer below the exploration floor is refused with `422`, no configuration
-bypasses the check, and the rate cannot reach zero.
+bypasses the check, and the rate cannot reach zero. Since 2026-09-09 an
+exploration candidate is one this household has never been offered by this
+presenter; a low prediction on a known product no longer qualifies.
 
 ## What a failure means
 

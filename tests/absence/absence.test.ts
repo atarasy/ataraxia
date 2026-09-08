@@ -4,6 +4,7 @@ import {
   conformingOffer,
   createConformingOffer,
   findKey,
+  freshHousehold,
   HOUSEHOLD,
   meansAnyOf,
   offerBody,
@@ -229,14 +230,15 @@ describe("absence: a presenter's view is vertical (clause 8)", () => {
     // NOTE (mutation check, 2026-09-09): vertical_view_not_vertical dropped
     // the presenter filter from the list. This assertion failed: the offer
     // declined here appeared in the view asked for under another name.
-    const offer = await createConformingOffer();
+    const household = freshHousehold();
+    const offer = await createConformingOffer({ household });
     await call("POST", `/offers/${offer.id}/present`, {});
     await call("POST", `/offers/${offer.id}/decisions`, {
       decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" })),
     });
     const other = await call(
       "GET",
-      `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent("someone-else")}`
+      `/offers?household=${encodeURIComponent(household)}&presenter=${encodeURIComponent("someone-else")}`
     );
     expect(other.status).toBe(200);
     const ids = ((other.body as { offers: { id: string }[] }).offers ?? []).map((o) => o.id);
@@ -286,6 +288,64 @@ describe("absence: the platform infers nothing across nodes (clause 9)", () => {
   });
 });
 
+describe("absence: a line is shown to whom the writer says, and never becomes a number (clause 31)", () => {
+  /**
+   * Clause 31, as rewritten on 2026-09-09. A line may reach the recipient
+   * and the merchant, each only when the writer said so, and nothing turns
+   * lines into a number.
+   */
+  test("the merchant reads a line only when the writer shared it", async () => {
+    // NOTE (mutation check, 2026-09-09): merchant_sees_every_note returned
+    // every note to whoever asked as the merchant. The first assertion
+    // failed with 200. A line the writer kept to themselves had reached
+    // the maker.
+    const offer = await createConformingOffer();
+    const candidate = offer.candidates[0]!.id;
+    const kept = await call("POST", `/candidates/${candidate}/note`, {
+      author: HOUSEHOLD,
+      text: "kept for the smell",
+      shared_with: [],
+    });
+    expect(kept.status).toBe(201);
+    const unshared = await call("GET", `/candidates/${candidate}/note?as=merchant`);
+    expect(unshared.status).toBe(404);
+
+    const shared = await call("POST", `/candidates/${candidate}/note`, {
+      author: HOUSEHOLD,
+      text: "the tin is hard to open",
+      shared_with: ["merchant"],
+    });
+    expect(shared.status).toBe(201);
+    const read = await call("GET", `/candidates/${candidate}/note?as=merchant`);
+    expect(read.status).toBe(200);
+    const notes = (read.body as { notes: { text: string }[] }).notes;
+    expect(notes.map((n) => n.text)).toEqual(["the tin is hard to open"]);
+    expect(findKey(read.body, meansAnyOf(["rating", "score", "stars", "sentiment", "count", "total"]))).toEqual([]);
+  });
+
+  test("no route turns lines into a number", async () => {
+    // NOTE (mutation check, 2026-09-09): notes_summary_route registered
+    // GET /notes/summary?product= returning a count and a sentiment. This
+    // assertion failed with 200.
+    for (const path of ["/notes/summary?product=tea-a", "/notes?product=tea-a", "/products/tea-a/notes", "/reviews?product=tea-a"]) {
+      const read = await call("GET", path);
+      expect(read.status).toBe(404);
+    }
+  });
+
+  test("a line cannot be shared with anyone but the recipient and the merchant", async () => {
+    // NOTE (mutation check, 2026-09-09): any_party_note accepted any party
+    // name in shared_with. This assertion failed with 201.
+    const offer = await createConformingOffer();
+    const posted = await call("POST", `/candidates/${offer.candidates[0]!.id}/note`, {
+      author: HOUSEHOLD,
+      text: "kept for the smell",
+      shared_with: ["public"],
+    });
+    expect(posted.status).toBe(400);
+  });
+});
+
 describe("absence: fields that must not exist (§3.3)", () => {
   test("a discount on a candidate is refused, not ignored", async () => {
     // NOTE (mutation check): the reference implementation's strict body check
@@ -318,7 +378,7 @@ describe("absence: fields that must not exist (§3.3)", () => {
     const noted = await call("POST", `/candidates/${candidate}/note`, {
       author: HOUSEHOLD,
       text: "kept for the smell",
-      visibility: "self",
+      shared_with: [],
       rating: 5,
     });
     expect(noted.status).toBe(400);

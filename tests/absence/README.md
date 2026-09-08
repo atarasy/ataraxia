@@ -12,7 +12,9 @@ model, the manager or a provider (clause 3). And clause 8: a presenter's view
 of a household is its own offers and nothing declined to anyone else, and no
 list can be asked for without naming a presenter. And clause 9: the
 prediction that comes back is the prediction that was sent, so the platform
-ran no model across nodes.
+ran no model across nodes. And clause 31: a line reaches the merchant only
+when the writer shared it, nothing turns lines into a number, and a line
+cannot be shared with anyone but the recipient and the merchant.
 
 ## What a failure means
 

@@ -1,9 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import {
   call,
   callSecond,
   createConformingOffer,
-  HOUSEHOLD,
+  freshHousehold,
   LINEAGE_EDGE,
   presenter,
 } from "../lib/probe.js";
@@ -23,15 +23,23 @@ import {
  * did.
  */
 
-const household = () => HOUSEHOLD;
+// Each test moves a household of its own. Since exploration became what a
+// household has never been offered (clause 30), a second offer to the same
+// household marking every product as exploration is refused, so the fixed
+// household cannot be seeded twice.
+let current = freshHousehold();
+beforeEach(() => {
+  current = freshHousehold();
+});
+const household = () => current;
 
 async function seedSomethingToMove() {
-  const offer = await createConformingOffer();
+  const offer = await createConformingOffer({ household: household() });
   await call("POST", `/offers/${offer.id}/present`, {});
   await call("POST", `/candidates/${offer.candidates[0]!.id}/note`, {
     author: household(),
     text: "kept for the smell",
-    visibility: "self",
+    shared_with: [],
   });
   await call("POST", `/offers/${offer.id}/decisions`, {
     decisions: offer.candidates.map((c, i) => ({

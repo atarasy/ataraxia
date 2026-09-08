@@ -23,6 +23,17 @@ function required(name: string): string {
 export const BASE = required("VALENCE_BASE_URL").replace(/\/+$/, "");
 export const CONFIG_VERSION = required("VALENCE_CONFIG_VERSION");
 export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
+
+/**
+ * A household nobody has offered anything to. Since 2026-09-09 exploration
+ * is what a household has never been offered by this presenter (clause 30,
+ * §5.1), so an offer marking every product as exploration is conforming only
+ * for a household that has seen none of them. Offers default to a fresh one;
+ * a probe that needs the same household twice names it.
+ */
+export function freshHousehold(): string {
+  return `${HOUSEHOLD}-${Math.random().toString(36).slice(2, 10)}`;
+}
 export const MANDATE = required("VALENCE_MANDATE");
 /**
  * §5 publishes no recommended rate, so the suite cannot assume one. The
@@ -310,7 +321,7 @@ export function offerBody(
 ): Record<string, unknown> {
   return {
     binding: "digital",
-    household: HOUSEHOLD,
+    household: freshHousehold(),
     purpose: "replenish",
     config_version: CONFIG_VERSION,
     expires_at: soon(60_000),

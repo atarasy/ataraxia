@@ -3,10 +3,10 @@ import {
   call,
   conformingOffer,
   floorFor,
-  HOUSEHOLD,
+  freshHousehold,
   offerBody,
-  PRODUCTS,
   presenter,
+  PRODUCTS,
 } from "../lib/probe.js";
 
 /**
@@ -20,10 +20,10 @@ import {
  * probes look for a way to reach it and expect not to find one.
  */
 
-const countOf = async (): Promise<number> => {
+const countOf = async (household: string): Promise<number> => {
   const list = await call(
     "GET",
-    `/offers?household=${encodeURIComponent(HOUSEHOLD)}&presenter=${encodeURIComponent(await presenter())}`
+    `/offers?household=${encodeURIComponent(household)}&presenter=${encodeURIComponent(await presenter())}`
   );
   const body = list.body as { offers?: unknown[] };
   return body.offers?.length ?? 0;
@@ -75,16 +75,18 @@ describe("floor: refusal", () => {
     // NOTE (mutation check, 2026-09-08): no_floor. The refused offer
     // appeared in the household's list, which this counted. A floor that
     // refuses the response but keeps the row has refused nothing.
-    const before = await countOf();
+    const household = freshHousehold();
+    const before = await countOf(household);
     const body = offerBody(
       PRODUCTS.slice(0, 3).map((product) => ({
         product,
         predicted_conversion: 0.9,
         is_exploration: false,
-      }))
+      })),
+      { household }
     );
     await call("POST", "/offers", body);
-    expect(await countOf()).toBe(before);
+    expect(await countOf(household)).toBe(before);
   });
 });
 
@@ -226,12 +228,14 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
     // its own setup.
     const known = PRODUCTS[0]!;
     const required = floorFor(PRODUCTS.length);
+    const household = freshHousehold();
     const first = offerBody(
       PRODUCTS.map((product, i) => ({
         product,
         predicted_conversion: i < required ? 0.05 : 0.9,
         is_exploration: i < required,
-      }))
+      })),
+      { household }
     );
     const created = await call("POST", "/offers", first);
     expect(created.status).toBe(201);
@@ -246,15 +250,17 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
     });
     expect(decided.status).toBe(200);
 
-    // The same product offered back as exploration, with a high prediction.
-    // It now qualifies under neither test in §5.1, and the count is met, so
-    // an implementation that checks only the count accepts it.
+    // The same product offered back as exploration. It has been offered to
+    // this household before, so under §5.1 it is not exploration whatever the
+    // prediction, and the count is met, so an implementation that checks only
+    // the count accepts it.
     const padded = offerBody(
       PRODUCTS.map((product, i) => ({
         product,
         predicted_conversion: product === known ? 0.95 : i < required ? 0.05 : 0.9,
         is_exploration: i < required,
-      }))
+      })),
+      { household }
     );
     const refused = await call("POST", "/offers", padded);
     expect(refused.status).toBe(422);
