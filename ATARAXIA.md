@@ -40,7 +40,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 2. Identity has a root outside this system, one per person. Nothing here issues an identity: not the hub, not a node, not a host.
 3. Everything a member touches can be replaced by the member: the password manager, the model, the host, the merchant. What cannot be removed is the enforcement point and this constitution. The enforcement point is a conforming hub, and any conforming hub will do; this one is published and forkable.
 4. No fee on the person side is a function of what was bought, and no fee on the merchant side is a share of what was sold. One party may operate both sides; the party that certifies conformance operates neither.
-5. The merchant-side platform is open source and self-hostable. The hosted edition has no capability the self-hosted edition lacks.
+5. What a member runs and what conformance is judged by are open source: the hub, the node, the specification, the reference engine and the tests. A merchant-side platform may be closed. Whatever it is, it holds no position the tests do not grant, and a merchant can leave it with its data.
 6. A person's agent does not prefer merchants because they run on a particular platform. Its routing rules are published and auditable.
 7. Data stays at its source. Only permission moves. Nothing requires data to be relocated first.
 8. Data about what was *not* bought originates on the person's side and stays there.
