@@ -59,7 +59,6 @@ can repeat any row.
 | `date_on_own_edges` | The date and product kept on the viewer's own lineage edges | 1 |
 | `second_degree_circle` | The circle walked one hop further out | 1 |
 | `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 2 |
-| `consumed_at_price` | A consumed candidate settled at price rather than cost | 1 |
 | `credit_the_trial` | What was consumed accrued as a balance and taken off the next settlement. Re-measured 2026-09-09 after every offer took a fresh household, which had made a per-household balance invisible; the probe now names one household | 1 |
 | `withdraw_keeps_decided` | Withdrawing left the undecided candidates as `offered` | 1 |
 | `decide_all_or_nothing` | A decision naming fewer than every candidate refused | 3 |
@@ -165,25 +164,31 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. There are **143 mutations and
-159 declarations**; the proven count is being re-measured under the rule below
-and is not quoted here until it is.
+written from its output rather than from intent. Measured on 2026-09-09 after
+the clause review, both adversarial passes and the renumbering, against the
+reference engine at an exploration rate of 0.2: **142 mutations, 158
+declarations, 172 probes at runtime, 170 of them shown to fail.**
 
-**What "proven" counts, corrected on 2026-09-09.** An adversarial pass found the
+**What "proven" counts, corrected the same day.** An adversarial pass found the
 earlier number counting probes that failed in their setup rather than in their
 assertion. Two mutations, `require_registered_merchant` and
 `reject_foreign_offer_client`, break `POST /offers` for the whole suite, so
 every probe that creates an offer fails under them whatever it asserts.
 `coverage.sh` now names those two and leaves them out of the count; they are
-still run, and what they catch is recorded in their own rows. The same pass
-found the ledger claiming 128 mutations against 127 scripts, and claiming that
-every script asserts its anchor when sixty do not. Both are fixed at the
-harness rather than in the scripts: `mutate.sh` now exits 2 when a mutation
-changes nothing in `src`, so an anchor that drifts is reported as INERT instead
-of passing quietly, and `coverage.sh` lists any it found.
+still run, and what they catch is recorded in their own rows. Their own probes
+are therefore among the unproven below, which is the honest consequence.
+
+**Five mutations were reported INERT by that run**, which is the check working:
+`mutate.sh` exits 2 when a mutation changes nothing in `src`, so an anchor that
+drifted is reported rather than passing quietly. `consumed_at_price`,
+`ignore_band`, `settled_is_not_terminal`, `unredeemed_revenue` and
+`withdraw_twice` had all drifted under the day's engine changes. Four are
+re-anchored and each was re-measured against its own probe. `consumed_at_price`
+is deleted: it charged a consumed candidate at price against a cost basis, and
+the cost basis left the model, so the behaviour it broke is now the correct one.
 
 The probes that have not been shown to fail say so in their own notes and are
-counted as unproven:
+counted as unproven. There are five:
 
 - one runs only against a deployment with no physical binding, which the
   reference engine is not
@@ -191,6 +196,11 @@ counted as unproven:
   authenticates nothing, so they are identical for the wrong reason
 - one is covered only when the suite runs at an exploration rate above 0.5,
   which was done and is recorded
+- two are the probes of the two excluded mutations, the registry as a gate and
+  the endpoint that answers one client differently. Each was measured failing
+  under its own mutation when that mutation was run on its own; what the count
+  will not do is credit them for the setup failures those mutations cause
+  everywhere else
 
 ## What the full re-measurement of 2026-09-09 found
 

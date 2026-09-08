@@ -101,13 +101,13 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine, 172 probes at runtime from 159 declarations, against 143 deliberate
-breaks listed in the ledger. The proven count is being re-measured under a
-corrected rule: two of those breaks stop any offer being created, so probes
-that failed only in their setup were being counted as shown-to-fail. The
-ledger says what changed and `coverage.sh` now excludes those two, reports any
-mutation that changed nothing, and measures which probe each break caught
-rather than taking the notes on trust.
+engine: 172 probes at runtime from 158 declarations, against 142 deliberate
+breaks listed in the ledger, and 170 of the 172 have been shown to fail under
+at least one break. The five that have not say so in their own notes and the
+ledger says why. Two of the breaks stop any offer being created, so probes
+that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
+excludes those two by name, reports any mutation that changed nothing, and
+measures which probe each break caught rather than taking the notes on trust.
 
 `opacity/` and `exit/` were the last two written, and later than the rest for a
 reason that was not schedule. Both test a hub rather than an offer engine:
