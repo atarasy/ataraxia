@@ -96,11 +96,11 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 41. Permission is requested at the moment of use, scoped and time-limited. Blanket consent in a settings screen does not exist.
 42. The default recipient of data is the person's own agent and nothing else. Retailer models, advertising and research each require explicit permission.
-43. A person does not sell their data. No capability to sell it is built. Value is returned as function. The single exception is aggregated, consented, compensated research participation.
+43. A person does not sell their data. No capability to sell it is built, and no grant carries a price. Value is returned as function. The one exception is a computation across nodes under clause 9; what a person receives for taking part is settled outside the grant and is never its term.
 44. The list of permissions is always visible and each can be revoked individually.
 45. Changing the model behind an agent does not move the permission ledger or the records.
 46. An agent does not prefer merchants that do not return data.
-47. Customer data is retained in a form the customer can export in full at any time. A ledger belongs to the shop, not the representative, and the shop holds the right to export it.
+47. A person's data is held in a form the person can export in full at any time. A shop's ledger belongs to the shop, not to its representative, and the shop can export it in full at any time.
 
 ## 8. The intermediary and protection
 
