@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { call, conformingOffer, HAS_PHYSICAL, PRICES } from "../lib/probe.js";
+import {
+  call,
+  conformingOffer,
+  HAS_PHYSICAL,
+  PRICES,
+  RECOVERY_GRACE_DAYS,
+  sleep,
+} from "../lib/probe.js";
 
 /**
  * Specification §3.2 and §11, and §13 condition 8.
@@ -244,5 +251,130 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     for (const candidate of offer.candidates) {
       expect(candidate.unit_price).toBe(PRICES[candidate.product]);
     }
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
+  /**
+   * The operations the valences alone do not give you. Goods sit in a home,
+   * the route comes back for what was not used, and what is never collected
+   * becomes a loss to whoever holds the stock.
+   *
+   * The rule these probes exist for: silence in the physical binding does not
+   * mean the same thing as silence in the digital one. A digital candidate
+   * nobody decided is `returned`, because no order should be created by
+   * silence. A physical candidate nobody decided is still in someone's house,
+   * and only the route or the deadline can say what became of it.
+   */
+  const soon = (ms: number) => Date.now() + ms;
+
+  async function placed(expiresIn = 60_000) {
+    const created = await call(
+      "POST",
+      "/offers",
+      conformingOffer({ binding: "physical", expires_at: soon(expiresIn) })
+    );
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    const presented = await call("POST", `/offers/${offer.id}/present`, {});
+    expect(presented.status).toBe(200);
+    return offer;
+  }
+
+  test("presenting a physical offer opens a recovery with a deadline", async () => {
+    // NOTE (mutation check, 2026-09-09): no_recovery_on_present stopped
+    // opening one. This assertion failed with 404. Without a deadline there is
+    // nothing for the loss rule to read, and goods in a home have no end date.
+    const offer = await placed();
+    const recovery = await call("GET", `/offers/${offer.id}/recovery`);
+    expect(recovery.status).toBe(200);
+    const row = recovery.body as { due_at: number; grace_days: number; collected_at: number | null };
+    expect(typeof row.due_at).toBe("number");
+    expect(row.grace_days).toBeGreaterThanOrEqual(0);
+    expect(row.collected_at).toBeNull();
+  });
+
+  test("a collection records what came back and what was used", async () => {
+    // NOTE (mutation check, 2026-09-09): collect_ignores_consumed dropped the
+    // consumed list. This assertion failed on the valence: a candidate the
+    // household tried came back as `returned` and settled at nothing, which
+    // makes trying free and removes the middle term §6.2 exists for.
+    const offer = await placed();
+    const [first, second, ...rest] = offer.candidates;
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [second!.id, ...rest.map((c) => c.id)],
+      consumed: [first!.id],
+    });
+    expect(collected.status).toBe(200);
+
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { id: string; valence: string }[] }).candidates;
+    expect(candidates.find((c) => c.id === first!.id)!.valence).toBe("consumed");
+    expect(candidates.find((c) => c.id === second!.id)!.valence).toBe("returned");
+  });
+
+  test("a candidate cannot be both returned and consumed", async () => {
+    const offer = await placed();
+    const both = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [offer.candidates[0]!.id],
+      consumed: [offer.candidates[0]!.id],
+    });
+    expect([400, 422]).toContain(both.status);
+  });
+
+  test("collecting twice is refused", async () => {
+    const offer = await placed();
+    const body = { returned: offer.candidates.map((c) => c.id), consumed: [] };
+    expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(200);
+    expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(409);
+  });
+
+  test("an uncollected candidate is not returned at expiry", async () => {
+    // NOTE (mutation check, 2026-09-09): physical_expiry_returns applied the
+    // digital rule to the physical binding, so everything uncollected became
+    // `returned` the moment the offer expired. This assertion failed. The
+    // goods are in a house and nobody has looked at them; calling that a
+    // return is a claim about the world rather than a default.
+    const offer = await placed(1_500);
+    await sleep(2_000);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { valence: string }[] }).candidates;
+    expect(candidates.every((c) => c.valence !== "returned")).toBe(true);
+  });
+
+  test.if(RECOVERY_GRACE_DAYS === 0)("what is never collected becomes lost, and is not billed", async () => {
+    // NOTE (mutation check, 2026-09-09): never_lost removed the deadline, so
+    // uncollected candidates stayed `offered` forever and the offer could not
+    // settle. This assertion failed. Loss has to land somewhere, and §3.2 says
+    // it lands on the stock holder rather than the household.
+    //
+    // It runs only where the deployment declares a grace of zero days. A probe
+    // that waited a fixed interval against a three-day grace would never reach
+    // the deadline and would report that the rule works.
+    const offer = await placed(1_000);
+    await sleep(1_500);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const amounts = settled.body as {
+      lost_amount: number;
+      charged: number;
+      kept_amount: number;
+    };
+    expect(amounts.lost_amount).toBeGreaterThan(0);
+    expect(amounts.charged).toBe(0);
+    expect(amounts.kept_amount).toBe(0);
+  }, 20_000);
+});
+
+describe.if(HAS_PHYSICAL)("binding: eligibility for placement (§11.1)", () => {
+  test("a product with no eligibility recorded cannot be placed", async () => {
+    // NOTE (mutation check, 2026-09-09): place_anything removed the check.
+    // This assertion failed with 201. §11.1 keeps chilled, bulky and regulated
+    // goods out of the physical binding, and a lorry is a bad place to
+    // discover that a product cannot go in a home.
+    const body = conformingOffer({ binding: "physical" });
+    (body.candidates as Record<string, unknown>[])[0]!.product = "not-in-the-catalogue";
+    const created = await call("POST", "/offers", body);
+    expect([404, 422]).toContain(created.status);
   });
 });

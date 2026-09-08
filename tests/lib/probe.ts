@@ -205,6 +205,22 @@ export async function callSecond(
   return { status: response.status, body: parsed, text };
 }
 
+/**
+ * Days after the recovery deadline before an uncollected candidate is `lost`,
+ * as this deployment runs it.
+ *
+ * §11 gives no figure, like §5's exploration rate, so the suite asks rather
+ * than assumes. A probe that waited a fixed interval would pass against a
+ * deployment with a three-day grace by never reaching the deadline, and report
+ * that the loss rule works.
+ */
+export const RECOVERY_GRACE_DAYS = Number(
+  required("VALENCE_RECOVERY_GRACE_DAYS")
+);
+if (!Number.isFinite(RECOVERY_GRACE_DAYS) || RECOVERY_GRACE_DAYS < 0) {
+  throw new Error("VALENCE_RECOVERY_GRACE_DAYS must be zero or more");
+}
+
 export type Probe = {
   status: number;
   body: unknown;

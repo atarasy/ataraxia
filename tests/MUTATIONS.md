@@ -86,6 +86,13 @@ can repeat any row.
 | `empty_scope_ok` | A permission accepted with a scope naming nothing | 1 |
 | `revoke_revokes_everything` | Revoking one permission stamps them all | 1 |
 | `global_permissions_route` | `GET /permissions` registered, listing them to anyone | 1 |
+| `no_recovery_on_present` | Presenting a physical offer opens no recovery | 2 |
+| `collect_ignores_consumed` | The consumed list dropped from a collection | 2 |
+| `physical_expiry_returns` | The digital expiry rule applied to the physical binding | 2 |
+| `never_lost` | The loss deadline removed, so uncollected candidates stay undecided | 1 |
+| `place_anything` | The eligibility check removed, and an unknown product given a price | 2 |
+| `collect_twice` | A second collection accepted for one offer | 1 |
+| `returned_and_consumed_ok` | A candidate accepted as both returned and consumed | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -109,8 +116,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Of 104 probes, 101 have been
-shown to fail under at least one of the 87 mutations. The three that have not
+written from its output rather than from intent. Of 111 probes, 108 have been
+shown to fail under at least one of the 94 mutations. The three that have not
 say so in their own notes and are counted as unproven:
 
 - one runs only against a deployment with no physical binding, which the

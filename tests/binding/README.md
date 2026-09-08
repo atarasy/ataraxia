@@ -38,3 +38,25 @@ That is why §6 of the specification now names a `charged` amount, required to
 equal `kept_amount + consumed_amount`, and why a probe here checks the identity
 rather than the parts. A receipt a household cannot reconcile against its own
 charge is not a receipt.
+
+
+## Recovery, added 2026-09-09
+
+The rest of §11, built when the Stage 0 replenishment customer was decided as a
+type whose decision criterion is recovery in item count.
+
+The rule these probes exist for is that **silence means different things in the
+two bindings**. §2.2 makes an undecided digital candidate `returned` at expiry,
+because an order is a debt and none should be created by silence. A physical
+candidate cannot follow that rule: the goods are in someone's home, nobody has
+looked at them, and recording them as returned is a claim about the world.
+
+So only two things resolve an undecided physical candidate. The collection says
+what came back unopened and what was used, and the deadline says the rest is
+lost. `physical_expiry_returns` is the mutation that applies the digital rule to
+the physical binding, and it is the one worth understanding before changing
+anything here.
+
+The loss probe runs only where the deployment declares a grace of zero days. A
+probe that waited a fixed interval against a three-day grace would never reach
+the deadline and would report that the rule works.

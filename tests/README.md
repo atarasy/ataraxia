@@ -47,7 +47,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twelve environment variables:
+as thirteen environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -62,11 +62,12 @@ as twelve environment variables:
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
 | `VALENCE_PRICES_LATER` | the prices in that later catalogue, as JSON |
 | `VALENCE_BINDINGS` | which bindings this deployment implements, comma separated |
+| `VALENCE_RECOVERY_GRACE_DAYS` | days after the recovery deadline before an uncollected candidate is lost |
 | `VALENCE_SECOND_HOST_URL` | a second host of the same implementation, for the move in `exit/` |
 
 Seeding a catalogue and attesting a key are deployment plumbing the
 specification does not describe, so the suite refuses to guess at routes for
-them and asks for the results instead. None of the twelve is optional: a probe
+them and asks for the results instead. None of the thirteen is optional: a probe
 that skips when its fixture is missing is a probe an implementation passes by
 omission.
 
