@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   call,
+  conformingOffer,
   findKey,
   HOUSEHOLD,
+  MANDATE_STATE,
   meansAnyOf,
   PRODUCTS,
+  signMandate,
+  sleep,
   soon,
 } from "../lib/probe.js";
 
@@ -321,5 +325,146 @@ describe("permissions: the ledger is consulted (clause 20, §7.4)", () => {
       const read = await call("GET", `/households/${encodeURIComponent(recipient)}/${name}`);
       expect(read.status).toBe(404);
     }
+  });
+});
+
+describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", () => {
+  /**
+   * Until 2026-09-09 a mandate was a reference an offer carried, so clauses
+   * 46 and 47 were promises: nothing held a ceiling and nothing could tell a
+   * loosening from a tightening. What makes them checkable is writing down
+   * which changes need whose signature.
+   */
+  const next = (over: Partial<typeof MANDATE_STATE>) => ({
+    id: MANDATE_STATE.id,
+    household: MANDATE_STATE.household,
+    ceiling_out_of_network: MANDATE_STATE.ceiling_out_of_network,
+    co_signers: MANDATE_STATE.co_signers,
+    lapses_at: MANDATE_STATE.lapses_at,
+    version: MANDATE_STATE.version + 1,
+    ...over,
+  });
+
+  test("raising the ceiling without the co-signer is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): loosening_without_cosigner required
+    // only the person. This assertion failed with 201: a protection set
+    // while someone had capacity was loosened by one party alone.
+    const raised = next({ ceiling_out_of_network: MANDATE_STATE.ceiling_out_of_network + 50000 });
+    const refused = await call("POST", "/_node/mandates", {
+      ...raised,
+      signatures: signMandate(raised, false),
+    });
+    expect(refused.status).toBe(422);
+
+    const accepted = await call("POST", "/_node/mandates", {
+      ...raised,
+      signatures: signMandate(raised, true),
+    });
+    expect(accepted.status).toBe(201);
+    expect((accepted.body as { ceiling_out_of_network: number }).ceiling_out_of_network).toBe(
+      raised.ceiling_out_of_network
+    );
+  });
+
+  test("lowering the ceiling is the person's alone", async () => {
+    // Clause 46: they may lower it. A tightening does not wait on anybody.
+    const read = await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`);
+    expect(read.status).toBe(200);
+    const current = read.body as typeof MANDATE_STATE;
+    const lowered = {
+      id: current.id,
+      household: current.household,
+      ceiling_out_of_network: Math.max(0, current.ceiling_out_of_network - 1000),
+      co_signers: current.co_signers,
+      lapses_at: current.lapses_at,
+      version: current.version + 1,
+    };
+    const accepted = await call("POST", "/_node/mandates", {
+      ...lowered,
+      signatures: signMandate(lowered, false),
+    });
+    expect(accepted.status).toBe(201);
+  });
+
+  test("dropping a co-signer is a loosening", async () => {
+    const read = await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`);
+    const current = read.body as typeof MANDATE_STATE;
+    const dropped = {
+      id: current.id,
+      household: current.household,
+      ceiling_out_of_network: current.ceiling_out_of_network,
+      co_signers: [],
+      lapses_at: current.lapses_at,
+      version: current.version + 1,
+    };
+    const refused = await call("POST", "/_node/mandates", {
+      ...dropped,
+      signatures: { [dropped.household]: signMandate(dropped, false)[dropped.household]! },
+    });
+    expect(refused.status).toBe(422);
+  });
+
+  test("an offer over the ceiling is refused at presentation", async () => {
+    // NOTE (mutation check, 2026-09-09): ceiling_not_enforced stopped
+    // checking. This assertion failed with 200: the ceiling the person
+    // signed bound nothing. Clause 46 is what a household sets against
+    // merchants the registry does not list, and the reference deployment's
+    // makers are not listed, so every candidate here counts toward it.
+    const own = `mandate-ceiling-${Math.random().toString(36).slice(2, 8)}`;
+    const tight = {
+      id: own,
+      household: MANDATE_STATE.household,
+      ceiling_out_of_network: 1,
+      co_signers: [],
+      lapses_at: soon(600_000),
+      version: 1,
+    };
+    const recorded = await call("POST", "/_node/mandates", {
+      ...tight,
+      signatures: signMandate(tight, false),
+    });
+    expect(recorded.status).toBe(201);
+
+    const created = await call("POST", "/offers", conformingOffer({ mandate: own }));
+    expect(created.status).toBe(201);
+    const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
+    expect(presented.status).toBe(422);
+    expect(presented.text).toContain("over_ceiling");
+  });
+
+  test("a lapsed mandate carries no offer", async () => {
+    // NOTE (mutation check, 2026-09-09): lapsed_mandate_still_works skipped
+    // the check. This assertion failed with 200. Clause 58: a standing
+    // mandate lapses unless renewed, and lapsing has to stop something.
+    const own = `mandate-lapsing-${Math.random().toString(36).slice(2, 8)}`;
+    const brief = {
+      id: own,
+      household: MANDATE_STATE.household,
+      ceiling_out_of_network: 10_000_000,
+      co_signers: [],
+      lapses_at: soon(2000),
+      version: 1,
+    };
+    const recorded = await call("POST", "/_node/mandates", {
+      ...brief,
+      signatures: signMandate(brief, false),
+    });
+    expect(recorded.status).toBe(201);
+
+    const created = await call("POST", "/offers", conformingOffer({ mandate: own }));
+    expect(created.status).toBe(201);
+    await sleep(2500);
+    const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
+    expect(presented.status).toBe(422);
+    expect(presented.text).toContain("lapsed");
+  });
+
+  test("a version that is not the next one is refused", async () => {
+    const stale = next({ version: MANDATE_STATE.version });
+    const refused = await call("POST", "/_node/mandates", {
+      ...stale,
+      signatures: signMandate(stale, true),
+    });
+    expect([409, 422]).toContain(refused.status);
   });
 });

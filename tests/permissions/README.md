@@ -1,6 +1,6 @@
 # permissions
 
-**Clauses 37 to 42, and clause 20, and specification §7.4.**
+**Clauses 20, 37 to 42, 46, 47 and 58, and specification §7.4 and §16.**
 
 Permission is asked at the moment of use, scoped and time-limited. The list is
 always visible and each entry is revoked on its own.

@@ -54,6 +54,71 @@ const MANDATE_KEY = (() => {
   }
 })();
 
+/**
+ * §16. The mandate this deployment seeded, and the private half of its one
+ * co-signer's key, so the probes can sign a change and see which signatures
+ * a loosening needs.
+ */
+export const MANDATE_STATE: {
+  id: string;
+  household: string;
+  ceiling_out_of_network: number;
+  co_signers: string[];
+  lapses_at: number;
+  version: number;
+  co_signer_key: string;
+} = (() => {
+  const raw = required("VALENCE_MANDATE_STATE");
+  try {
+    return JSON.parse(Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    throw new Error("VALENCE_MANDATE_STATE is not base64 of a JSON object");
+  }
+})();
+
+const CO_SIGNER_KEY = createPrivateKey(
+  Buffer.from(MANDATE_STATE.co_signer_key, "base64").toString("utf8")
+);
+
+/** §16.1. The bytes a mandate version is signed over. */
+export function canonicalMandate(m: {
+  id: string;
+  household: string;
+  ceiling_out_of_network: number;
+  co_signers: string[];
+  lapses_at: number;
+  version: number;
+}): Buffer {
+  return Buffer.from(
+    [
+      m.id,
+      m.household,
+      String(m.ceiling_out_of_network),
+      [...m.co_signers].sort().join(","),
+      String(m.lapses_at),
+      String(m.version),
+    ].join("\n"),
+    "utf8"
+  );
+}
+
+/** Signed by the household, and by the co-signer when `withCoSigner`. */
+export function signMandate(
+  m: Parameters<typeof canonicalMandate>[0],
+  withCoSigner: boolean
+): Record<string, string> {
+  const bytes = canonicalMandate(m);
+  const out: Record<string, string> = {
+    [m.household]: sign(null, bytes, MANDATE_KEY).toString("base64"),
+  };
+  if (withCoSigner) {
+    for (const k of MANDATE_STATE.co_signers) {
+      out[k] = sign(null, bytes, CO_SIGNER_KEY).toString("base64");
+    }
+  }
+  return out;
+}
+
 export type DecisionSpec = {
   candidate: string;
   valence: string;

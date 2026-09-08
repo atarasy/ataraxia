@@ -31,7 +31,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
 | [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
-| [`registry/`](registry/) | 1, 64, and spec §16 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
+| [`registry/`](registry/) | 1, 64, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -58,6 +58,7 @@ as thirteen environment variables:
 | `VALENCE_HOUSEHOLD` | a household the offers are placed with |
 | `VALENCE_MANDATE` | a mandate reference the implementation will accept |
 | `VALENCE_MANDATE_KEY` | the private half of the key registered for that mandate, base64 of a PKCS#8 PEM, so the probes can sign a decided set (§10.5) |
+| `VALENCE_MANDATE_STATE` | base64 of the seeded mandate as JSON, with `co_signer_key`, so the probes can sign a change and see which signatures a loosening needs (§16) |
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_UNATTESTED_EDGE` | a well-formed, signed edge whose giver's key no identity root endorsed (§7.1) |
@@ -102,7 +103,7 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 181 probes at runtime from 167 declarations, against 149 deliberate
+engine: 187 probes at runtime from 173 declarations, against 152 deliberate
 breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
 ledger says why. Two of the breaks stop any offer being created, so probes
