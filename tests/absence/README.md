@@ -1,6 +1,6 @@
 # absence
 
-**Clauses 1, 2, 3, 8, 9, 11, 12, 31, 32, 33, 34, and specification §3.3, §6, §7.5, §9.1.**
+**Clauses 1, 2, 3, 8, 9, 11, 12, 31, 32, 33, 34, 53, and specification §3.3, §6, §7.5, §9.1.**
 
 Capabilities that must not exist. A discount object, a star rating, an urgency
 field, a per-person tracking identifier, a tracking socket, and the routes that

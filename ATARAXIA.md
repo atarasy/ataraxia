@@ -104,13 +104,13 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 
 ## 8. The intermediary and protection
 
-48. The intermediary has no discovery, no search and no ranking.
+48. The hub, like the infrastructure (clause 1), has no search and no ranking. What a person sees is what was drafted for that person (clause 16) or what they asked for by name.
 49. It is an agent, not a reseller. It never holds title to goods, not for an instant.
-50. Payments to merchants outside the network are capped. A member may lower the cap; the layer may not raise it.
-51. Mandate thresholds and family co-signature are set while the person has capacity, and cannot be loosened without the consent of both the person and the named family member.
+50. A mandate carries a ceiling on what may be paid to a merchant outside the network. The ceiling is the person's: they sign it, they may lower it, and no layer holds a key that could raise it.
+51. Mandate thresholds and family co-signature are set while the person has capacity. A loosening is a change to the mandate signed by both the person and the named family member, and nothing else changes it.
 52. The agent does not execute an order where it detects auto-renewing subscriptions, obstructed cancellation, or manufactured scarcity. It shows the person why.
-53. Identity and payment credentials do not reach the merchant. Tokenisation and anonymised delivery are the default.
-54. Free shipping is never promised. The conditions for consolidation are stated plainly.
+53. No identity and no payment credential reaches the merchant. An offer, a receipt and a delivery carry a key, a token and a delivery code, and no field for a name, an address, a card or a contact.
+54. Withdrawn on 2026-09-09. That shipping is never called free and that the terms of consolidation are shown before a person decides are requirements on the approval surface, recorded in the hub surfaces specification, and not things that cannot be done. The number stays so that references to later clauses hold.
 
 ## 9. Billing and the merchant-side platform
 

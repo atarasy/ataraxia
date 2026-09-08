@@ -347,6 +347,57 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
   });
 });
 
+describe("absence: no identity and no credential reaches the merchant (clause 53)", () => {
+  /**
+   * Clause 53, as rewritten on 2026-09-09. An offer, a receipt and a
+   * delivery carry a key, a token and a delivery code, and no field for a
+   * name, an address, a card or a contact. The walk covers the documents a
+   * merchant-side implementation returns about a household.
+   */
+  const CREDENTIAL_KEYS = [
+    "address",
+    "postal_code",
+    "postcode",
+    "zip",
+    "street",
+    "name",
+    "full_name",
+    "given_name",
+    "family_name",
+    "phone",
+    "telephone",
+    "email",
+    "card",
+    "card_number",
+    "pan",
+    "cvv",
+    "expiry_month",
+    "iban",
+    "account_number",
+  ];
+
+  test("an offer and its settlement carry no name, address, card or contact", async () => {
+    // NOTE (mutation check, 2026-09-09): address_on_offer put a delivery
+    // address on the offer serialisation. This assertion failed, naming
+    // `address`. A delivery goes to a code (02 §3); an address on the offer
+    // is the merchant learning where the household lives.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(findKey(read.body, meansAnyOf(CREDENTIAL_KEYS))).toEqual([]);
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await decide(offer.id, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect(findKey(settled.body, meansAnyOf(CREDENTIAL_KEYS))).toEqual([]);
+  });
+});
+
 describe("absence: fields that must not exist (§3.3)", () => {
   test("a discount on a candidate is refused, not ignored", async () => {
     // NOTE (mutation check): the reference implementation's strict body check
