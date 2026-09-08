@@ -24,13 +24,13 @@ The method is borrowed. Removing a setting removes the temptation along with it.
 
 ## Enforcement
 
-| Enforced at | Clauses | Mechanism |
+| Enforced at | Sections | Mechanism |
 |---|---|---|
-| The hub (the approval surface a member sees) | 6, 7, 8, 10 | Open source, public conformance tests, the right to fork |
-| The engine (the state machine) | 2, 3, 4, 5 | Absent APIs cannot be called |
-| The foundation and the mark | 1, 9, 11 | Trademark licence, conformance tests, sortition jury |
+| The hub (the surfaces a member sees) | 6, 7, 8, 10 | Open source, public conformance tests, the right to fork |
+| The engine (the state machine and the endpoints) | 2, 3, 4, 5 | Absent APIs cannot be called; refused requests write nothing |
+| The foundation and the mark | 1, 11 | Trademark licence, conformance tests, sortition jury |
 
-Amendment requires a jury drawn by lot from members, plus the consent of the foundation. It is not amendable by a vote that can be mobilised.
+Section 9 is empty: its four clauses were withdrawn on 2026-09-09 to the operator's own charter, since the constitution binds what the mark certifies and a billing rail is not that. Amendment is by clause 66: the founder until the foundation exists, each change recorded with its reason and its cost; a jury drawn by lot with the foundation's consent after.
 
 ----
 
@@ -157,7 +157,7 @@ A list of things that cannot be done is also a list of things given up. The revi
 - **Curators and merchants (10 to 14).** A curator earns no margin; a maker prices the same to everyone or does not take part; a maker is the seller of record and carries first-line liability for what it sold. With no gate on taking part, quality assurance falls to the curator. Nothing is sold to a brand, so a brand's marketing budget has nowhere to go here.
 - **Gifts and the network (19 to 25).** A giver never learns whether a gift landed unless the recipient acts; a giver cannot avoid a duplicate alone; nobody sees how large the network is. Anyone may make a lineage edge, so an edge weighs what the key's root weighs and no more.
 - **Replacing the catalogue gift (26 to 28).** The giver of a ceremonial gift gives up choosing the item; someone holds the stock and the carriage of the default item that ships when nothing is chosen.
-- **Models and the engine (30 to 35).** The presenter carries, every time, candidates the household has never been offered, and in the physical binding they move and come back. There is no social proof, no promotion and no urgency to sell with; measurement of behaviour is forgone with retargeting. An agent that stops and asks is slower than one that decides.
+- **Models and the engine (30 to 35).** The presenter carries, on every offer while it still has something the household has not seen, candidates the household has never been offered, and in the physical binding they move and come back. There is no social proof, no promotion and no urgency to sell with; measurement of behaviour is forgone with retargeting. An agent that stops and asks is slower than one that decides.
 - **Drafts and approval (36 to 40).** Nothing ships that a person did not confirm, so a person who does not answer receives nothing; one reminder is all the nudging there is. Every hub must hold a key to confirm with.
 - **Data sovereignty (41 to 47).** No standing consent means being asked again, at the moment of use, every time. Data returned as function is data never sold, including by people who would have liked to. A shop's ledger that leaves with the shop is a shop that can leave.
 - **The intermediary and protection (48 to 53).** The hub cannot search on a person's behalf across everything; a ceiling a person set cannot be raised for them in an emergency by anyone else; a protection set while a person had capacity cannot be loosened by one party alone, including the person. Refusing dark patterns refuses some merchants.
