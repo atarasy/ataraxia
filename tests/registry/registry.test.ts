@@ -145,3 +145,22 @@ describe("registry: the mark is not a gate (clause 64, §15.2)", () => {
     expect(entries.every((e) => e.mark === true)).toBe(true);
   });
 });
+
+describe("registry: no entry names a platform (clause 6)", () => {
+  /**
+   * Clause 6, as rewritten on 2026-09-09. An agent prefers a merchant for
+   * what it does, never for where it is hosted, and the way that is made
+   * structural is that nothing it reads carries the field. An entry with a
+   * `platform`, `host` or `powered_by` is that field arriving.
+   */
+  const PLATFORM_KEYS = ["platform", "host", "hosted_by", "hosting", "edition", "powered_by", "vendor", "provider"];
+
+  test("the list names no platform on any entry", async () => {
+    // NOTE (mutation check, 2026-09-09): registry_names_platform put
+    // `platform: "atarasy-hosted"` on every entry. This assertion failed,
+    // naming entries[0].platform.
+    const list = await call("GET", "/registry?protocol=valence");
+    expect(list.status).toBe(200);
+    expect(findKey(list.body, meansAnyOf(PLATFORM_KEYS))).toEqual([]);
+  });
+});

@@ -52,7 +52,7 @@ async function deliberated(overrides: Record<string, unknown> = {}) {
   }
   const recorded = await call("POST", `/offers/${offer.id}/deliberation`, {
     per_candidate: perCandidate,
-    excluded: [{ product: "coffee-a", reason: "auto-renewing subscription" }],
+    excluded: [{ product: "coffee-a", reason: "auto_renewal" }],
     mandate: { kind: "individual", scope: "this offer", lapses_at: null },
     ...overrides,
   });
@@ -128,6 +128,17 @@ describe("approval: what a proposal must carry (clause 68)", () => {
     for (const row of body.excluded) {
       expect(row.reason).not.toBe("");
     }
+  });
+
+  test("a reason outside the published rules is refused (clause 6)", async () => {
+    // NOTE (mutation check, 2026-09-09): free_text_reason removed the check
+    // that a reason names a published rule. The deliberation was recorded
+    // with 201 and this assertion failed. A reason that can say anything is
+    // a routing rule nobody can audit, whatever the screen shows.
+    const { recorded } = await deliberated({
+      excluded: [{ product: "coffee-a", reason: "auto-renewing subscription" }],
+    });
+    expect(recorded.status).toBe(400);
   });
 });
 

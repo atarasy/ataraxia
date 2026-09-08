@@ -1,6 +1,6 @@
 # registry
 
-**Clause 1 and clause 64, and specification §15.**
+**Clauses 1, 6 and 64, and specification §15.**
 
 The endpoint registry resolves and does not rank.
 

@@ -1,6 +1,6 @@
 # approval
 
-**Clauses 40, 63, 67 and 68, and specification §10.**
+**Clauses 6, 40, 63, 67 and 68, and specification §10.**
 
 The screen a household is asked to sign, drawn by a party to no transaction.
 
