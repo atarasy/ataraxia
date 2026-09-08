@@ -247,12 +247,14 @@ describe("floor: what counts as novelty cannot be manufactured (§5)", () => {
   });
 });
 
-describe("floor: the floor asks for what exists (§5)", () => {
-  test("a presenter that has offered a household everything owes it no exploration", async () => {
-    // NOTE (mutation check, 2026-09-09): floor_ignores_exhaustion dropped
-    // the cap on the floor, so a second offer to a household that had seen
-    // every product was refused for lacking exploration it could not have.
-    // This assertion failed with 422.
+describe("floor: a presenter with nothing new makes no offer (§5)", () => {
+  test("an offer to a household that has seen everything is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): floor_ignores_exhaustion lets the
+    // offer through with no exploration, which is the sell-out a cap on the
+    // floor would have licensed. This assertion failed with 201.
+    // Clause 30's first sentence is only true if the floor does not bend to
+    // what the presenter has left: a small catalogue would otherwise reach
+    // "everything shown" once and sell to that household for ever after.
     const household = freshHousehold();
     const first = await call("POST", "/offers", conformingOffer({ household }));
     expect(first.status).toBe(201);
@@ -265,7 +267,8 @@ describe("floor: the floor asks for what exists (§5)", () => {
         { household }
       )
     );
-    expect(second.status).toBe(201);
+    expect(second.status).toBe(422);
+    expect(second.text).toContain("nothing_new");
   });
 });
 

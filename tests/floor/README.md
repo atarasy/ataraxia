@@ -5,7 +5,11 @@
 An offer below the exploration floor is refused with `422`, no configuration
 bypasses the check, and the rate cannot reach zero. Since 2026-09-09 an
 exploration candidate is one this household has never been offered by this
-presenter; a low prediction on a known product no longer qualifies.
+presenter; a low prediction on a known product no longer qualifies. A
+presenter with nothing new for a household makes it no offer at all, rather
+than an offer with no exploration: a cap of that shape was written and
+withdrawn the same day, because it made selling out reachable for any small
+catalogue.
 
 ## What a failure means
 

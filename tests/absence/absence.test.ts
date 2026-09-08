@@ -346,6 +346,35 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
     expect(second.status).toBe(409);
   });
 
+  test("a line reaches the recipient unless the writer says otherwise (clause 31)", async () => {
+    // NOTE (mutation check, 2026-09-09): note_default_nobody defaulted
+    // shared_with to nobody, so a line written before giving reached no one.
+    // The first assertion failed with 404. A default of nobody makes a
+    // writer opt in to the thing the field exists for.
+    const offer = await createConformingOffer();
+    const [a, b] = offer.candidates;
+    const written = await call("POST", `/candidates/${a!.id}/note`, {
+      author: HOUSEHOLD,
+      text: "this one made me think of you",
+    });
+    expect(written.status).toBe(201);
+    const toRecipient = await call("GET", `/candidates/${a!.id}/note?as=recipient`);
+    expect(toRecipient.status).toBe(200);
+    // The merchant is never a default: it is a party to the trade, not the gift.
+    const toMerchant = await call("GET", `/candidates/${a!.id}/note?as=merchant`);
+    expect(toMerchant.status).toBe(404);
+
+    // A writer who wants it kept to themselves says so.
+    const private_ = await call("POST", `/candidates/${b!.id}/note`, {
+      author: HOUSEHOLD,
+      text: "kept for the smell",
+      shared_with: [],
+    });
+    expect(private_.status).toBe(201);
+    const nobody = await call("GET", `/candidates/${b!.id}/note?as=recipient`);
+    expect(nobody.status).toBe(404);
+  });
+
   test("no route turns lines into a number", async () => {
     // NOTE (mutation check, 2026-09-09): notes_summary_route registered
     // GET /notes/summary?product= returning a count and a sentiment. This

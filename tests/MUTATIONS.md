@@ -125,7 +125,7 @@ can repeat any row.
 | `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 1, and every probe that creates an offer without naming a user-agent, 79 in all |
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
 | `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
-| `floor_ignores_exhaustion` | The cap on the floor dropped, so a household that has seen every product can never be offered again | 1 |
+| `floor_ignores_exhaustion` | An offer let through with no exploration to a household that has seen everything, which is the sell-out a cap on the floor would license. Rewritten 2026-09-09 when the cap itself was withdrawn | 1, and one unit test |
 | `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and one unit test |
 | `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 1, and 16 more across the suites that read a state the refusal left behind |
 | `withdraw_after_decision` | Withdraw allowed after a signed decision | 1 |
@@ -141,6 +141,7 @@ can repeat any row.
 | `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and one unit test |
 | `gift_is_billed` | A used gift billed to the person who received it | 1, and one unit test |
 | `cost_on_candidate` | A cost of goods invented and put on every candidate in the offer view | 1 |
+| `note_default_nobody` | A note's `shared_with` defaulted to nobody, so a line written before giving reaches no one | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -164,8 +165,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. There are **142 mutations and
-158 declarations**; the proven count is being re-measured under the rule below
+written from its output rather than from intent. There are **143 mutations and
+159 declarations**; the proven count is being re-measured under the rule below
 and is not quoted here until it is.
 
 **What "proven" counts, corrected on 2026-09-09.** An adversarial pass found the

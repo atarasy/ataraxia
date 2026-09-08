@@ -269,8 +269,21 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     // visible to a second offer to the same household, and since exploration
     // became what a household has never been offered, every offer defaults
     // to a fresh one unless named.
+    // One household for both offers, and one product held back from the
+    // first so the second has the novelty the floor requires (§5): a
+    // presenter with nothing new for a household makes it no offer.
     const household = freshHousehold();
-    const first = await call("POST", "/offers", physicalOffer({ household }));
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({
+        product,
+        quantity: 1,
+        predicted_conversion: 0.5,
+        is_exploration: i === 0,
+      })),
+    }));
     expect(first.status).toBe(201);
     const one = first.body as {
       id: string;
@@ -290,16 +303,16 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     // A second offer to the same household, kept in full.
     const second = await call("POST", "/offers", physicalOffer({
       household,
-      // Everything was offered to this household by the first offer, so
-      // nothing here is exploration and none is marked (§5.1); the floor
-      // asks for what exists (§5).
-      candidates: PRODUCTS.map((product) => ({
+      // The held-back product is the only novelty and carries the floor;
+      // the rest were offered before and cannot be marked (§5.1).
+      candidates: [held, ...shown].map((product, i) => ({
         product,
         quantity: 1,
         predicted_conversion: 0.5,
-        is_exploration: false,
+        is_exploration: i === 0,
       })),
     }));
+    expect(second.status).toBe(201);
     const two = second.body as {
       id: string;
       candidates: { id: string; unit_price: number; quantity: number }[];
@@ -335,7 +348,17 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     // Self-contained since 2026-09-09: the trial happens here, on one
     // household, rather than being inherited from the probe above.
     const household = freshHousehold();
-    const first = await call("POST", "/offers", physicalOffer({ household }));
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({
+        product,
+        quantity: 1,
+        predicted_conversion: 0.5,
+        is_exploration: i === 0,
+      })),
+    }));
     expect(first.status).toBe(201);
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
@@ -349,14 +372,11 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
 
     const created = await call("POST", "/offers", physicalOffer({
       household,
-      // Everything was offered to this household by the first offer, so
-      // nothing here is exploration and none is marked (§5.1); the floor
-      // asks for what exists (§5).
-      candidates: PRODUCTS.map((product) => ({
+      candidates: [held, ...shown].map((product, i) => ({
         product,
         quantity: 1,
         predicted_conversion: 0.5,
-        is_exploration: false,
+        is_exploration: i === 0,
       })),
     }));
     expect(created.status).toBe(201);
