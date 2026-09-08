@@ -29,6 +29,23 @@ const FORBIDDEN_ROUTES = [
   "/events/track",
 ];
 
+/**
+ * Clause 1. The infrastructure has no discovery, no search and no ranking.
+ *
+ * Added 2026-09-09, during the clause review, when clause 1 turned out to be
+ * the first clause in the constitution and checked by nothing. The five routes
+ * above are §9.1's; these four are the shapes discovery takes when it arrives
+ * under the name of a feature.
+ */
+const INTENT_LAYER_ROUTES = [
+  "/search",
+  "/discovery",
+  "/discover",
+  "/ranking",
+  "/recommendations",
+  "/trending",
+];
+
 /** Named as they would be if someone reintroduced them. */
 const FORBIDDEN_KEYS = [
   "discount",
@@ -96,6 +113,22 @@ describe("absence: routes that must not exist (§9.1)", () => {
       // with 200 instead of 404.
       const got = await call("GET", route);
       expect(got.status).toBe(404);
+    });
+  }
+});
+
+describe("absence: the infrastructure is not the intent layer (clause 1)", () => {
+  for (const route of INTENT_LAYER_ROUTES) {
+    test(`${route} is not a route, by any method`, async () => {
+      // NOTE (mutation check, 2026-09-09): search_route registered
+      // GET /search returning a ranked list. This assertion failed with 200.
+      // Clause 1 is what stops the infrastructure becoming the next layer that
+      // levies a rent on discovery, and a search endpoint is that layer
+      // arriving as a convenience.
+      for (const method of ["GET", "POST"]) {
+        const probe = await call(method, `${route}?q=tea`, method === "POST" ? { q: "tea" } : undefined);
+        expect(probe.status).toBe(404);
+      }
     });
   }
 });
