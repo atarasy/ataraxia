@@ -99,6 +99,10 @@ describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
   });
 
   test("an unknown giver and a giver with no acts are indistinguishable", async () => {
+    // NOTE (mutation check, 2026-09-09): unknown_giver_differs returned
+    // 404 for a key nobody had attested and 200 for a giver whose
+    // recipients had not acted. The difference answers a question about a
+    // person. This assertion failed.
     // The empty-versus-404 channel. If a giver nobody has heard of returned
     // something different from a giver whose recipients have not acted, the
     // difference would answer a question about a person.
@@ -136,6 +140,10 @@ describe("opacity: reciprocation is never prompted (clause 21)", () => {
   });
 
   test("an unanswered gift carries no deadline", async () => {
+    // NOTE (mutation check, 2026-09-09): deadline_on_receipt put a due
+    // date on each receipt. Clause 21 says reciprocation has no deadline,
+    // and a field is a deadline even when nothing enforces it. This
+    // assertion failed.
     await call("POST", "/lineage", LINEAGE_EDGE);
     const receipts = await call(
       "GET",
@@ -179,6 +187,8 @@ describe("opacity: the recipient's record (clause 22, §7.4)", () => {
   });
 
   test("a receipt names no product and no merchant", async () => {
+    // NOTE (mutation check, 2026-09-09): history_from_receipt put the
+    // product and the merchant back on the receipt. This assertion failed.
     await call("POST", "/lineage", LINEAGE_EDGE);
     const read = await call(
       "GET",
@@ -215,6 +225,9 @@ describe("opacity: the lineage circle (clause 24, §7.5)", () => {
   });
 
   test("the circle names the merchant and no aggregate", async () => {
+    // NOTE (mutation check, 2026-09-09): hide_merchant blanked the
+    // merchant on an accepted edge. Clause 24 says lineage does not hide
+    // merchants. This assertion failed.
     const circle = await call(
       "GET",
       `/lineage/circle?viewer=${encodeURIComponent(giver())}`
@@ -244,6 +257,10 @@ describe("opacity: the lineage circle (clause 24, §7.5)", () => {
 
 describe("opacity: timing", () => {
   test("a giver with acts and a giver without answer in comparable time", async () => {
+    // NOTE (mutation check, 2026-09-09): slow_when_there_are_acts spun for
+    // 120ms when the acts stream had something in it. A store consulted
+    // only when there is something in it answers by how long it takes.
+    // This assertion failed.
     // The response-timing channel. A surface that takes measurably longer when
     // there is something to report answers the question by how long it takes,
     // whatever it returns.

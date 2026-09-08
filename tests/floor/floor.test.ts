@@ -179,6 +179,11 @@ describe("floor: the boundary", () => {
   });
 
   test("one short of the floor is refused", async () => {
+    // NOTE (mutation check, 2026-09-09): floor_off_by_one, and this probe
+    // catches it only when the suite runs at a rate above 0.5. At the default
+    // 0.2 with five products the floor is one, and the probe returns early
+    // because "one short" is zero, which the probes above already cover. It
+    // was verified by running the whole suite at a rate of 0.6.
     // NOTE (mutation check, 2026-09-08): floor_off_by_one, run at a rate
     // of 0.6 so that the floor is above one and this probe does not skip.
     // This assertion failed with 201.
@@ -214,28 +219,42 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
     // qualification check from the reference engine, leaving the count. This
     // assertion failed with 201: an offer of two products the household had
     // already kept, both marked exploration, was accepted.
-    const [known, other] = PRODUCTS;
-
-    const first = offerBody([
-      { product: known!, predicted_conversion: 0.05, is_exploration: true },
-      { product: other!, predicted_conversion: 0.9, is_exploration: false },
-    ]);
+    // Built to meet the floor at whatever rate the deployment runs, because
+    // the earlier two-candidate version was refused for the floor rather than
+    // for padding once the rate went above 0.5, and the probe then failed on
+    // its own setup.
+    const known = PRODUCTS[0]!;
+    const required = floorFor(PRODUCTS.length);
+    const first = offerBody(
+      PRODUCTS.map((product, i) => ({
+        product,
+        predicted_conversion: i < required ? 0.05 : 0.9,
+        is_exploration: i < required,
+      }))
+    );
     const created = await call("POST", "/offers", first);
     expect(created.status).toBe(201);
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const decided = await call("POST", `/offers/${offer.id}/decisions`, {
-      decisions: [
-        { candidate: offer.candidates[0]!.id, valence: "kept", kept_as: "self" },
-        { candidate: offer.candidates[1]!.id, valence: "returned" },
-      ],
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
     });
     expect(decided.status).toBe(200);
 
-    const padded = offerBody([
-      { product: known!, predicted_conversion: 0.95, is_exploration: true },
-      { product: other!, predicted_conversion: 0.9, is_exploration: false },
-    ]);
+    // The same product offered back as exploration, with a high prediction.
+    // It now qualifies under neither test in §5.1, and the count is met, so
+    // an implementation that checks only the count accepts it.
+    const padded = offerBody(
+      PRODUCTS.map((product, i) => ({
+        product,
+        predicted_conversion: product === known ? 0.95 : i < required ? 0.05 : 0.9,
+        is_exploration: i < required,
+      }))
+    );
     const refused = await call("POST", "/offers", padded);
     expect(refused.status).toBe(422);
   });

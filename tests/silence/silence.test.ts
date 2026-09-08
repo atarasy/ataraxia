@@ -281,6 +281,9 @@ describe("settlement: terms are frozen at config_version (§6.3)", () => {
   });
 
   test("an offer made against the later catalogue carries the later price", async () => {
+    // NOTE (mutation check, 2026-09-09): ignore_config_version resolved
+    // the first catalogue whatever version the offer named, which would
+    // have made the freeze probe beside it vacuous. This assertion failed.
     // Guards the probe above from passing because the second catalogue is
     // inert. If this offer also came out at the earlier price, the deployment
     // is not honouring config_version at creation either and the freeze probe

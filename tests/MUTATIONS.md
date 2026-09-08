@@ -60,10 +60,47 @@ can repeat any row.
 | `second_degree_circle` | The circle walked one hop further out | 1 |
 | `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 2 |
 | `consumed_at_price` | A consumed candidate settled at price rather than cost | 1 |
+| `credit_the_trial` | What was consumed accrued as a balance and taken off the next settlement | 1 |
+| `withdraw_keeps_decided` | Withdrawing left the undecided candidates as `offered` | 1 |
+| `decide_all_or_nothing` | A decision naming fewer than every candidate refused | 3 |
+| `settled_is_not_terminal` | A withdraw accepted after settlement | 2 |
+| `export_only_what_surfaces_show` | The export built from the giver's surface instead of the record | 2 |
+| `export_drops_settlements` | Settlements left out of the export | 2 |
+| `recoverer_owns_every_channel` | The requirement for a channel outside the recoverer's control removed | 1 |
+| `anyone_can_recover` | The check that the caller is a named recoverer removed | 1 |
+| `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
+| `deadline_on_receipt` | A due date put on each receipt | 1 |
+| `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
+| `decide_before_present` | Decisions accepted on a drafted offer | 1 |
+| `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
+| `discount_after_trial` | A tenth off the price for a household that had consumed something | 1 |
+| `export_no_format` | The export's format string blanked | 3 |
+| `ignore_config_version` | The first catalogue resolved whatever version the offer named | 1 |
+| `import_accepts_anything` | An import accepted in any format | 1 |
+| `inaction_field_on_acts` | A `responded` field added to every act | 2 |
+| `present_expired` | An offer presented after its expiry | 1 |
+| `present_twice` | A drafted offer presented twice | 1 |
+| `recovery_not_logged` | The recovery log not written | 2 |
+| `refuse_the_physical_binding` | Physical offers refused while the deployment declares them | 8 |
+| `slow_when_there_are_acts` | 120ms spent when the acts stream has something in it | 1 |
+| `unknown_giver_404` | A 404 for a giver with no acts | 1 |
+| `unknown_giver_differs` | A 404 for an unattested key and a 200 for a quiet giver | 1 |
+| `withdraw_is_not_final` | Withdraw leaves candidates open, and a withdrawn offer can be decided | 3 |
+| `withdraw_twice` | An offer withdrawn twice | 1 |
 | `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 4 |
 
-Every probe in the four suites appears in the "probes that failed" column of at
-least one row.
+**Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
+in turn and collects the probes that failed, and the notes in the suites are
+written from its output rather than from intent. Of 83 probes, 80 have been
+shown to fail under at least one of the 69 mutations. The three that have not
+say so in their own notes and are counted as unproven:
+
+- one runs only against a deployment with no physical binding, which the
+  reference engine is not
+- one compares a recoverer's view with a stranger's, and the reference engine
+  authenticates nothing, so they are identical for the wrong reason
+- one is covered only when the suite runs at an exploration rate above 0.5,
+  which was done and is recorded
 
 ## What this exercise found
 
@@ -160,28 +197,30 @@ describe.
 ## What §13 actually gates
 
 §13 lists eight conditions and says passing the tests is what entitles an
-implementation to the mark. Six are covered and two partially. None is unchecked.
+implementation to the mark. All eight are covered.
 Counted against the probes, not asserted.
 
 | §13 condition | Gated? | By what, or why not |
 |---|---|---|
-| 1 state machine and expiry defaults | partial | The digital, ceremonial and physical rows of §2.2 are probed. `withdraw`, partial decide, and "settled is terminal" are not |
+| 1 state machine and expiry defaults | yes | `silence/` covers the three rows of §2.2 and `machine/` covers `withdraw`, partial deciding, and that `settled` is terminal |
 | 2 exploration floor, no bypass | yes | Eleven probes, both sides of the formula, six bypass shapes, and padding |
 | 3 no §9.1 route, no §3.3 field | yes | Ten route probes, three refusal probes, and a key walk over four documents. The walk does not cover every response shape |
 | 4 no recipient inaction disclosed | yes | Ten probes in `opacity/`: giving changes nothing on the giver's surface, no period frames an empty response, no route prompts reciprocation, a receipt resolves to nothing, and the viewer's own lineage edges carry no date |
-| 5 no household balance | partial | Two route shapes and six field names in any spelling. The positive half of §6.1, that a trial is deducted rather than credited, is not exercised |
+| 5 no household balance | yes | Two route shapes and six field names in any spelling, and `binding/` settles a trial and then a purchase to check that nothing carried forward |
 | 6 terms frozen at `config_version` | yes | The deployment declares a second, later catalogue with one product repriced, and a settlement against the earlier one is checked to charge the earlier price |
 | 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
 | 8 no household billed for `lost` | yes | `binding/` runs the physical binding where the deployment declares it, and checks that what is charged equals the breakdown |
 
-What remains partial is narrow and named: four transitions of the state machine
-(`withdraw`, `settle_default`, a partial decide, and "settled is terminal"), and
-the positive half of §6.1, that a trial is deducted from a later charge rather
-than credited to a balance. Neither gap lets an implementation do something the
-constitution forbids; both let one omit something the specification requires.
+Clauses 47, 61 and 62 are outside §13 and are covered by `exit/`, which runs
+against two hosts and asks each surface whether the second answers as the first
+did.
 
-`exit/` is still unwritten, and clauses 47, 61 and 62 are unchecked because of
-it. They are not part of §13.
+What no probe here reaches is stated in the suite READMEs rather than left to be
+found: the host's blindness is a property of what it stores rather than of its
+API, a reminder refusal that is really an hour-long backoff outlasts any probe,
+the routes an implementation does not have cannot be enumerated from outside,
+and the lineage circle differenced against the acts stream still yields a
+dateless form of inaction that nothing removes.
 
 ## Where the engine is
 

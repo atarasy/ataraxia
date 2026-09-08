@@ -1,23 +1,50 @@
 # exit
 
-**Clauses 47, 61 and 62.** Not written.
+**Clauses 47, 61 and 62.**
 
-Full export in a documented format; a node moves host intact; recovery and
-routine reading are separate powers, and recovery is logged.
+A household exports what it holds, moves its node to another host intact, and
+recovery is a power separate from reading.
 
-## Why it is not written
+## It needs two hosts, and that is the point
 
-Every clause here is about a node and its host. The reference work so far is an
-offer engine, which has neither. There is nothing yet to export and nowhere to
-move it to.
+The suite talks to `VALENCE_BASE_URL` and to `VALENCE_SECOND_HOST_URL`, and the
+second is empty of the household's node when the probes begin.
 
-## What it will need
+With one host the strongest question available is whether a file was produced,
+which is the weakest reading of clause 47. Fullness is not a field list: a
+surface added later can be missing from the export while the export still
+matches its own schema. So the question here is whether the second host answers
+the same questions the same way, and the probes ask each surface rather than
+comparing documents.
 
-Two hosts, and a node moved between them with its lineage, its notes and its
-settled offers intact. The probe that matters is not that an export file is
-produced but that the second host serves the same answers as the first.
+That distinction earned itself immediately. A mutation that dropped settlements
+from the export passed the equivalence probe, because no route read a
+settlement back and so nothing asked. §9 of the specification gained
+`GET /offers/{id}/settlement` as a result: a receipt a household cannot ask for
+again is one it can lose by closing a tab.
 
-Recovery is the harder half: a recoverer who can restore access must be shown
-*not* to be able to read in the ordinary course, and every recovery must appear
-in a log the household can read. A single power that does both is the failure
-this suite exists to catch.
+## What a failure means
+
+**Export**: the member cannot leave. Clause 47 is what makes the default host
+replaceable in practice rather than in principle, and an export that omits
+something quietly is worse than none, because it looks like a way out.
+
+**Move**: the node is not the member's. If lineage stops resolving after a
+move, the network has become a function of who hosts whom, which is what
+clause 25 forbids in the other direction.
+
+**Recovery**: a recoverer who can read is not a recoverer. The probe that
+matters most here is the one about notification channels: a recoverer holding
+the only channel can recover in silence, and clause 62's requirement to notify
+the person becomes decorative.
+
+## What it does not reach
+
+The host is meant to be blind (clause 61), and these probes cannot see whether
+it is. Blindness is a property of what the host stores, and a black-box probe
+against the host's own API is asking the wrong party. Checking it needs the
+storage, not the interface.
+
+The export format's stability across versions is not checked either. The
+probes assert that a format is named and that an unknown one is refused, which
+is the part that is checkable today.

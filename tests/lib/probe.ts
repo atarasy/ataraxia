@@ -173,6 +173,38 @@ if (!BINDINGS.includes("digital")) {
 
 export const HAS_PHYSICAL = BINDINGS.includes("physical");
 
+/**
+ * A second host of the same implementation, empty of this household's node.
+ *
+ * Clause 61 says a member can move an entire node to another host. Checking
+ * that against one host can only ask whether a file was produced, which is the
+ * weakest possible reading of clause 47. With two, the question becomes whether
+ * the second answers as the first did, which is the reading `exit/` uses.
+ */
+export const SECOND_HOST = required("VALENCE_SECOND_HOST_URL").replace(/\/+$/, "");
+
+/** Same call, against the receiving host. */
+export async function callSecond(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers: Record<string, string> = {}
+): Promise<Probe> {
+  const response = await fetch(`${SECOND_HOST}${path}`, {
+    method,
+    headers: { "content-type": "application/json", ...headers },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  let parsed: unknown = undefined;
+  try {
+    parsed = text === "" ? undefined : JSON.parse(text);
+  } catch {
+    parsed = undefined;
+  }
+  return { status: response.status, body: parsed, text };
+}
+
 export type Probe = {
   status: number;
   body: unknown;

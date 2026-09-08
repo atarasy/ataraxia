@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { call, conformingOffer, HAS_PHYSICAL } from "../lib/probe.js";
+import { call, conformingOffer, HAS_PHYSICAL, PRICES } from "../lib/probe.js";
 
 /**
  * Specification §3.2 and §11, and §13 condition 8.
@@ -18,6 +18,10 @@ const physicalOffer = (overrides: Record<string, unknown> = {}) =>
 
 describe("binding: what the deployment implements", () => {
   test("the declared bindings are what the endpoint accepts", async () => {
+    // NOTE (mutation check, 2026-09-09): refuse_the_physical_binding
+    // refused a physical offer while the deployment declared it. The probe
+    // exists so that a fixture cannot claim a binding the implementation
+    // does not accept, or hide one it does. This assertion failed.
     // A deployment that declares the physical binding and refuses it, or
     // refuses to declare one it accepts, has made the rest of this file
     // meaningless in either direction.
@@ -129,6 +133,10 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
   });
 
   test("the cost basis is never returned to the household", async () => {
+    // NOTE (mutation check, 2026-09-09): cost_on_candidate put a cost on
+    // every candidate in the offer view. A household that can read the
+    // cost basis can read the merchant's margin on every line. This
+    // assertion failed.
     // §6.2 records the cost basis on the presenter's side. A household that
     // can read it can read the merchant's margin on every line.
     const created = await call("POST", "/offers", physicalOffer());
@@ -143,6 +151,11 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
 
 describe.if(!HAS_PHYSICAL)("binding: the physical binding is absent", () => {
   test("consumed and lost cannot be reached from the digital binding", async () => {
+    // NOTE (no mutation, 2026-09-09): this probe has never been shown to fail,
+    // and it cannot be against the reference engine, which implements the
+    // physical binding. It runs only where a deployment declares the digital
+    // binding alone, and a fixture that declared that falsely is caught by the
+    // probe above rather than reaching this one. It is counted as unproven.
     const created = await call("POST", "/offers", conformingOffer());
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
@@ -151,6 +164,85 @@ describe.if(!HAS_PHYSICAL)("binding: the physical binding is absent", () => {
         decisions: [{ candidate: offer.candidates[0]!.id, valence }],
       });
       expect([400, 422]).toContain(decided.status);
+    }
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
+  /**
+   * The positive half of §6.1, and the last part of §13 condition 5 that was
+   * not checked. The negative half, that no route returns a balance, is in
+   * `absence/`. This is the half that asks whether one accrued anyway.
+   *
+   * §6.1 permits two settlements for a trial that precedes a purchase:
+   * deduct it from the eventual charge, or charge cost for what was consumed
+   * and nothing else. What it forbids is the third, holding the value as a
+   * balance the household can spend later, because that is a prepaid payment
+   * instrument.
+   */
+  test("what was consumed is charged once, and nothing carries forward", async () => {
+    // NOTE (mutation check, 2026-09-09): credit_the_trial accrued the consumed
+    // cost against the household and took it off the next settlement. This
+    // assertion failed on the second charge. A balance that is only ever spent
+    // down is still a balance.
+    const first = await call("POST", "/offers", physicalOffer());
+    expect(first.status).toBe(201);
+    const one = first.body as {
+      id: string;
+      candidates: { id: string; unit_price: number }[];
+    };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [tried, ...others] = one.candidates;
+    await call("POST", `/offers/${one.id}/decisions`, {
+      decisions: [
+        { candidate: tried!.id, valence: "consumed" },
+        ...others.map((c) => ({ candidate: c.id, valence: "returned" })),
+      ],
+    });
+    const trial = await call("POST", `/offers/${one.id}/settle`, {});
+    const trialCharge = (trial.body as { charged: number }).charged;
+    expect(trialCharge).toBeGreaterThan(0);
+
+    // A second offer to the same household, kept in full.
+    const second = await call("POST", "/offers", physicalOffer());
+    const two = second.body as {
+      id: string;
+      candidates: { id: string; unit_price: number; quantity: number }[];
+    };
+    await call("POST", `/offers/${two.id}/present`, {});
+    await call("POST", `/offers/${two.id}/decisions`, {
+      decisions: two.candidates.map((c) => ({
+        candidate: c.id,
+        valence: "kept",
+        kept_as: "self",
+      })),
+    });
+    const purchase = await call("POST", `/offers/${two.id}/settle`, {});
+    const amounts = purchase.body as { charged: number; kept_amount: number };
+
+    const full = two.candidates.reduce(
+      (sum, c) => sum + c.unit_price * c.quantity,
+      0
+    );
+    // The full price of what was kept, with nothing taken off for the trial.
+    expect(amounts.kept_amount).toBe(full);
+    expect(amounts.charged).toBe(full);
+  });
+
+  test("the price a household is shown does not move after a trial", async () => {
+    // NOTE (mutation check, 2026-09-09): discount_after_trial shaved a
+    // tenth off the price for a household that had consumed something. A
+    // discount is a discount whatever it is called, and clause 32 says
+    // there are none. This assertion failed.
+    // The other shape the same defect takes. Instead of a balance, the
+    // discount arrives as a lower price on the next offer, which clause 10
+    // forbids from the other direction and clause 32 forbids by name.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as {
+      candidates: { product: string; unit_price: number }[];
+    };
+    for (const candidate of offer.candidates) {
+      expect(candidate.unit_price).toBe(PRICES[candidate.product]);
     }
   });
 });
