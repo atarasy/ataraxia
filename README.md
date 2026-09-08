@@ -34,7 +34,7 @@ One further asymmetry is worth naming rather than hiding. This repository curren
 
 Conformance tests live in [`tests/`](tests/) and are runnable by anyone, against anyone's implementation, including ours. A build or host that passes them may use the mark. A build that fails loses it.
 
-Three of the five suites are written and two are not, and `tests/README.md` says which and why. What they check is a specific subset of the constitution: **capabilities that must be absent, and behaviours that must be refused.** Most of the constitution is not mechanically checkable, and the tests do not pretend otherwise.
+Four of the six suites are written and two are not, and `tests/README.md` says which and why. There were five when this directory was scoped; `lineage/` was added when reading from the clause list inward found clause 25, the guarantee this mark rests on, covered by nothing. What they check is a specific subset of the constitution: **capabilities that must be absent, and behaviours that must be refused.** Most of the constitution is not mechanically checkable, and the tests do not pretend otherwise.
 
 The mark attaches to software and hosts. **It never attaches to people.** Merchant endpoints and gift lineage do not discriminate on which hub produced a request — see clause 64, and the section on what this constitution does not protect.
 
