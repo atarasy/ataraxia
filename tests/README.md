@@ -101,7 +101,7 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 175 probes at runtime from 161 declarations, against 144 deliberate
+engine: 178 probes at runtime from 164 declarations, against 147 deliberate
 breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
 ledger says why. Two of the breaks stop any offer being created, so probes

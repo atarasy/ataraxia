@@ -1,6 +1,6 @@
 # exit
 
-**Clauses 43, 52 and 53.**
+**Clauses 43, 52 and 53, and clauses 5 and 43 for the shop's own export (§14.1).**
 
 A household exports what it holds, moves its node to another host intact, and
 recovery is a power separate from reading.

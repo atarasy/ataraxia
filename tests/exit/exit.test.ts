@@ -344,3 +344,71 @@ describe("exit: recovery is not reading (clause 53)", () => {
     expect(node.recoveries.length).toBeGreaterThan(0);
   });
 });
+
+describe("exit: a shop leaves with its ledgers (clauses 5, 43, §14.1)", () => {
+  /**
+   * Two clauses promised a merchant-side export and no route provided one
+   * until 2026-09-09. What a shop cannot rebuild if it is left behind is the
+   * catalogue: prices, makers, carriers and eligibility, version by version.
+   */
+  test("the export names its format and carries the catalogue and the offers", async () => {
+    // NOTE (mutation check, 2026-09-09): merchant_export_drops_configs left
+    // the catalogue out. This assertion failed. A shop that leaves without
+    // its catalogue leaves without the half it cannot reconstruct.
+    const who = await presenter();
+    await createConformingOffer();
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    expect(exported.status).toBe(200);
+    const shop = exported.body as {
+      format: string;
+      presenter: string;
+      configs: { version: string; presenter: string }[];
+      offers: { presenter: string }[];
+      settlements: unknown[];
+      notes: unknown[];
+    };
+    expect(shop.format).toBe("valence-merchant/1");
+    expect(shop.presenter).toBe(who);
+    expect(shop.configs.length).toBeGreaterThan(0);
+    expect(shop.offers.length).toBeGreaterThan(0);
+  });
+
+  test("it carries no other presenter's offers", async () => {
+    // NOTE (mutation check, 2026-09-09): merchant_export_leaks_others
+    // exported every offer in the engine. This assertion failed. Clause 8:
+    // a merchant holds what was declined to it and nothing declined elsewhere.
+    const who = await presenter();
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    const shop = exported.body as {
+      configs: { presenter: string }[];
+      offers: { presenter: string }[];
+    };
+    for (const o of shop.offers) expect(o.presenter).toBe(who);
+    for (const c of shop.configs) expect(c.presenter).toBe(who);
+  });
+
+  test("it carries only the lines a household shared with the merchant", async () => {
+    // NOTE (mutation check, 2026-09-09): merchant_export_leaks_notes put
+    // every line on the shop's candidates into its export. This assertion
+    // failed, finding the private one. Clause 27: a line reaches the
+    // merchant only when the writer shared it.
+    const who = await presenter();
+    const offer = await createConformingOffer();
+    const [a, b] = offer.candidates;
+    await call("POST", `/candidates/${a!.id}/note`, {
+      author: household(),
+      text: "a line the maker may read",
+      shared_with: ["merchant"],
+    });
+    await call("POST", `/candidates/${b!.id}/note`, {
+      author: household(),
+      text: "a line kept to myself",
+      shared_with: [],
+    });
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    const notes = (exported.body as { notes: { text: string }[] }).notes;
+    const texts = notes.map((n) => n.text);
+    expect(texts).toContain("a line the maker may read");
+    expect(texts).not.toContain("a line kept to myself");
+  });
+});
