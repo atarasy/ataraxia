@@ -55,6 +55,38 @@ if (PRODUCTS.length <= floorFor(PRODUCTS.length)) {
   );
 }
 
+/**
+ * A well-formed, correctly signed lineage edge that this implementation will
+ * accept. Signing one requires a key the identity root has attested, and
+ * attesting a key is deployment plumbing the specification does not describe,
+ * so the suite asks for the finished article rather than a route to make one.
+ *
+ * It is required rather than optional. §7.1 is the anti-discrimination
+ * guarantee the mark rests on, and a probe that skips when a fixture is
+ * missing is a probe an implementation can pass by omission.
+ */
+export const LINEAGE_EDGE: Record<string, unknown> = (() => {
+  const raw = required("VALENCE_LINEAGE_EDGE");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_LINEAGE_EDGE is not valid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("VALENCE_LINEAGE_EDGE must be a JSON object");
+  }
+  const edge = parsed as Record<string, unknown>;
+  for (const key of ["from", "to", "product", "merchant", "kind", "signature"]) {
+    if (typeof edge[key] !== "string" || edge[key] === "") {
+      throw new Error(`VALENCE_LINEAGE_EDGE is missing ${key}`);
+    }
+  }
+  return edge;
+})();
+
+export const LINEAGE_RECIPIENT = LINEAGE_EDGE.to as string;
+
 export type Probe = {
   status: number;
   body: unknown;

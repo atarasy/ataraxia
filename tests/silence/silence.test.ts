@@ -134,3 +134,78 @@ describe("silence: reminders (clause 37)", () => {
     expect(again.text.toLowerCase()).not.toContain("retry");
   });
 });
+
+describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {
+  /**
+   * The third row of the §2.2 table, and the only one where expiry ships
+   * something. A recipient who chooses nothing still receives, because the
+   * giver has already paid a price band and clause 28 forbids earning
+   * anything from an offer nobody redeemed.
+   *
+   * This is also the row where an implementation can be quietly profitable by
+   * doing nothing, which is why it is worth a probe of its own.
+   */
+  test("exactly one candidate is defaulted and the rest returned", async () => {
+    // NOTE (mutation check, 2026-09-08): unredeemed_revenue removed the
+    // ceremonial branch, so every candidate expired as `returned`. This
+    // assertion failed: nothing was defaulted, and the giver's price band was
+    // kept by the presenter.
+    const offer = await createConformingOffer({
+      purpose: "ceremonial",
+      expires_at: soon(EXPIRY_MS),
+    });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await sleep(EXPIRY_MS + 500);
+
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    const body = read.body as {
+      candidates: { valence: string; unit_price: number; quantity: number }[];
+    };
+    const defaulted = body.candidates.filter((c) => c.valence === "defaulted");
+    expect(defaulted.length).toBe(1);
+    expect(
+      body.candidates.filter((c) => c.valence === "returned").length
+    ).toBe(body.candidates.length - 1);
+
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as { kept_amount: number };
+    // Charged for the one that shipped, and for nothing else.
+    expect(settlement.kept_amount).toBe(
+      defaulted[0]!.unit_price * defaulted[0]!.quantity
+    );
+  });
+});
+
+describe("settlement: the offer's own prices (§6.3, §3.1)", () => {
+  test("a settlement charges the prices frozen on the offer", async () => {
+    // NOTE (mutation check, 2026-09-08): settle_at_current_price made the
+    // settlement read the presenter's live catalogue instead of the version
+    // stamped on the offer. Against a single catalogue version the amounts
+    // agree, so this probe did NOT catch it, and the note says so rather than
+    // claiming a catch it did not make. What it does catch is a settlement
+    // that charges anything other than the candidate prices the household was
+    // shown, which `leak_field_offer_view` and `accepts-unit-price` approach
+    // from the other side.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as {
+      candidates: { id: string; unit_price: number; quantity: number }[];
+    }).candidates;
+
+    await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions: candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect((settled.body as { kept_amount: number }).kept_amount).toBe(
+      candidates[0]!.unit_price * candidates[0]!.quantity
+    );
+  });
+});

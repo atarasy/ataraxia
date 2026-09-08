@@ -46,6 +46,16 @@ const FORBIDDEN_KEYS = [
   "tracking_id",
   "visitor_id",
   "anonymous_id",
+  // §6.1. A balance redeemable against goods is a prepaid payment instrument.
+  // Two probes below check that no route returns one; these check that none
+  // arrives as a field on something else, which is where it would go if the
+  // route were refused and the idea kept.
+  "balance",
+  "credit",
+  "credits",
+  "wallet",
+  "stored_value",
+  "points",
 ];
 
 /** §7.5: totals, network size and popularity are not displayed. */
@@ -175,6 +185,22 @@ describe("absence: aggregates that must not be displayed (§7.5)", () => {
     if (acts.status === 200) {
       expect(findKey(acts.body, looksLike(FORBIDDEN_AGGREGATES))).toEqual([]);
     }
+  });
+});
+
+describe("presence: what must not be hidden (clause 12)", () => {
+  test("an offer names the merchant", async () => {
+    // NOTE (mutation check, 2026-09-08): hide_presenter dropped `presenter`
+    // from the offer serialisation. This assertion failed. Every other probe
+    // in this file looks for something that must be absent; clause 12 is the
+    // one thing in reach here that must be present, and a suite made only of
+    // absences would let an implementation pass by returning nothing at all.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    const body = read.body as { presenter?: unknown };
+    expect(typeof body.presenter).toBe("string");
+    expect(body.presenter).not.toBe("");
   });
 });
 

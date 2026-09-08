@@ -55,6 +55,9 @@ describe("floor: refusal", () => {
   });
 
   test("the refusal names the floor rather than failing opaquely", async () => {
+    // NOTE (mutation check, 2026-09-08): no_floor, which made the
+    // endpoint return 201 with no message at all. A refusal a presenter
+    // cannot read is one they will route around rather than satisfy.
     const body = offerBody(
       PRODUCTS.slice(0, 3).map((product) => ({
         product,
@@ -68,6 +71,9 @@ describe("floor: refusal", () => {
   });
 
   test("nothing is written when the floor refuses", async () => {
+    // NOTE (mutation check, 2026-09-08): no_floor. The refused offer
+    // appeared in the household's list, which this counted. A floor that
+    // refuses the response but keeps the row has refused nothing.
     const before = await countOf();
     const body = offerBody(
       PRODUCTS.slice(0, 3).map((product) => ({

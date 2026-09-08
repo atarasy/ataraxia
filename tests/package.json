@@ -6,6 +6,6 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "test": "bun test absence floor silence"
+    "test": "bun test absence floor silence lineage"
   }
 }
