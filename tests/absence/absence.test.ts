@@ -6,9 +6,10 @@ import {
   findKey,
   HOUSEHOLD,
   meansAnyOf,
+  offerBody,
+  presenter,
   PRICES,
   PRODUCTS,
-  presenter,
 } from "../lib/probe.js";
 
 /**
@@ -247,6 +248,41 @@ describe("absence: a presenter's view is vertical (clause 8)", () => {
     // by omission.
     const union = await call("GET", `/offers?household=${encodeURIComponent(HOUSEHOLD)}`);
     expect(union.status).toBe(400);
+  });
+});
+
+describe("absence: the platform infers nothing across nodes (clause 9)", () => {
+  /**
+   * Clause 9, as rewritten on 2026-09-09. What the platform returns is what
+   * the merchant or the node sent. A prediction that comes back changed is a
+   * model the platform ran, and the only data it could have run it on is
+   * other households' verdicts.
+   */
+  test("the prediction that comes back is the prediction that was sent", async () => {
+    // NOTE (mutation check, 2026-09-09): platform_reinfers scaled each
+    // candidate's predicted_conversion by the return rate of the same
+    // product across every household the engine had seen. This assertion
+    // failed once a returned verdict existed for the product, which the
+    // suite's earlier probes guarantee.
+    // Distinct values, one per declared product, the low ones marked as
+    // exploration so the floor is met at any rate up to 0.6 and the floor's
+    // qualification check is not what a failure here would be about.
+    const pattern = [0.83, 0.41, 0.07, 0.11, 0.13, 0.09, 0.17];
+    const sent = PRODUCTS.map((_, i) => pattern[i % pattern.length]!);
+    const body = offerBody(
+      PRODUCTS.map((product, i) => ({
+        product,
+        predicted_conversion: sent[i]!,
+        is_exploration: sent[i]! <= 0.2,
+      }))
+    );
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const read = await call("GET", `/offers/${(created.body as { id: string }).id}`);
+    const got = (read.body as { candidates: { predicted_conversion: number }[] }).candidates.map(
+      (c) => c.predicted_conversion
+    );
+    expect(got).toEqual(sent);
   });
 });
 

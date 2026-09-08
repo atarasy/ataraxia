@@ -44,7 +44,7 @@ Amendment requires a jury drawn by lot from members, plus the consent of the fou
 6. A person's agent prefers a merchant for what it does, never for where it is hosted: no entry, endpoint or feed names a platform, and the agent has no field to prefer on. Conformance is the one property of a host it may weigh. Every exclusion the agent makes shows the person the published rule that made it.
 7. Data is used where it is. A grant moves; the data it covers does not, and nothing here needs a copy of it first. What does travel, an edge, a receipt, a history returned, travels toward the person and never toward a centre.
 8. What was declined is recorded where it was decided, in the person's node, across every merchant. A merchant holds what was declined to it and nothing declined elsewhere. No party but the person holds the union.
-9. Preference models exist vertically, per retailer or per node. No inference is performed across them.
+9. A preference model lives in one vertical: a merchant's own ledger, or a person's own node. The platform infers nothing across merchants and nothing across nodes: what it returns is what the merchant or the node sent. Across nodes, a person may grant their data to a computation; the grant is asked for that use, and the result is a form from which no node can be recovered.
 
 ## 2. Curators and merchants
 

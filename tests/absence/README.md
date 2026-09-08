@@ -10,7 +10,9 @@ ranking or discovery route (clause 1), no route that issues an identity
 (clause 2), and no document that names a part the member could replace, the
 model, the manager or a provider (clause 3). And clause 8: a presenter's view
 of a household is its own offers and nothing declined to anyone else, and no
-list can be asked for without naming a presenter.
+list can be asked for without naming a presenter. And clause 9: the
+prediction that comes back is the prediction that was sent, so the platform
+ran no model across nodes.
 
 ## What a failure means
 
