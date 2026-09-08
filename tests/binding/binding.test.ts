@@ -16,7 +16,7 @@ import {
  * Specification §3.2 and §11, and §13 condition 8.
  *
  * A household is never billed for goods that were lost, and `consumed` is
- * charged at cost rather than at price.
+ * a gift is never billed and anything else used is bought at the price.
  *
  * Both valences exist only in the physical binding, so an implementation that
  * offers the digital binding alone cannot fail them: it holds no goods to
@@ -119,11 +119,12 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     expect(amounts.lost_amount).toBeGreaterThan(0);
   });
 
-  test("consumed is charged at cost, below the price the household was shown", async () => {
-    // NOTE (mutation check, 2026-09-08): consumed_at_price settled a consumed
-    // candidate at unit_price. This assertion failed. §6.2 exists so that
-    // trying is neither free nor full price, and charging the price makes
-    // trying the same as buying.
+  test("what was used and was not given is charged at the merchant's price", async () => {
+    // NOTE (mutation check, 2026-09-09): consumed_at_a_fraction settled a
+    // used candidate at a fraction of the price, which is the cost basis
+    // returning under another name. This assertion failed.
+    // §6.2, clause 10. Two bases and no third: a gift is never billed to
+    // its recipient, and anything else used is bought at the price shown.
     const created = await call("POST", "/offers", physicalOffer());
     const offer = created.body as {
       id: string;
@@ -143,25 +144,59 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     const settlement = settled.body as {
       kept_amount: number;
       consumed_amount: number;
+      charged: number;
     };
     expect(settlement.kept_amount).toBe(0);
-    expect(settlement.consumed_amount).toBeGreaterThan(0);
-    expect(settlement.consumed_amount).toBeLessThan(first!.unit_price);
+    expect(settlement.consumed_amount).toBe(first!.unit_price);
+    expect(settlement.charged).toBe(first!.unit_price);
   });
 
-  test("the cost basis is never returned to the household", async () => {
-    // NOTE (mutation check, 2026-09-09): cost_on_candidate put a cost on
-    // every candidate in the offer view. A household that can read the
-    // cost basis can read the merchant's margin on every line. This
-    // assertion failed.
-    // §6.2 records the cost basis on the presenter's side. A household that
-    // can read it can read the merchant's margin on every line.
+  test("a gift is never billed to the person who received it", async () => {
+    // NOTE (mutation check, 2026-09-09): gift_is_billed settled a used gift
+    // at the merchant's price. This assertion failed. What a maker, a
+    // merchant or a friend gave is a gift; what the giver spends is settled
+    // with the merchant in flow C, where the recipient never sees it.
+    const body = physicalOffer();
+    const list = body.candidates as Record<string, unknown>[];
+    list[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      candidates: { id: string; given_by: string | null; unit_price: number }[];
+    };
+    expect(offer.candidates[0]!.given_by).toBe("maker-a");
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [gift, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [gift!.id],
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    const settlement = settled.body as { consumed_amount: number; charged: number };
+    expect(settlement.consumed_amount).toBe(0);
+    expect(settlement.charged).toBe(0);
+  });
+
+  test("no cost of goods appears anywhere a household can read", async () => {
+    // NOTE (mutation check, 2026-09-09): cost_on_candidate puts a cost on
+    // every candidate in the offer view. This assertion fails, and since
+    // 2026-09-09 there is no cost field in the catalogue for it to copy:
+    // clause 10 says no cost of goods is ever quoted to a person.
     const created = await call("POST", "/offers", physicalOffer());
-    const offer = created.body as { id: string };
-    const read = await call("GET", `/offers/${offer.id}`);
-    const text = read.text.toLowerCase();
-    for (const word of ['"cost"', '"unit_cost"', '"margin"', '"cost_basis"']) {
-      expect(text).not.toContain(word);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [first!.id],
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    for (const read of [await call("GET", `/offers/${offer.id}`), settled]) {
+      const text = read.text.toLowerCase();
+      for (const word of ['"cost"', '"unit_cost"', '"margin"', '"cost_basis"', '"wholesale"']) {
+        expect(text).not.toContain(word);
+      }
     }
   });
 });

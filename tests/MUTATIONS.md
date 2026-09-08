@@ -138,6 +138,9 @@ can repeat any row.
 | `notes_append` | A second line by the same author appended to a candidate | 1 |
 | `attest_overwrites` | A merchant's attested key replaced by a later caller | 1 |
 | `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval | 2 |
+| `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and one unit test |
+| `gift_is_billed` | A used gift billed to the person who received it | 1, and one unit test |
+| `cost_on_candidate` | A cost of goods invented and put on every candidate in the offer view | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
 | `decide_after_withdraw` | Decisions accepted on a withdrawn offer | 1 |
@@ -161,8 +164,8 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. There are **139 mutations and
-157 declarations**; the proven count is being re-measured under the rule below
+written from its output rather than from intent. There are **142 mutations and
+158 declarations**; the proven count is being re-measured under the rule below
 and is not quoted here until it is.
 
 **What "proven" counts, corrected on 2026-09-09.** An adversarial pass found the

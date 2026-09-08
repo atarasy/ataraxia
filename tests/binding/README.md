@@ -3,7 +3,9 @@
 **Specification §3.2, §6.2 and §11, and §13 condition 8.**
 
 A household is never billed for goods that were lost, and a candidate that was
-consumed while being tried settles at cost rather than at price.
+consumed while being tried is bought at the merchant's price, unless it was
+given, and a gift is never billed to the person who received it. There is no
+cost of goods anywhere a household can read (clause 10, §6.2).
 
 ## Why it is a suite of its own
 
@@ -23,10 +25,10 @@ whoever holds stock risk, and the trust model is the point: a household that
 can be charged for a parcel it never received has been made to insure the
 merchant's logistics.
 
-**Settling `consumed` at price** makes trying the same as buying. §6.2 exists so
-that trying is neither free nor full price, and clause 18 requires sampling
-before giving. An implementation that charges the price has removed the middle
-term.
+**Billing a gift, or settling other used goods at a fraction of the price**, is the cost basis coming back. §6.2 had a middle term until
+2026-09-09, when charging a household the presenter's cost was judged to price
+the same goods two ways and to put a number in a receipt that is the maker's
+business. Two bases remain and no third.
 
 ## The probe that was missing
 
