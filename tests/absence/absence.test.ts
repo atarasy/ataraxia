@@ -5,6 +5,8 @@ import {
   createConformingOffer,
   findKey,
   HOUSEHOLD,
+  meansAnyOf,
+  PRICES,
   PRODUCTS,
 } from "../lib/probe.js";
 
@@ -70,8 +72,13 @@ const FORBIDDEN_AGGREGATES = [
   "trending",
 ];
 
-const looksLike = (needles: string[]) => (key: string) =>
-  needles.includes(key.toLowerCase());
+/**
+ * Matches a forbidden name in any spelling. `trackingId` and `tracking_id` are
+ * one capability, and comparing exact strings catches one of them: an
+ * adversarial pass reintroduced four of these in camelCase and every probe in
+ * this file stayed green.
+ */
+const looksLike = (needles: string[]) => meansAnyOf(needles);
 
 describe("absence: routes that must not exist (§9.1)", () => {
   for (const route of FORBIDDEN_ROUTES) {
@@ -184,6 +191,87 @@ describe("absence: aggregates that must not be displayed (§7.5)", () => {
     expect([200, 404]).toContain(acts.status);
     if (acts.status === 200) {
       expect(findKey(acts.body, looksLike(FORBIDDEN_AGGREGATES))).toEqual([]);
+    }
+  });
+});
+
+describe("absence: capabilities under another name", () => {
+  test("no forbidden field appears under a different spelling", async () => {
+    // NOTE (mutation check, 2026-09-08): camel_tracking added `trackingId`,
+    // `stockRemaining`, `expiresInSeconds` and `starRating` to the candidate
+    // serialisation. Every probe in this file passed, because the key list
+    // was compared as exact lower-case strings. The comparison now collapses
+    // punctuation and case, and this assertion catches all four.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    expect(findKey(read.body, looksLike(FORBIDDEN_KEYS))).toEqual([]);
+  });
+
+  test("a household is never charged above the merchant's own price", async () => {
+    // NOTE (mutation check, 2026-09-08): coupon_and_surcharge accepted a
+    // `surcharge` on a candidate and added it to the price. The first version
+    // of this probe read the price of an ordinary offer and passed, because
+    // an offer that sends no surcharge gets no surcharge.
+    //
+    // So the probe pushes rather than reads. Whether a field is refused or
+    // accepted and ignored does not matter; what clause 10 forbids is the
+    // price moving, and that is what is asserted. The field names are a
+    // bounded search, and a capability under a name not listed here is out of
+    // reach from outside.
+    for (const field of [
+      "surcharge",
+      "markup",
+      "uplift",
+      "premium",
+      "fee",
+      "adjustment",
+      "price_override",
+      "unit_price",
+      "coupon",
+    ]) {
+      const body = conformingOffer();
+      (body.candidates as Record<string, unknown>[])[0]![field] = 500;
+      const created = await call("POST", "/offers", body);
+      if (created.status !== 201) continue;
+
+      const offer = created.body as { id: string };
+      const read = await call("GET", `/offers/${offer.id}`);
+      const served = read.body as {
+        candidates: { product: string; unit_price: number }[];
+      };
+      for (const candidate of served.candidates) {
+        const merchantPrice = PRICES[candidate.product];
+        expect(merchantPrice).toBeDefined();
+        // Lower is the merchant's own business. Higher cannot exist.
+        expect(candidate.unit_price).toBeLessThanOrEqual(merchantPrice!);
+      }
+    }
+  });
+
+  test("no store of per-person events answers on a plausible route", async () => {
+    // NOTE (mutation check, 2026-09-08): per_person_events registered
+    // POST and GET /analytics and a /px pixel socket. §9.1 names five routes
+    // and none of them was it, so the suite passed. This probe widens the
+    // search; it cannot close it. Enumerating the routes an implementation
+    // does not have is not possible from outside, and clause 33 forbids the
+    // capability rather than the path. The gap is named in MUTATIONS.md.
+    for (const path of [
+      "/analytics",
+      "/events",
+      "/event",
+      "/track",
+      "/tracking",
+      "/px",
+      "/pixel",
+      "/telemetry",
+      "/activity",
+      "/profiles",
+    ]) {
+      const posted = await call("POST", path, { household: HOUSEHOLD });
+      expect(posted.status).toBe(404);
+      const got = await call("GET", `${path}?household=${encodeURIComponent(HOUSEHOLD)}`);
+      expect(got.status).toBe(404);
     }
   });
 });

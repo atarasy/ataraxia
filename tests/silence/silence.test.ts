@@ -3,6 +3,7 @@ import {
   call,
   conformingOffer,
   createConformingOffer,
+  createMixedOffer,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -26,7 +27,8 @@ describe("silence: expiry", () => {
     // NOTE (mutation check, 2026-09-08): silence_is_consent made an
     // undecided candidate `kept` with kept_as `order` at expiry. This
     // assertion failed with a kept_amount of 5400.
-    const offer = await createConformingOffer({ expires_at: soon(EXPIRY_MS) });
+    // A mixed offer, not an all-exploration one. See the note below.
+    const offer = await createMixedOffer({ expires_at: soon(EXPIRY_MS) });
     const presented = await call("POST", `/offers/${offer.id}/present`, {});
     expect(presented.status).toBe(200);
 
@@ -43,9 +45,16 @@ describe("silence: expiry", () => {
   });
 
   test("every undecided candidate becomes returned, none kept", async () => {
+    // NOTE (mutation check, 2026-09-08): silence_consent_non_exploration kept
+    // the ordinary candidates at expiry and returned only the exploration
+    // ones. Every silence probe passed, because the offer they used was made
+    // entirely of exploration candidates. The offers here are mixed now, and
+    // this assertion catches it.
     // NOTE (mutation check, 2026-09-08): silence_is_consent, as above.
     // This assertion failed on the valence of every candidate.
-    const offer = await createConformingOffer({ expires_at: soon(EXPIRY_MS) });
+    const offer = await createMixedOffer({ expires_at: soon(EXPIRY_MS) });
+    expect(offer.candidates.some((c) => c.is_exploration)).toBe(true);
+    expect(offer.candidates.some((c) => !c.is_exploration)).toBe(true);
     await call("POST", `/offers/${offer.id}/present`, {});
     await sleep(EXPIRY_MS + 500);
 
@@ -95,7 +104,7 @@ describe("silence: no configuration makes it consent", () => {
     // NOTE (mutation check, 2026-09-08): silence_is_consent, as above.
     // The headers are inert either way; what this probe catches is an expiry
     // default that was changed anywhere at all.
-    const offer = await createConformingOffer({ expires_at: soon(EXPIRY_MS) });
+    const offer = await createMixedOffer({ expires_at: soon(EXPIRY_MS) });
     await call("POST", `/offers/${offer.id}/present`, {});
     await sleep(EXPIRY_MS + 500);
 
@@ -123,16 +132,29 @@ describe("silence: reminders (clause 37)", () => {
   });
 
   test("the refusal is not a rate limit a caller waits out", async () => {
-    // NOTE (mutation check, 2026-09-08): many_reminders, as above.
-    // This assertion failed on the same call a second later.
+    // NOTE (mutation check, 2026-09-08): many_reminders, as above, and
+    // reminder_rate_limit, which turned the refusal into a five-second
+    // backoff. The first version of this probe waited 1.1 seconds and passed
+    // through the backoff without noticing. It waits longer than any
+    // plausible short backoff now, and reads the refusal for the vocabulary
+    // of one.
+    //
+    // This cannot be closed by waiting. An implementation that backs off for
+    // an hour passes, and a probe cannot outlast an arbitrary delay. What is
+    // checkable is that the refusal does not promise a later yes.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
     await call("POST", `/offers/${offer.id}/remind`, {});
-    await sleep(1_100);
+    await sleep(6_000);
     const again = await call("POST", `/offers/${offer.id}/remind`, {});
     expect(again.status).toBe(409);
-    expect(again.text.toLowerCase()).not.toContain("retry");
-  });
+    for (const promise of ["retry", "wait", "later", "again", "yet", "seconds"]) {
+      expect(again.text.toLowerCase()).not.toContain(promise);
+    }
+    // The wait is longer than the runner's default per-test timeout, so the
+    // timeout is raised rather than the wait shortened. A probe that waits
+    // less than a backoff proves nothing about the backoff.
+  }, 30_000);
 });
 
 describe("silence: the ceremonial default (clause 28, §2.2, §12)", () => {

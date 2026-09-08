@@ -44,6 +44,11 @@ makes this ledger a record rather than something a reader can rerun today.
 | `hide_merchant` | Blanked `merchant` on the accepted edge | 1 |
 | `profile_from_receipt` | Added a `preference` to each receipt row, derived from the product | 1 |
 | `history_from_receipt` | Added the product to each receipt row | 1 |
+| `camel_tracking` | Four forbidden fields reintroduced in camelCase: `trackingId`, `stockRemaining`, `expiresInSeconds`, `starRating` | 2 |
+| `coupon_and_surcharge` | A `surcharge` accepted on a candidate and added to the price, and a `coupon` accepted and stored | 1 |
+| `per_person_events` | A per-person event store on `/analytics` and a pixel socket on `/px` | 1 |
+| `reminder_rate_limit` | The reminder refusal turned into a five-second backoff | 1 |
+| `silence_consent_non_exploration` | Ordinary candidates kept at expiry, exploration candidates returned | 3 |
 | `no_reserve_ceiling` | The ledger accepts a commit above the reserved amount | 1, in the engine's own tests |
 | `settle_at_current_price` | Settlement reads the live catalogue instead of the frozen version | **0. See below.** |
 
@@ -77,6 +82,37 @@ second catalogue version at a changed price, which is a fixture the suite does
 not yet ask for. The row stays in this table because a mutation that survives
 is the most useful thing in it.
 
+**Five mutations passed the suite before it was finished, and each named a
+different way to obey the letter.** They came from an adversarial pass on
+2026-09-08 that was asked to break the probes rather than the engine, and every
+one of them worked on the first attempt.
+
+- **A forbidden field in another spelling.** `trackingId` is `tracking_id`, and
+  a key list compared as exact lower-case strings catches one of them. The
+  comparison now collapses case and punctuation.
+- **A price raised under another name.** The suite refused a `unit_price` field
+  and read the price of an ordinary offer. A `surcharge` field passed both. The
+  probe now pushes nine plausible names at the endpoint and asserts the served
+  price does not move, which makes the field's name irrelevant.
+- **An offer made entirely of one kind of candidate.** Every silence probe used
+  an all-exploration offer, so a rule that kept the ordinary candidates at
+  expiry and returned only the exploration ones was invisible. The silence
+  probes use a mixed offer now.
+- **A refusal that is really a delay.** The probe waited 1.1 seconds and a
+  five-second backoff passed straight through it. It waits longer and reads the
+  refusal for the vocabulary of a promise. This one cannot be closed: an
+  implementation that backs off for an hour still passes, and no probe outlasts
+  an arbitrary delay.
+- **A capability on a route nobody listed.** §9.1 names five routes and
+  `/analytics` was not one of them. The probe now tries ten plausible names.
+  This one cannot be closed either. Enumerating the routes an implementation
+  does not have is not possible from outside, and clause 33 forbids the
+  capability rather than the path.
+
+The first three were defects in the probes and are fixed. The last two are
+limits of black-box conformance testing, and they are stated here rather than
+left for someone to discover by exploiting them.
+
 **Two probes that look redundant are not.** The forbidden-field walk runs
 separately over an offer and over a settlement because they are built in
 different layers: `leak_field_settlement` shows in one and
@@ -101,13 +137,13 @@ Counted against the probes, not asserted.
 | 2 exploration floor, no bypass | yes | Eleven probes, both sides of the formula, six bypass shapes, and padding |
 | 3 no §9.1 route, no §3.3 field | yes | Ten route probes, three refusal probes, and a key walk over four documents. The walk does not cover every response shape |
 | 4 no recipient inaction disclosed | **no** | Needs a giver's response surface and inference probes. This is `opacity/`, unwritten |
-| 5 no household balance | partial | Two route shapes and six field names. The positive half of §6.1, that a trial is deducted rather than credited, is not exercised |
+| 5 no household balance | partial | Two route shapes and six field names in any spelling. The positive half of §6.1, that a trial is deducted rather than credited, is not exercised |
 | 6 terms frozen at `config_version` | partial | A settlement is checked against the offer's own prices. Varying the catalogue between offer and settlement is not, and `settle_at_current_price` survives because of it |
 | 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
 | 8 no household billed for `lost` | **no** | `lost` exists only in the physical binding and every probe runs the digital one |
 
 An implementation that reprices a settlement against a newer catalogue, leaks
-recipient inaction, and bills households for lost goods passes all 45 probes.
+recipient inaction, and bills households for lost goods passes all 48 probes.
 That is the honest state of the gate, and the two unwritten suites are where
 two of the three gaps close.
 

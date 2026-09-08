@@ -41,7 +41,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as seven environment variables:
+as eight environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -52,10 +52,11 @@ as seven environment variables:
 | `VALENCE_MANDATE` | a mandate reference the implementation will accept |
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
+| `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
 
 Seeding a catalogue and attesting a key are deployment plumbing the
 specification does not describe, so the suite refuses to guess at routes for
-them and asks for the results instead. None of the seven is optional: a probe
+them and asks for the results instead. None of the eight is optional: a probe
 that skips when its fixture is missing is a probe an implementation passes by
 omission.
 
@@ -64,6 +65,7 @@ VALENCE_BASE_URL=http://localhost:8788 \
 VALENCE_CONFIG_VERSION=... VALENCE_PRODUCTS=... VALENCE_HOUSEHOLD=... \
 VALENCE_MANDATE=... VALENCE_EXPLORATION_RATE=0.2 \
 VALENCE_LINEAGE_EDGE='{"from":"...","to":"...","product":"...","merchant":"...","kind":"gift","occasion":"...","receipt":"...","signature":"..."}' \
+VALENCE_PRICES='{"tea-a":1200,"tea-b":900}' \
   bun test absence floor silence lineage
 ```
 
@@ -79,7 +81,7 @@ Read [`MUTATIONS.md`](MUTATIONS.md) before quoting a pass. It counts the eight
 conformance conditions in the specification's §13 against the probes that exist:
 three are gated, three partially, two not at all. An implementation that
 reprices a settlement against a newer catalogue, discloses that a recipient did
-not respond, and bills households for goods it lost passes all forty-five
+not respond, and bills households for goods it lost passes all forty-eight
 probes.
 
 That is stated here rather than left to be discovered, because §13 sends the

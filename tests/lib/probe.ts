@@ -87,6 +87,35 @@ export const LINEAGE_EDGE: Record<string, unknown> = (() => {
 
 export const LINEAGE_RECIPIENT = LINEAGE_EDGE.to as string;
 
+/**
+ * The merchant's own price for each product in `VALENCE_PRODUCTS`, as JSON.
+ *
+ * Clause 10 says a household never pays more through an offer than buying
+ * direct, and that is only checkable against a price the suite knows
+ * independently. Without it a probe can refuse a `unit_price` field and still
+ * miss a surcharge applied under another name, which is what happened on
+ * 2026-09-08.
+ */
+export const PRICES: Record<string, number> = (() => {
+  const raw = required("VALENCE_PRICES");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_PRICES is not valid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("VALENCE_PRICES must be a JSON object of product to price");
+  }
+  const prices = parsed as Record<string, unknown>;
+  for (const [ref, price] of Object.entries(prices)) {
+    if (typeof price !== "number") {
+      throw new Error(`VALENCE_PRICES: ${ref} is not a number`);
+    }
+  }
+  return prices as Record<string, number>;
+})();
+
 export type Probe = {
   status: number;
   body: unknown;
@@ -124,6 +153,23 @@ export async function call(
  * suite happens to know, because a capability that must not exist is easiest
  * to reintroduce somewhere the reader was not looking.
  */
+/**
+ * Collapses a key to letters and digits, lower case.
+ *
+ * `trackingId`, `tracking_id`, `tracking-id` and `TrackingID` are the same
+ * capability under four spellings, and a probe that compares exact strings
+ * catches one of them. An adversarial pass on 2026-09-08 reintroduced four
+ * forbidden fields in camelCase and every probe here stayed green.
+ */
+export const normaliseKey = (key: string) =>
+  key.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** True when a key means any of these names, whatever its spelling. */
+export const meansAnyOf = (names: readonly string[]) => {
+  const wanted = new Set(names.map(normaliseKey));
+  return (key: string) => wanted.has(normaliseKey(key));
+};
+
 export function findKey(value: unknown, predicate: (key: string) => boolean): string[] {
   const hits: string[] = [];
   const walk = (node: unknown, trail: string) => {
@@ -189,6 +235,44 @@ export function conformingOffer(
     })),
     overrides
   );
+}
+
+/**
+ * An offer that meets the floor exactly and leaves the rest ordinary.
+ *
+ * `conformingOffer` marks every candidate as exploration, which is safe for
+ * the floor probes and blind everywhere else: a rule that treats exploration
+ * candidates differently from ordinary ones is invisible to an offer made
+ * entirely of one kind. An adversarial pass turned silence into consent for
+ * ordinary candidates only, and every silence probe stayed green.
+ */
+export function mixedOffer(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  const required = floorFor(PRODUCTS.length);
+  return offerBody(
+    PRODUCTS.map((product, i) => ({
+      product,
+      predicted_conversion: i < required ? 0.05 : 0.9,
+      is_exploration: i < required,
+    })),
+    overrides
+  );
+}
+
+export async function createMixedOffer(
+  overrides: Record<string, unknown> = {}
+): Promise<{ id: string; candidates: { id: string; is_exploration: boolean }[] }> {
+  const created = await call("POST", "/offers", mixedOffer(overrides));
+  if (created.status !== 201) {
+    throw new Error(
+      `setup failed: POST /offers returned ${created.status} ${created.text}`
+    );
+  }
+  return created.body as {
+    id: string;
+    candidates: { id: string; is_exploration: boolean }[];
+  };
 }
 
 export async function createConformingOffer(
