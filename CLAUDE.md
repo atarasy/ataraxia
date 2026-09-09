@@ -38,11 +38,12 @@ Each was written after considering whether to omit it. An editor who removes the
 
 ## `tests/`
 
-Five suites are named and scoped in `tests/README.md`. **None is written**, and the README says so, because writing a runner before a reference implementation exists would fix the wrong interface.
+Eleven suites, all written, and `tests/README.md` says what each covers. They run against any implementation over HTTP and import nothing from one; the reference is `atarasy/valence`. Measured on 2026-09-09: 159 mutations, 178 declarations, 192 probes at runtime, 189 shown to fail. The five that have not say why in their own notes.
 
-Two rules apply to anything added there:
+Three rules apply to anything added there:
 
-- **A test that cannot fail is not a test.** Each test carries a note recording what was broken in a reference implementation and that the test caught it. A test added without that note is not counted.
+- **A test that cannot fail is not a test.** Each test carries a note recording what was broken in a reference implementation and that the test caught it. A test added without that note is not counted, and `MUTATIONS.md` is the ledger of the breaks.
+- **A note is a claim about the past; only a run says whether it is still true.** Seven times on 2026-09-09 a probe that could no longer fail was found by `coverage.sh` rather than by reading: an anchor that had drifted, a fixture that made a difference invisible, a deployment with only one of the thing being compared. Re-measure after any change to the engine's fields or fixtures.
 - **Absence is harder to test than presence.** A field missing from a response may still be inferable from timing, array length, or an optional object's presence. The `opacity/` suite in particular must probe for inference, not field names.
 
 Tests check a specific subset: capabilities that must be absent and behaviours that must be refused. Most of the constitution is not mechanically checkable, and the README refuses to imply otherwise.
