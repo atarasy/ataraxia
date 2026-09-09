@@ -62,7 +62,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 17. Positive signals are visible only as acts of the recipient, such as giving the item onward, reciprocating, or writing thanks. Purchases the system observed are never shown.
 18. Reciprocation is never prompted. It is made easy; it is not notified and it has no deadline.
 19. A recipient's profile starts empty. Beyond the fact of receipt, nothing is recorded until they become a giver themselves.
-20. What a recipient has received is known to no one but the recipient: no route lists it, a receipt resolves to nothing, and a giver avoids a duplicate only by asking the recipient's own node, under a grant that recipient gave for that giver and that use.
+20. What a recipient has received is recorded in the recipient's own node. A giver holds the gift they sent and a merchant what it shipped, and neither holds anything more; no party but the recipient holds the union. No route lists it, a receipt resolves to nothing, and a giver avoids a duplicate only by asking the recipient's own node, under a grant that recipient gave for that giver and that use.
 21. Lineage shows people and does not hide merchants. Network size is never displayed. What is shown is density within one's own circle.
 22. A lineage edge is recognised by the person's key and the merchant's receipt. It is not discriminated by which hub produced it.
 
