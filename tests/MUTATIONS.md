@@ -46,7 +46,7 @@ can repeat any row.
 | `profile_from_receipt` | Added a `preference` to each receipt row, derived from the product | 1 |
 | `history_from_receipt` | Added the product to each receipt row | 1 |
 | `camel_tracking` | Four forbidden fields reintroduced in camelCase: `trackingId`, `stockRemaining`, `expiresInSeconds`, `starRating` | 2 |
-| `coupon_and_surcharge` | A `surcharge` accepted on a candidate and added to the price, and a `coupon` accepted and stored | 1 |
+| `coupon_and_surcharge` (re-anchored 2026-09-09) | A `surcharge` accepted on a candidate and added to the price, and a `coupon` accepted and stored | 1 |
 | `per_person_events` | A per-person event store on `/analytics` and a pixel socket on `/px` | 1 |
 | `reminder_rate_limit` | The reminder refusal turned into a five-second backoff | 1 |
 | `silence_consent_non_exploration` | Ordinary candidates kept at expiry, exploration candidates returned | 3 |
@@ -145,6 +145,9 @@ can repeat any row.
 | `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
 | `merchant_export_drops_configs` | A shop's export leaves its catalogue behind | 1 |
 | `merchant_export_leaks_notes` | A shop's export carries every line on its candidates, not the shared ones | 1 |
+| `tightening_needs_cosigner` | Every mandate change made to need the co-signers, so a person cannot lower their own ceiling | 1 |
+| `mandate_any_version` | Any mandate version accepted, so an old signature can be replayed onto a new record | 1 |
+| `result_form_on_party_ok` | A result form accepted on a party grant | 1 |
 | `computation_grant_without_form` | A grant to a computation accepted with no result form | 2 |
 | `computation_grant_raw` | Raw data admitted as a computation's result form | 1 |
 | `unsigned_catalogue` | A catalogue accepted without the presenter's signature | 1 |
@@ -162,7 +165,7 @@ can repeat any row.
 | `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
 | `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
 | `export_no_format` | The export's format string blanked | 3 |
-| `ignore_config_version` | The first catalogue resolved whatever version the offer named | 1 |
+| `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 1 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
 | `inaction_field_on_acts` | A `responded` field added to every act | 2 |
 | `present_expired` | An offer presented after its expiry | 1 |
@@ -180,11 +183,18 @@ can repeat any row.
 in turn and collects the probes that failed, and the notes in the suites are
 written from its output rather than from intent. Measured on 2026-09-09 after
 the clause review, both adversarial passes and the renumbering, against the
-reference engine at an exploration rate of 0.2: **156 mutations, 178
-declarations, 192 probes at runtime.** 170 of 172 were shown to fail at that run; the
-three probes added with duplicate avoidance were measured against their own
-mutations afterwards, and the third of them, which checks that no route
-enumerates a household's receipts, is covered by `received_route`.
+reference engine at an exploration rate of 0.2: **159 mutations, 178
+declarations, 192 probes at runtime, 189 of them shown to fail** in the closing
+run. Five mutations were written or repaired after it and each was measured
+against its own probe, which leaves five probes unproven, listed below.
+
+The closing run reported no inert mutation, which is what the harness check
+was for: 112 of the scripts had been repointed hours earlier when the
+reference split into `engine/`, `hub/`, `shared/` and `common/`, and a stale
+path would have been named rather than passing quietly. It did surface the
+subtler form of the same defect, which the check cannot see: two mutations
+that changed bytes and broke nothing, because their anchors had moved with
+the day's new fields. Both are re-anchored and both now fail their probes.
 
 **What "proven" counts, corrected the same day.** An adversarial pass found the
 earlier number counting probes that failed in their setup rather than in their
