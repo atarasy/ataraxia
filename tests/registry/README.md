@@ -39,5 +39,5 @@ to a host, and the two are related: wherever a deployment puts its default
 host, a registry operated by that same party is a registry with an interest in
 the answer. Whether the registry sits with a host, with the foundation, or with
 nobody in particular is open, and it is the question that decides whether
-"shared and neutral" in clause 2 is a fact or a hope. No probe here can reach
+"shared and neutral" is a fact or a hope. (This paragraph cited clause 2 for it; clause 2 is identity, and the registry answers to clause 1.) No probe here can reach
 it, because it is a fact about an organisation and not about a response.
