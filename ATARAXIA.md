@@ -113,7 +113,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 50. Withdrawn on 2026-09-10. It asserted that every refusal this constitution requires is in the hub's code. Its checkable content was already clauses 3 and 5, and the assertion was neither checkable nor a prohibition. What is true instead is under "What this constitution does not protect". The slot keeps its number: renumbering for one clause would rewrite every citation in three repositories again.
 51. The only thing asked of a password manager is a signature. Not the screen, not credential injection, not the recovery policy.
 52. The default host is replaceable and blind. A member can move an entire node to another host.
-53. Recovery and routine reading are separate powers. A recoverer cannot read. Recovery is logged and the person is notified.
+53. Recovery and routine reading are separate powers. A recoverer cannot read: they hold one of three shares of the ledger's envelope key, and one share decrypts nothing. Recovery is logged and the person is notified.
 54. The approval screen is drawn by a party to no transaction. Not by the merchant, not by the password manager, not by the model.
 55. The mark attaches to software and hosts. Merchant endpoints and lineage do not discriminate on it. No mark that grades members is created. A fork may be excluded only inside one person's own mandate, by the person protecting them.
 
