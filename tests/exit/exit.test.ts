@@ -124,6 +124,27 @@ describe("exit: the move (clause 52)", () => {
     const who = await presenter();
     const offer = await seedSomethingToMove();
 
+    // A ledger with no rows moves correctly by doing nothing, so grant one.
+    const opened = await call(
+      "POST",
+      `/households/${encodeURIComponent(household())}/actions`,
+      { describes: "drafting next week's order", expires_at: Date.now() + 60_000 }
+    );
+    expect(opened.status).toBe(201);
+    const granted = await call(
+      "POST",
+      `/households/${encodeURIComponent(household())}/permissions`,
+      {
+        kind: "party",
+        grantee: "carrier-a",
+        scope: ["delivery_window"],
+        purpose: "to leave the box when someone is home",
+        expires_at: Date.now() + 60_000,
+        asked_from: (opened.body as { id: string }).id,
+      }
+    );
+    expect(granted.status).toBe(201);
+
     const exported = await call(
       "GET",
       `/households/${encodeURIComponent(household())}/export`
@@ -140,11 +161,21 @@ describe("exit: the move (clause 52)", () => {
     // The same questions, asked of both hosts. The settlement is on the list
     // because leaving it off is what let a mutation drop settlements from the
     // export while both hosts still answered alike: nothing asked.
+    //
+    // The permission ledger joined this list on 2026-09-09, and the reason is
+    // the one at the head of this file. The ledger, the queries and the
+    // mandates were all built that day, after this probe was written, and none
+    // of them reached the export or this list. A member who moved kept their
+    // offers and lost every permission they had granted, and the suite stayed
+    // green because the four paths below were all anyone asked. A list is the
+    // thing this probe exists to avoid depending on, and it is still a list;
+    // what can be done is to add to it whenever a surface is added.
     for (const path of [
       `/offers/${offer.id}`,
       `/offers/${offer.id}/settlement`,
       `/offers?household=${encodeURIComponent(household())}&presenter=${encodeURIComponent(who)}`,
       `/households/${encodeURIComponent(household())}/receipts`,
+      `/households/${encodeURIComponent(household())}/permissions`,
     ]) {
       const first = await call("GET", path);
       const second = await callSecond("GET", path);
@@ -288,6 +319,41 @@ describe("exit: recovery is not reading (clause 53)", () => {
     const rows = (log.body as { recoveries: { initiated_by: string }[] })
       .recoveries;
     expect(rows.some((r) => r.initiated_by === "key-recoverer-1")).toBe(true);
+  });
+
+  test("the recovery log survives a move to another host", async () => {
+    // NOTE (mutation check, 2026-09-09): import_drops_recoveries removes the
+    // one line on the receiving host that restores the log. This assertion
+    // failed, because the second host answered with an empty list.
+    // Clause 53 says the log leaves with the node, and until 2026-09-09 it did
+    // exactly that and no more: the export carried it and the import dropped
+    // it. Restoring the data without adding this probe left the mutation
+    // surviving, which is the same failure one layer up.
+    const house = `household-recovery-move-${Math.random().toString(36).slice(2)}`;
+    await call("POST", "/_node/channels", {
+      household: house,
+      channels: [{ channel: "own-email", controlled_by_recoverer: false }],
+    });
+    await call("POST", "/_node/recoverers", { household: house, keys: ["key-recoverer-move"] });
+    const recovered = await call("POST", `/households/${house}/recoveries`, {
+      by: "key-recoverer-move",
+    });
+    expect(recovered.status).toBe(201);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const imported = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(imported.status).toBe(201);
+
+    const first = await call("GET", `/households/${house}/recoveries`);
+    const second = await callSecond("GET", `/households/${house}/recoveries`);
+    expect(second.status).toBe(first.status);
+    expect(second.body).toEqual(first.body);
+    expect(
+      (second.body as { recoveries: { initiated_by: string }[] }).recoveries.some(
+        (r) => r.initiated_by === "key-recoverer-move"
+      )
+    ).toBe(true);
   });
 
   test("someone who is not a recoverer cannot recover", async () => {
