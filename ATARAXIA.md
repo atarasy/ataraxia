@@ -110,7 +110,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 
 ## 9. Keys, nodes and the hub
 
-50. The hub is open source (clause 5) and it is the enforcement point (clause 3): every refusal this constitution requires is in its code, where anyone can read it and anyone can fork it.
+50. Withdrawn on 2026-09-10. It asserted that every refusal this constitution requires is in the hub's code. Its checkable content was already clauses 3 and 5, and the assertion was neither checkable nor a prohibition. What is true instead is under "What this constitution does not protect". The slot keeps its number: renumbering for one clause would rewrite every citation in three repositories again.
 51. The only thing asked of a password manager is a signature. Not the screen, not credential injection, not the recovery policy.
 52. The default host is replaceable and blind. A member can move an entire node to another host.
 53. Recovery and routine reading are separate powers. A recoverer cannot read. Recovery is logged and the person is notified.
@@ -135,6 +135,7 @@ It protects the person. It does not protect other people, and it does not protec
 - Someone running a fork with the constitution removed has removed their own protection. That is what the right to exit means. Their gifts still enter lineage, provided the identity and the transaction are real.
 - A member using an ad-supported fork is influenced by advertising. Human gift-giving has always been influenced by advertising, and lineage is a human record including that. We do not prevent it.
 - Someone who genuinely needs protection, such as a parent losing capacity, is protected by the family who protects them, through conditions inside that person's own mandate. Not by a gate on the network.
+- **Not every clause is enforced in code, and this document does not claim otherwise.** Fifteen of the sixty-one are named by no probe, and several of those are not the kind of thing a program can refuse: clause 57 is a procedure, clause 56 is about governance seats, clause 4 is a shape of fees. How much is enforced is a measured number rather than a claim, and the measurement is published with the tests in this repository. Clause 50 asserted completeness until 2026-09-10, when it was withdrawn for asserting what could not be checked.
 
 ----
 
