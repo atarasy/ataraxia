@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { call, findKey, meansAnyOf, conformingOffer } from "../lib/probe.js";
 
 /**
- * Clause 1, and specification §16.
+ * Clause 1, and specification §17.
  *
  * The endpoint registry resolves and does not rank. It is the one piece of
  * shared infrastructure that could become the place where things are found,
@@ -30,7 +30,7 @@ const RANKING_KEYS = [
   "boost",
 ];
 
-describe("registry: an entry resolves (§16.1)", () => {
+describe("registry: an entry resolves (§17.1)", () => {
   test("a merchant resolves to its endpoints by key", async () => {
     // NOTE (mutation check, 2026-09-09): registry_resolve_404 made every
     // resolution a 404. This assertion failed. A registry that cannot
@@ -48,7 +48,7 @@ describe("registry: an entry resolves (§16.1)", () => {
   });
 });
 
-describe("registry: no order that means anything (§16.2)", () => {
+describe("registry: no order that means anything (§17.2)", () => {
   test("the list is in key order", async () => {
     // NOTE (mutation check, 2026-09-09): registry_by_registration returned
     // entries in the order they registered, which the seed arranges to differ
@@ -80,7 +80,7 @@ describe("registry: no order that means anything (§16.2)", () => {
   });
 });
 
-describe("registry: no query by intent (§16.2)", () => {
+describe("registry: no query by intent (§17.2)", () => {
   test("a query by what a person wants is not a parameter", async () => {
     // NOTE (mutation check, 2026-09-09): registry_search accepted ?q= and
     // matched it against endpoint URLs. This assertion failed with 200. The
@@ -103,7 +103,7 @@ describe("registry: no query by intent (§16.2)", () => {
   });
 });
 
-describe("registry: the same answer to every caller (§16.2)", () => {
+describe("registry: the same answer to every caller (§17.2)", () => {
   test("two callers get the same list", async () => {
     // NOTE (mutation check, 2026-09-09): registry_personalised put the entry
     // matching the caller's `x-household` first. This assertion failed. An
@@ -123,7 +123,7 @@ describe("registry: the same answer to every caller (§16.2)", () => {
   });
 });
 
-describe("registry: the mark is not a gate (clause 55, §16.2)", () => {
+describe("registry: the mark is not a gate (clause 55, §17.2)", () => {
   test("an entry without the mark is listed", async () => {
     // NOTE (mutation check, 2026-09-09): registry_requires_mark dropped
     // unmarked entries from every list. This assertion failed. Clause 55 says
@@ -187,7 +187,7 @@ describe("registry: listing is not a condition of taking part (clause 13)", () =
 });
 
 
-describe("registry: an attested key is not replaced (§16.1)", () => {
+describe("registry: an attested key is not replaced (§17.1)", () => {
   test("a second attestation with a different key is refused", async () => {
     // NOTE (mutation check, 2026-09-09): attest_overwrites let a later caller
     // replace a merchant's attested key. This assertion failed with 201.
