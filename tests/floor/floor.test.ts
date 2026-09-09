@@ -247,6 +247,14 @@ describe("floor: what counts as novelty cannot be manufactured (§5)", () => {
       { household, config_version: CONFIG_VERSION_NARROW }
     ));
     expect(trimmed.status).toBe(422);
+    // The status alone cannot tell the two refusals apart. Measured 2026-09-09:
+    // under `novelty_from_this_catalogue` the narrow catalogue has nothing left
+    // to offer, so the engine refuses with `nothing_new` instead of the floor,
+    // and a probe that checked only the code passed while the mutation stood.
+    // What is being checked here is that the presenter still owes exploration
+    // because its OTHER catalogues hold novelty, so the refusal must name the
+    // floor.
+    expect(trimmed.text.toLowerCase()).toContain("exploration");
   });
 });
 

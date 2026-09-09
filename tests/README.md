@@ -22,17 +22,17 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 
 | Suite | Clauses | What it checks | Written |
 |---|---|---|---|
-| [`absence/`](absence/) | 31, 32, 33, 34, and §9.1 of the spec | Capabilities that must not exist: discount objects, ratings, urgency fields, per-person event stores, tracking sockets, broadcast and segment routes | yes |
-| [`floor/`](floor/) | 30 | An offer below the exploration floor is refused with `422`, no configuration bypasses the check, and the rate cannot reach zero | yes |
-| [`silence/`](silence/) | 36, 37, and spec §2.2 | An undecided digital offer creates no order at expiry; no configuration makes silence into consent; at most one reminder is sent | yes |
-| [`opacity/`](opacity/) | 19, 21, 22, 24 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | yes |
-| [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, and consumed settles at cost | yes |
-| [`lineage/`](lineage/) | 22, 25, and spec §7.1, §7.6 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
+| [`absence/`](absence/) | 1, 2, 3, 8, 9, 11, 12, 27 to 30, 49, and §3.3, §6, §7.7, §9.1 of the spec | Capabilities that must not exist: discount objects, ratings, urgency fields, per-person event stores, tracking sockets, broadcast and segment routes | yes |
+| [`floor/`](floor/) | 26, and spec §5 | An offer below the exploration floor is refused with `422`, no configuration bypasses the check, and the rate cannot reach zero | yes |
+| [`silence/`](silence/) | 23, 25, 32, 33, and spec §2.2 and §12 | An undecided digital offer creates no order at expiry; no configuration makes silence into consent; at most one reminder is sent | yes |
+| [`opacity/`](opacity/) | 16, 18, 19, 20, 21, and spec §7.2, §7.6, §7.7 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | yes |
+| [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, what was used is bought at the merchant's own price, and a gift is never billed to the person who received it | yes |
+| [`lineage/`](lineage/) | 2, 19, 22, and spec §7.1, §7.6 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
-| [`approval/`](approval/) | 40, 63, 67, 68 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
-| [`permissions/`](permissions/) | 41 to 46 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
-| [`registry/`](registry/) | 1, 64, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
-| [`exit/`](exit/) | 47, 61, 62 | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
+| [`approval/`](approval/) | 6, 34, 35, 36, 54, 58, 59, and spec §10 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
+| [`permissions/`](permissions/) | 9, 20, 37 to 42, 46, 47, 58, and spec §7.4, §7.5, §16 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
+| [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
+| [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
 it was shown to catch, and [`MUTATIONS.md`](MUTATIONS.md) holds the ledger with
@@ -48,7 +48,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as thirteen environment variables:
+as nineteen environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -105,10 +105,12 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 192 probes at runtime from 178 declarations, against 156 deliberate
+engine: 192 probes at runtime from 179 declarations, against 161 deliberate
 breaks listed in the ledger, and all but five have been shown to fail under
 at least one break. The five that have not say so in their own notes and the
-ledger says why. Two of the breaks stop any offer being created, so probes
+ledger says why. No mutation survives: every one of the 161 is caught by at
+least one probe, which is a thing this suite could not tell you until
+2026-09-09, when the harness was corrected. Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
 excludes those two by name, reports any mutation that changed nothing, and
 measures which probe each break caught rather than taking the notes on trust.

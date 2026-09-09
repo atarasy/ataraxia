@@ -34,8 +34,10 @@ the name of a directory.
 
 ## What it does not reach
 
-Who operates the registry. `04b` §7.4 says the same of the layer that resolves
-a key to a host, and question 5 in `10` §3 now puts the default host with Vox
-Japan. Whether the registry sits with the host, with the foundation, or with
+Who operates the registry. The same is open for the layer that resolves a key
+to a host, and the two are related: wherever a deployment puts its default
+host, a registry operated by that same party is a registry with an interest in
+the answer. Whether the registry sits with a host, with the foundation, or with
 nobody in particular is open, and it is the question that decides whether
-"shared and neutral" in clause 2 is a fact or a hope.
+"shared and neutral" in clause 2 is a fact or a hope. No probe here can reach
+it, because it is a fact about an organisation and not about a response.

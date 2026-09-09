@@ -21,53 +21,53 @@ can repeat any row.
 |---|---|---|
 | `route_discounts` | Registered `POST /discounts`, returning 201 | 1 |
 | `route_get_segments` | Registered `GET /segments`, returning 200 | 1 |
-| `strict_drops_unknown` | The body check discards unknown fields instead of refusing them | 5 |
+| `strict_drops_unknown` | The body check discards unknown fields instead of refusing them | 6 |
 | `accepts_unit_price` | `unit_price` accepted from the request and stored on the candidate | 1 |
-| `leak_field_offer_view` | Added `rating: 4` to the candidate serialisation | 1 |
+| `leak_field_offer_view` | Added `rating: 4` to the candidate serialisation | 2 |
 | `leak_field_settlement` | Added `tracking_id` to the settlement record | 1 |
 | `list_total` | Added `total` beside `offers` in the household's list. Re-anchored 2026-09-09 after the list gained a presenter; it had gone silently inert, which is why every script now asserts its anchor | 1 |
-| `lineage_acts_total` | Added `network_size` beside `acts` | 1 |
+| `lineage_acts_total` | Added `network_size` beside `acts` | 2 |
 | `balance_route` | Registered `GET /households/{id}/balance` returning 0 | 1 |
 | `invent_product` | A missing catalogue entry falls back to a price of 1000 | 1 |
-| `hide_presenter` | Dropped `presenter` from the offer serialisation | 1 |
-| `no_floor` | The exploration floor check disabled | 5 |
-| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1 |
+| `hide_presenter` | Dropped `presenter` from the offer serialisation | 8 |
+| `no_floor` | The exploration floor check disabled | 6, and 1 unit test |
+| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1 unit test |
 | `floor_bypass_field` | `exploration_floor_met` accepted from the request and honoured | 1 |
-| `floor_too_strict` | Comparison tightened to `marked <= required` | 1 |
-| `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 5, and 2 more at rate 0.6 |
-| `hide_exploration` | Dropped `is_exploration` from the candidate serialisation | 1 |
-| `silence_is_consent` | An undecided digital candidate becomes `kept` at expiry | 3 |
-| `unredeemed_revenue` | The ceremonial branch removed, so nothing is defaulted at expiry | 1 |
-| `many_reminders` | The reminder limit raised from one to five | 2 |
+| `floor_too_strict` | Comparison tightened to `marked <= required` | 9, and 18 unit tests |
+| `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 6, and 1 unit test |
+| `hide_exploration` | Dropped `is_exploration` from the candidate serialisation | 2 |
+| `silence_is_consent` | An undecided digital candidate becomes `kept` at expiry | 5, and 3 unit tests |
+| `unredeemed_revenue` | The ceremonial branch removed, so nothing is defaulted at expiry | 1, and 1 unit test |
+| `many_reminders` | The reminder limit raised from one to five | 2, and 1 unit test |
 | `decide_after_expiry` | Decisions accepted on an expired offer | 1 |
-| `reject_foreign_client` | Lineage edges refused unless the user-agent is the reference hub's | 3 |
-| `accept_any_signature` | Signature verification removed from lineage acceptance | 1 |
-| `hide_merchant` | Blanked `merchant` on the accepted edge | 1 |
+| `reject_foreign_client` | Lineage edges refused unless the user-agent is the reference hub's | 10 |
+| `accept_any_signature` | Signature verification removed from lineage acceptance | 1, and 1 unit test |
+| `hide_merchant` | Blanked `merchant` on the accepted edge | 3 |
 | `profile_from_receipt` | Added a `preference` to each receipt row, derived from the product | 1 |
-| `history_from_receipt` | Added the product to each receipt row | 1 |
+| `history_from_receipt` | Added the product to each receipt row | 2 |
 | `camel_tracking` | Four forbidden fields reintroduced in camelCase: `trackingId`, `stockRemaining`, `expiresInSeconds`, `starRating` | 2 |
 | `coupon_and_surcharge` (re-anchored 2026-09-09) | A `surcharge` accepted on a candidate and added to the price, and a `coupon` accepted and stored | 1 |
 | `per_person_events` | A per-person event store on `/analytics` and a pixel socket on `/px` | 1 |
-| `reminder_rate_limit` | The reminder refusal turned into a five-second backoff | 1 |
-| `silence_consent_non_exploration` | Ordinary candidates kept at expiry, exploration candidates returned | 3 |
-| `no_reserve_ceiling` | The in-memory ledger accepts a commit above the reserved amount | 1, in the engine's own tests |
-| `adapter_trusts_the_ledger` | The Meter adapter delegates the reserve ceiling to Meter | 1, in the engine's own tests |
-| `sent_list_on_giver_surface` | The giver's own gifts added to the acts stream | 1 |
+| `reminder_rate_limit` | The reminder refusal turned into a five-second backoff | 1, and 1 unit test |
+| `silence_consent_non_exploration` | Ordinary candidates kept at expiry, exploration candidates returned | 3, and 3 unit tests |
+| `no_reserve_ceiling` | The in-memory ledger accepts a commit above the reserved amount | 1 unit test |
+| `adapter_trusts_the_ledger` | The Meter adapter delegates the reserve ceiling to Meter | 1 unit test |
+| `sent_list_on_giver_surface` | The giver's own gifts added to the acts stream | 1, and 1 unit test |
 | `period_on_acts` | A `from` and `to` window framing the acts response | 1 |
 | `nudge_route` | `POST /lineage/nudge` registered | 1 |
 | `receipt_ref_resolves` | The edge id put back on the receipt, and a route that resolves it | 1 |
 | `date_on_own_edges` | The date and product kept on the viewer's own lineage edges | 1 |
 | `second_degree_circle` | The circle walked one hop further out | 1 |
-| `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 2 |
+| `bill_the_household_for_lost` | `lost_amount` added to what the ledger commits | 3, and 1 unit test |
 | `credit_the_trial` | What was consumed accrued as a balance and taken off the next settlement. Re-measured 2026-09-09 after every offer took a fresh household, which had made a per-household balance invisible; the probe now names one household | 1 |
 | `withdraw_keeps_decided` | Withdrawing left the undecided candidates as `offered` | 1 |
-| `decide_all_or_nothing` | A decision naming fewer than every candidate refused | 3 |
-| `settled_is_not_terminal` | A withdraw accepted after settlement | 2 |
+| `decide_all_or_nothing` | A decision naming fewer than every candidate refused | 2, and 1 unit test |
+| `settled_is_not_terminal` | A withdraw accepted after settlement | 1, and 1 unit test |
 | `export_only_what_surfaces_show` | The export built from the giver's surface instead of the record | 2 |
 | `export_drops_settlements` | Settlements left out of the export | 2 |
 | `recoverer_owns_every_channel` | The requirement for a channel outside the recoverer's control removed | 1 |
 | `anyone_can_recover` | The check that the caller is a named recoverer removed | 1 |
-| `approval_without_deliberation` | The approval rendered from the offer alone, with no alternatives and no argument against | 1 |
+| `approval_without_deliberation` | The approval rendered from the offer alone, with no alternatives and no argument against | 2 |
 | `drop_excluded_reasons` | The excluded list emptied on the way to the screen | 1 |
 | `presentation_on_approval` | A banner and a rank added to every approval candidate | 1 |
 | `standing_never_lapses` | A standing mandate accepted with no lapse | 1 |
@@ -81,14 +81,14 @@ can repeat any row.
 | `markup_in_argument` | The argument against wrapped in a div | 1 |
 | `mandate_scope_blank` | The mandate's scope emptied | 1 |
 | `reminded_never_true` | `reminded` always false, and a count of reminders left added | 1 |
-| `refuse_every_grant` | Every permission grant refused | 2 |
+| `refuse_every_grant` | Every permission grant refused | 7 |
 | `empty_scope_ok` | A permission accepted with a scope naming nothing | 1 |
 | `revoke_revokes_everything` | Revoking one permission stamps them all | 1 |
 | `global_permissions_route` | `GET /permissions` registered, listing them to anyone | 1 |
-| `no_recovery_on_present` | Presenting a physical offer opens no recovery | 2 |
-| `collect_ignores_consumed` | The consumed list dropped from a collection | 2 |
-| `physical_expiry_returns` | The digital expiry rule applied to the physical binding | 2 |
-| `never_lost` | The loss deadline removed, so uncollected candidates stay undecided | 1 |
+| `no_recovery_on_present` | Presenting a physical offer opens no recovery | 10, and 2 unit tests |
+| `collect_ignores_consumed` | The consumed list dropped from a collection | 5, and 1 unit test |
+| `physical_expiry_returns` | The digital expiry rule applied to the physical binding | 10, and 2 unit tests |
+| `never_lost` | The loss deadline removed, so uncollected candidates stay undecided | 3, and 1 unit test |
 | `place_anything` | The eligibility check removed, and an unknown product given a price | 2 |
 | `collect_twice` | A second collection accepted for one offer | 1 |
 | `returned_and_consumed_ok` | A candidate accepted as both returned and consumed | 1 |
@@ -113,20 +113,20 @@ can repeat any row.
 | `platform_reinfers` | Each prediction scaled by the return rate of the same product across every household seen | 1 |
 | `hide_merchant_on_candidate` | `merchant` and `ships` dropped from the candidate serialisation | 1 |
 | `settlement_lines_without_merchant` | The receipt's lines kept, with the merchant blanked on each | 1 |
-| `require_registered_merchant` | An offer refused when its candidates name a merchant the registry does not list | 1, and every probe that creates an offer, 62 in all: the reference catalogue's maker is unlisted, so the gate refuses everything |
-| `received_route` | `GET /households/{id}/received` registered, returning the products behind the household's gifts | 1 |
-| `ignore_band` | The band kept on a ceremonial offer and candidates no longer checked against it | 1 |
-| `merchant_sees_every_note` | Every note returned to whoever asks as the merchant | 1 |
+| `require_registered_merchant` | An offer refused when its candidates name a merchant the registry does not list | 0 |
+| `received_route` | `GET /households/{id}/received` registered, returning the products behind the household's gifts | 2 |
+| `ignore_band` | The band kept on a ceremonial offer and candidates no longer checked against it | 2 |
+| `merchant_sees_every_note` | Every note returned to whoever asks as the merchant | 3 |
 | `notes_summary_route` | `GET /notes/summary?product=` registered, returning a count and a sentiment | 1 |
 | `any_party_note` | Any party name accepted in a note's `shared_with` | 1 |
-| `settle_anything` | The state guard on settlement removed, so an offer settles in any state | 1 |
+| `settle_anything` | The state guard on settlement removed, so an offer settles in any state | 2 |
 | `accept_unsigned_decisions` | The signature check on a decided set skipped | 1 |
-| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 1, and every probe that creates an offer without naming a user-agent, 79 in all |
+| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 104 |
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
 | `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
-| `floor_ignores_exhaustion` | An offer let through with no exploration to a household that has seen everything, which is the sell-out a cap on the floor would license. Rewritten 2026-09-09 when the cap itself was withdrawn | 1, and one unit test |
-| `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and one unit test |
-| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 1, and 16 more across the suites that read a state the refusal left behind |
+| `floor_ignores_exhaustion` | An offer let through with no exploration to a household that has seen everything, which is the sell-out a cap on the floor would license. Rewritten 2026-09-09 when the cap itself was withdrawn | 1, and 1 unit test |
+| `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and 1 unit test |
+| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 17, and 4 unit tests |
 | `withdraw_after_decision` | Withdraw allowed after a signed decision | 1 |
 | `charge_the_recipient` | A ceremonial offer reserved and committed against the household on the offer, the recipient | 1 |
 | `default_beside_kept` | A default shipped at expiry beside a candidate the recipient had kept | 1 |
@@ -137,9 +137,8 @@ can repeat any row.
 | `notes_append` | A second line by the same author appended to a candidate | 1 |
 | `attest_overwrites` | A merchant's attested key replaced by a later caller | 1 |
 | `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval | 2 |
-| `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and one unit test |
-| `gift_is_billed` | A used gift billed to the person who received it | 1, and one unit test |
-| `cost_on_candidate` | A cost of goods invented and put on every candidate in the offer view | 1 |
+| `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and 1 unit test |
+| `gift_is_billed` | A used gift billed to the person who received it | 1, and 1 unit test |
 | `note_default_nobody` | A note's `shared_with` defaulted to nobody, so a line written before giving reaches no one | 1 |
 | `duplicate_check_without_grant` | The duplicate check answered without consulting the permission ledger | 1 |
 | `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
@@ -164,29 +163,41 @@ can repeat any row.
 | `decide_before_present` | Decisions accepted on a drafted offer | 1 |
 | `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
 | `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
-| `export_no_format` | The export's format string blanked | 3 |
+| `export_no_format` | The export's format string blanked | 4 |
 | `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 1 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
-| `inaction_field_on_acts` | A `responded` field added to every act | 2 |
+| `inaction_field_on_acts` | A `responded` field added to every act | 1, and 1 unit test |
 | `present_expired` | An offer presented after its expiry | 1 |
 | `present_twice` | A drafted offer presented twice | 1 |
 | `recovery_not_logged` | The recovery log not written | 2 |
-| `refuse_the_physical_binding` | Physical offers refused while the deployment declares them | 8 |
+| `refuse_the_physical_binding` | Physical offers refused while the deployment declares them | 16, and 2 unit tests |
 | `slow_when_there_are_acts` | 120ms spent when the acts stream has something in it | 1 |
 | `unknown_giver_404` | A 404 for a giver with no acts | 1 |
 | `unknown_giver_differs` | A 404 for an unattested key and a 200 for a quiet giver | 1 |
 | `withdraw_is_not_final` | Withdraw leaves candidates open, and a withdrawn offer can be decided | 3 |
 | `withdraw_twice` | An offer withdrawn twice | 1 |
-| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 4 |
+| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 14, and 1 unit test |
+| `routes_all_registered` | Every forbidden and intent-layer route of §9.1 and clause 1 registered at once | 17 |
+| `renders_empty_alternatives` | The clause 59 guard left intact and the alternatives emptied in the serialisation, so the screen renders with none | 1 |
+| `resolve_first_config` | The presenter's earliest catalogue resolved whatever version the offer named (§6.3) | 1 |
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
 written from its output rather than from intent. Measured on 2026-09-09 after
 the clause review, both adversarial passes and the renumbering, against the
-reference engine at an exploration rate of 0.2: **159 mutations, 178
-declarations, 192 probes at runtime, 189 of them shown to fail** in the closing
-run. Five mutations were written or repaired after it and each was measured
-against its own probe, which leaves five probes unproven, listed below.
+reference engine at an exploration rate of 0.2: **161 mutations, 179
+declarations, 192 probes at runtime, 187 of them shown to fail, five unproven,
+and no mutation surviving.**
+
+**Read the numerator and the denominator over the same population.** The run's
+union holds 208 lines, of which 187 are conformance probes and 21 are the
+reference engine's own unit tests: `coverage.sh` greps both logs, and the
+engine's tests reach the ledger adapters that the conformance probes, which
+speak only HTTP, never see. An earlier version of this paragraph divided the
+whole union by the conformance count and reported 189 of 192 with five
+unproven. The true figure at that moment was 172 of 192 with twenty unproven,
+and the difference was not measurement noise but two populations added
+together.
 
 The closing run reported no inert mutation, which is what the harness check
 was for: 112 of the scripts had been repointed hours earlier when the
@@ -204,6 +215,39 @@ every probe that creates an offer fails under them whatever it asserts.
 `coverage.sh` now names those two and leaves them out of the count; they are
 still run, and what they catch is recorded in their own rows. Their own probes
 are therefore among the unproven below, which is the honest consequence.
+
+## What the corrected harness found, 2026-09-09
+
+Until this date `conformance.sh` exited 1 on every clean run, so `mutate.sh`
+could never print `SURVIVED` and a mutation caught by nothing looked exactly
+like a mutation every probe caught. The first run after the fix found two
+survivors, and both were real:
+
+- `accepts_unit_price` had lost two of its three anchors when the gift model
+  added `given_by` to the accepted-field list and a field to the request type.
+  It changed bytes in `src`, so the INERT check passed, while the validation
+  gate it was meant to open stayed shut. The ledger recorded it as caught by
+  one probe and it was testing nothing. It is re-anchored, and all three
+  replacements now assert. **53 of the 161 scripts still do not assert their
+  anchors**, and this is what that costs.
+- `novelty_from_this_catalogue` applied correctly. The probe asserted only the
+  `422`, and the engine has two of them: the mutation swapped
+  `exploration_floor` for `nothing_new` and the probe could not tell. It now
+  asserts the reason. **No assertion on a mutation script would have caught
+  this one**: the fault was in the probe.
+
+Three mutations were added for probes that had never been shown to fail.
+`routes_all_registered` registers all eleven forbidden and intent-layer routes
+at once, which proves thirteen generated probes together; the router either
+holds a route or it does not, so nothing is lost by doing it in one.
+`renders_empty_alternatives` leaves the clause 59 guard intact and empties the
+serialisation, which is the one shape that reaches the probe on the rendered
+screen. `resolve_first_config` resolves the presenter's earliest catalogue,
+which is what the guard probe in `silence/` describes and what
+`ignore_config_version`, which resolves the newest, does not do.
+
+Two probe notes named mutations that do not in fact catch them. Both now say
+so. A note is a claim; only the measurement says whether it is still true.
 
 **Five mutations were reported INERT by that run**, which is the check working:
 `mutate.sh` exits 2 when a mutation changes nothing in `src`, so an anchor that

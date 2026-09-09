@@ -430,7 +430,7 @@ describe("absence: no identity and no credential reaches the merchant (clause 49
   test("an offer and its settlement carry no name, address, card or contact", async () => {
     // NOTE (mutation check, 2026-09-09): address_on_offer put a delivery
     // address on the offer serialisation. This assertion failed, naming
-    // `address`. A delivery goes to a code (02 §3); an address on the offer
+    // `address`. A delivery goes to a code, never to an address; an offer
     // is the merchant learning where the household lives.
     const offer = await createConformingOffer();
     const read = await call("GET", `/offers/${offer.id}`);

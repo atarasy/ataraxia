@@ -38,7 +38,7 @@ Each was written after considering whether to omit it. An editor who removes the
 
 ## `tests/`
 
-Eleven suites, all written, and `tests/README.md` says what each covers. They run against any implementation over HTTP and import nothing from one; the reference is `atarasy/valence`. Measured on 2026-09-09: 159 mutations, 178 declarations, 192 probes at runtime, 189 shown to fail. The five that have not say why in their own notes.
+Eleven suites, all written, and `tests/README.md` says what each covers. They run against any implementation over HTTP and import nothing from one; the reference is `atarasy/valence`. Measured on 2026-09-09, after the harness was corrected so that it can report a mutation no probe catches: **161 mutations, 179 declarations, 192 probes at runtime, 187 shown to fail, 5 unproven, 0 survivors.** Count the numerator and the denominator over the same population: `coverage.sh` unions failure lines from the conformance logs and from the engine's own unit tests, and 21 of the 208 lines in the union are the latter. The five unproven are properties of this deployment rather than weak probes, and each says so in its own note.
 
 Three rules apply to anything added there:
 
