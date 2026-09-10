@@ -13,14 +13,35 @@ more servers beside it, each declaring a single role, and these probes ask what
 each answers for. **A boundary a probe cannot reach is one the specification
 cannot hold anyone to**, which is the whole argument for naming the roles.
 
-## The two actions that make the line interesting
+## The action that makes the line interesting, and the one that did not
 
-`POST` and `DELETE /offers/{id}/decisions` carry the person's signature and the
-person's withdrawal. `GET` and `POST /offers/{id}/delivery` are the household's
-surface by §7.5b. **Their path is the offer's and their role is the hub's**, so
-an engine alone does not answer for them and a hub alone does. A split that
-followed the path rather than the authority would hand a presenter the person's
-own signature and the person's own delivery surface.
+`GET` and `POST /offers/{id}/delivery` are the household's surface by §7.5b: a
+carrier's code resolves to an address, so a merchant must not read one. **Its
+path is the offer's and its role is the hub's**, and a hub holds deliveries
+without holding offers.
+
+**`decisions` was the hub's too, for a day, and the reason was wrong.** It was
+assigned there because a decided set is the person's. It is, and clause 35
+makes it so **by the signature**, which whoever answers the route cannot forge.
+What answering the route needs is the offer, and a hub does not have one: a hub
+alone answered `decisions` and could only reply that it had never heard of the
+offer. **Authority travels in the signature, not in the route.** The correction
+came from running the two roles apart, not from reading the design.
+
+## What these probes could not ask, until they could
+
+The probes above ask **who answers**. That is what §13.1 was written to make
+checkable, and for a day it was all this suite could do, which is how three
+defects lived here with every suite green: an engine summing its own
+settlements as though they were a household's union, a hub exporting an empty
+node, and deciding assigned to the party without the offer.
+
+Two probes now ask the other question. They **settle on one party and read the
+other**, so nothing but a working interface between them can make them pass:
+a settlement reaching the person's own copy on the hub, and a hub alone
+exporting a node with the offer in it. The second decides everything
+`returned`, because a probe that checked a purchase would miss the half clause
+8 puts in the person's node.
 
 ## What a failure means
 
