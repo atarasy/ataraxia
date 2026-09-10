@@ -192,6 +192,10 @@ can repeat any row.
 | `routes_all_registered` | Every forbidden and intent-layer route of §9.1 and clause 1 registered at once | 17 |
 | `renders_empty_alternatives` | The clause 59 guard left intact and the alternatives emptied in the serialisation, so the screen renders with none | 1 |
 | `resolve_first_config` | The presenter's earliest catalogue resolved whatever version the offer named (§6.3) | 1 |
+| `roles_answer_for_everything` | Every surface answered whatever roles the deployment declares, which is the state before the split: one process, one set of routes, and no way for a probe to tell a hub from an engine (§13.1) | 3, and 2 unit tests |
+| `decisions_belong_to_the_engine` | The two actions that carry the person's authority put on the engine's side, where their path would put them. A hub alone would then not answer for a person's own signature or their own delivery | 2, and 3 unit tests |
+| `roles_are_swapped` | The two roles exchanged, so an engine answers for the person's surface and a hub for the presenter's. **Every route is still served somewhere**, which is the point: a corpus that only asked whether a route exists would see nothing wrong | 6, and 2 unit tests |
+| `registry_needs_both_roles` | The registry answerable only where both roles run, so a single-role deployment cannot resolve a key and resolution becomes a favour a full deployment does rather than neutral infrastructure (clause 1) | 1, and 1 unit test |
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are

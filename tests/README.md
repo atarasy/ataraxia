@@ -32,6 +32,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`approval/`](approval/) | 6, 34, 35, 36, 54, 58, 59, and spec §10 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 9, 20, 37 to 42, 46, 47, 58, and spec §7.4, §7.5, §16 to §16.6 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced. Since 2026-09-10 also the mandate's thresholds: a daily ceiling across presenters, the categories that need a second signature, a cooling window with a route to take a signed set back, and a refusal that names which of them refused | yes |
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
+| [`roles/`](roles/) | 1, and spec §13.1 | An implementation answers for the surface it presents: an engine alone does not answer for the household's, a hub alone does not answer for the presenter's, the two offer actions that carry the person's authority are the hub's, and the registry is answered by either | yes |
 | [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -104,7 +105,7 @@ gate that overstates itself is worse than one that does not exist.
 
 ## Status
 
-September 2026. All eleven suites are written and pass against the reference
+September 2026. All twelve suites are written and pass against the reference
 engine. Re-measured on 2026-09-10, after the mandate's thresholds: **202 probes at
 runtime from 188 declarations, against 173 deliberate breaks** listed in the
 ledger, and all but five have been shown to fail under at least one break. The ledger names those
