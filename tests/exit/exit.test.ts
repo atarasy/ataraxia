@@ -453,6 +453,51 @@ describe("exit: a shop leaves with its ledgers (clauses 5, 43, §14.1)", () => {
     for (const c of shop.configs) expect(c.presenter).toBe(who);
   });
 
+  test("the export carries how each offer settled, and the shop's recovery rows", async () => {
+    // NOTE (mutation check, 2026-09-10): merchant_export_drops_settlements and
+    // merchant_export_drops_recoveries each empty one array. Both survived
+    // before this probe existed: the three probes here asserted the format,
+    // that configs and offers are non-empty, and that neither belongs to
+    // another presenter, and nothing asserted the other two arrays at all.
+    // §14.1 says what this specification owes the shop is that leaving is
+    // possible and complete, and "complete" was resting on nothing.
+    const who = await presenter();
+    const offer = await seedSomethingToMove();
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+
+    // A digital offer produces no recovery row, so asserting only that the
+    // array exists let merchant_export_drops_recoveries survive. The shop's
+    // recovery rows are the half of §14.1 that only the physical binding
+    // writes, so one is placed and collected here.
+    // A fresh household: the one above has been offered every product, and a
+    // presenter with nothing new for a household makes it no offer (§5.1).
+    // The export is the presenter's, so a second household belongs in it.
+    const placed = await createConformingOffer({
+      household: freshHousehold(),
+      binding: "physical",
+    });
+    await call("POST", `/offers/${placed.id}/present`, {});
+    const [head, ...tail] = placed.candidates;
+    const collected = await call("POST", `/offers/${placed.id}/recovery`, {
+      returned: tail.map((c) => c.id),
+      consumed: [head!.id],
+    });
+    expect(collected.status).toBe(200);
+
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    expect(exported.status).toBe(200);
+    const shop = exported.body as {
+      offers: { id: string }[];
+      settlements: { offer: string }[];
+      recoveries: unknown[];
+    };
+    expect(shop.recoveries.length).toBeGreaterThan(0);
+    // Every offer that settled is answered for in the export.
+    expect(shop.settlements.length).toBeGreaterThan(0);
+    expect(shop.settlements.some((s) => s.offer === offer.id)).toBe(true);
+  });
+
   test("it carries only the lines a household shared with the merchant", async () => {
     // NOTE (mutation check, 2026-09-09): merchant_export_leaks_notes put
     // every line on the shop's candidates into its export. This assertion
