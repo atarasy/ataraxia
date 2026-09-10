@@ -105,12 +105,15 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine: 192 probes at runtime from 179 declarations, against 161 deliberate
-breaks listed in the ledger, and all but five have been shown to fail under
-at least one break. The five that have not say so in their own notes and the
-ledger says why. No mutation survives: every one of the 161 is caught by at
-least one probe, which is a thing this suite could not tell you until
-2026-09-09, when the harness was corrected. Two of the breaks stop any offer being created, so probes
+engine. Re-measured in full on 2026-09-10: **197 probes at runtime from 183
+declarations, against 167 deliberate breaks** listed in the ledger, and all but
+six have been shown to fail under at least one break. The ledger names those
+six one by one and says why each stands: two are proven only by breaks that are
+excluded for stopping every offer, two are properties of this deployment rather
+than weak probes, one is a boundary case reached by another break first, and one
+was written on 2026-09-10 and has no break of its own yet. **No mutation
+survives and none is inert**, which is a thing this suite could not tell you
+until 2026-09-09, when the harness was corrected. Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
 excludes those two by name, reports any mutation that changed nothing, and
 measures which probe each break caught rather than taking the notes on trust.

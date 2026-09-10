@@ -29,9 +29,9 @@ can repeat any row.
 | `lineage_acts_total` | Added `network_size` beside `acts` | 2 |
 | `balance_route` | Registered `GET /households/{id}/balance` returning 0 | 1 |
 | `invent_product` | A missing catalogue entry falls back to a price of 1000 | 1 |
-| `hide_presenter` | Dropped `presenter` from the offer serialisation | 8 |
+| `hide_presenter` | Dropped `presenter` from the offer serialisation | 10 |
 | `no_floor` | The exploration floor check disabled | 6, and 1 unit test |
-| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1 unit test |
+| `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1, and 1 unit test |
 | `floor_bypass_field` | `exploration_floor_met` accepted from the request and honoured | 1 |
 | `floor_too_strict` | Comparison tightened to `marked <= required` | 9, and 18 unit tests |
 | `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 6, and 1 unit test |
@@ -65,6 +65,8 @@ can repeat any row.
 | `settled_is_not_terminal` | A withdraw accepted after settlement | 1, and 1 unit test |
 | `export_only_what_surfaces_show` | The export built from the giver's surface instead of the record | 2 |
 | `export_drops_settlements` | Settlements left out of the export | 2 |
+| `export_drops_permissions` | The permission ledger and the query log dropped from the node export, which is the state every version before 2026-09-09 shipped: the ledger was built that day and nothing connected it to the export, so a member who moved host lost every permission they had granted | 1 |
+| `import_drops_recoveries` | The receiving host discards the recovery log the export carried. It was carried and silently dropped until 2026-09-09 | 1 |
 | `recoverer_owns_every_channel` | The requirement for a channel outside the recoverer's control removed | 1 |
 | `anyone_can_recover` | The check that the caller is a named recoverer removed | 1 |
 | `approval_without_deliberation` | The approval rendered from the offer alone, with no alternatives and no argument against | 2 |
@@ -81,13 +83,13 @@ can repeat any row.
 | `markup_in_argument` | The argument against wrapped in a div | 1 |
 | `mandate_scope_blank` | The mandate's scope emptied | 1 |
 | `reminded_never_true` | `reminded` always false, and a count of reminders left added | 1 |
-| `refuse_every_grant` | Every permission grant refused | 7 |
+| `refuse_every_grant` | Every permission grant refused | 8 |
 | `empty_scope_ok` | A permission accepted with a scope naming nothing | 1 |
 | `revoke_revokes_everything` | Revoking one permission stamps them all | 1 |
 | `global_permissions_route` | `GET /permissions` registered, listing them to anyone | 1 |
-| `no_recovery_on_present` | Presenting a physical offer opens no recovery | 10, and 2 unit tests |
+| `no_recovery_on_present` | Presenting a physical offer opens no recovery | 11, and 2 unit tests |
 | `collect_ignores_consumed` | The consumed list dropped from a collection | 5, and 1 unit test |
-| `physical_expiry_returns` | The digital expiry rule applied to the physical binding | 10, and 2 unit tests |
+| `physical_expiry_returns` | The digital expiry rule applied to the physical binding | 11, and 2 unit tests |
 | `never_lost` | The loss deadline removed, so uncollected candidates stay undecided | 3, and 1 unit test |
 | `place_anything` | The eligibility check removed, and an unknown product given a price | 2 |
 | `collect_twice` | A second collection accepted for one offer | 1 |
@@ -121,12 +123,12 @@ can repeat any row.
 | `any_party_note` | Any party name accepted in a note's `shared_with` | 1 |
 | `settle_anything` | The state guard on settlement removed, so an offer settles in any state | 2 |
 | `accept_unsigned_decisions` | The signature check on a decided set skipped | 1 |
-| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 104 |
+| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 108 |
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
 | `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
 | `floor_ignores_exhaustion` | An offer let through with no exploration to a household that has seen everything, which is the sell-out a cap on the floor would license. Rewritten 2026-09-09 when the cap itself was withdrawn | 1, and 1 unit test |
 | `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and 1 unit test |
-| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 17, and 4 unit tests |
+| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 18, and 4 unit tests |
 | `withdraw_after_decision` | Withdraw allowed after a signed decision | 1 |
 | `charge_the_recipient` | A ceremonial offer reserved and committed against the household on the offer, the recipient | 1 |
 | `default_beside_kept` | A default shipped at expiry beside a candidate the recipient had kept | 1 |
@@ -144,6 +146,9 @@ can repeat any row.
 | `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
 | `merchant_export_drops_configs` | A shop's export leaves its catalogue behind | 1 |
 | `merchant_export_leaks_notes` | A shop's export carries every line on its candidates, not the shared ones | 1 |
+| `merchant_export_drops_settlements` | The settlement rows emptied in the shop's export. Before 2026-09-10 the three probes on this export asserted the format and that two arrays were non-empty, nothing asserted settlements, and this mutation survived | 1 |
+| `merchant_export_drops_recoveries` | The shop's own recovery rows emptied in its export, so a shop that ran the physical binding arrives at its new platform without any record of what it placed and got back | 1 |
+| `merchant_export_leaks_delivery` | A delivery row added to the shop's export, which would hand a receiving platform every household's delivery code (§14.1, §7.5b) | 1 |
 | `tightening_needs_cosigner` | Every mandate change made to need the co-signers, so a person cannot lower their own ceiling | 1 |
 | `mandate_any_version` | Any mandate version accepted, so an old signature can be replayed onto a new record | 1 |
 | `result_form_on_party_ok` | A result form accepted on a party grant | 1 |
@@ -163,35 +168,52 @@ can repeat any row.
 | `decide_before_present` | Decisions accepted on a drafted offer | 1 |
 | `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
 | `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
-| `export_no_format` | The export's format string blanked | 4 |
-| `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 1 |
+| `export_no_format` | The export's format string blanked | 5 |
+| `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 7 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
+| `delivery_on_the_offer` | The delivery code and the carriage put on the offer view, where a merchant reads them (clause 49, §7.5b). The first version of this script changed the stored candidate and **survived**: `offerView` names every field it emits, so nothing reaches a response by being stored, and the mutation has to change the view | 1 |
 | `inaction_field_on_acts` | A `responded` field added to every act | 1, and 1 unit test |
 | `present_expired` | An offer presented after its expiry | 1 |
 | `present_twice` | A drafted offer presented twice | 1 |
-| `recovery_not_logged` | The recovery log not written | 2 |
-| `refuse_the_physical_binding` | Physical offers refused while the deployment declares them | 16, and 2 unit tests |
+| `recovery_not_logged` | The recovery log not written | 3 |
+| `refuse_the_physical_binding` | Physical offers refused while the deployment declares them | 17, and 2 unit tests |
 | `slow_when_there_are_acts` | 120ms spent when the acts stream has something in it | 1 |
 | `unknown_giver_404` | A 404 for a giver with no acts | 1 |
 | `unknown_giver_differs` | A 404 for an unattested key and a 200 for a quiet giver | 1 |
 | `withdraw_is_not_final` | Withdraw leaves candidates open, and a withdrawn offer can be decided | 3 |
 | `withdraw_twice` | An offer withdrawn twice | 1 |
-| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 14, and 1 unit test |
+| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 15, and 1 unit test |
 | `routes_all_registered` | Every forbidden and intent-layer route of §9.1 and clause 1 registered at once | 17 |
 | `renders_empty_alternatives` | The clause 59 guard left intact and the alternatives emptied in the serialisation, so the screen renders with none | 1 |
 | `resolve_first_config` | The presenter's earliest catalogue resolved whatever version the offer named (§6.3) | 1 |
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. Measured on 2026-09-09 after
-the clause review, both adversarial passes and the renumbering, against the
-reference engine at an exploration rate of 0.2: **161 mutations, 179
-declarations, 192 probes at runtime, 187 of them shown to fail, five unproven,
-and no mutation surviving.**
+written from its output rather than from intent. **Re-measured in full on
+2026-09-10**, after the delivery wall, the merchant-export probes and the
+rebuilt padding probe went in, against the reference engine at an exploration
+rate of 0.2: **167 mutations, 183 declarations, 197 probes at runtime, 191 of
+them shown to fail, six not shown to fail, no mutation surviving and none
+inert.** Two mutations are excluded from the count because they break the
+shared fixture, and one of those, `require_registered_merchant`, aborts before
+any probe runs. The run before it, on 2026-09-09, read 161 mutations, 179
+declarations, 192 probes at runtime and 187 shown to fail; it is superseded and
+kept here so the movement is legible.
 
-**Read the numerator and the denominator over the same population.** The run's
-union holds 208 lines, of which 187 are conformance probes and 21 are the
-reference engine's own unit tests: `coverage.sh` greps both logs, and the
+**The six that have never been shown to fail**, each named rather than counted:
+
+| Probe | Why |
+|---|---|
+| `approval` > an offer is accepted from another client as it is from the reference hub | Its mutation is `reject_foreign_offer_client`, which is excluded for breaking the fixture across twelve suites |
+| `registry` > an offer names a merchant the registry does not list, and is created | Its mutation is `require_registered_merchant`, which aborts the setup |
+| `binding` > consumed and lost cannot be reached from the digital binding | Needs a deployment with no physical binding, which this one is not |
+| `exit` > recovering does not make the recoverer able to read | The reference authenticates nobody, so a recoverer's view and a stranger's are the same view. The probe says so in its own note |
+| `floor` > one short of the floor is refused | The boundary case. `floor_off_by_one` moves the floor and is caught elsewhere before this probe sees it |
+| `absence` > a delivery is readable on the household's surface | **New on 2026-09-10 and unproven from the first day.** It asserts a route exists; the mutations written beside it move the delivery to where a merchant reads it, which the two probes next to it catch. A mutation that removes the route would prove this one |
+
+**Read the numerator and the denominator over the same population.** The run of
+2026-09-10 has a union of 212 lines, of which **191 are conformance probes and
+21 are the reference engine's own unit tests**: `coverage.sh` greps both logs, and the
 engine's tests reach the ledger adapters that the conformance probes, which
 speak only HTTP, never see. An earlier version of this paragraph divided the
 whole union by the conformance count and reported 189 of 192 with five
