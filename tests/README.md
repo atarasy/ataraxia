@@ -107,19 +107,28 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All thirteen suites are written and pass against the reference
-engine. Re-measured on 2026-09-10, after the mandate's thresholds: **202 probes at
-runtime from 188 declarations, against 173 deliberate breaks** listed in the
-ledger, and all but five have been shown to fail under at least one break. The ledger names those
-five one by one and says why each stands: two are proven only by breaks that are
-excluded for stopping every offer, two are properties of this deployment rather
-than weak probes, and one is a boundary case reached by another break first. A
-sixth was on that list for a few hours, until the break that proves it was
-written. **No mutation
-survives and none is inert**, which is a thing this suite could not tell you
-until 2026-09-09, when the harness was corrected. Two of the breaks stop any offer being created, so probes
+engine. Re-measured in full on 2026-09-11, after the two conformance roles, the
+store and the passkey's assertion: **216 probes at runtime from 202
+declarations, against 184 deliberate breaks** listed in the ledger, and **206
+have been shown to fail** under at least one break. **No mutation survives and
+none is inert**, which is a thing this suite could not tell you until
+2026-09-09, when the harness was corrected.
+
+**Ten probes have not been shown to fail, and the ledger names every one.** Five
+are the standing five: two are proven only by breaks excluded for stopping every
+offer, two are properties of this deployment rather than weak probes, and one is
+a boundary case reached by another break first. Five arrived with this
+generation, and four of those are in `roles/`: seeding the role-split pair is
+now fatal when a break stops it, so the three breaks that stopped it are
+reported as aborting rather than as caught. That is honest and it is a loss, and
+the ledger says what the fix is. The tenth was written beside the passkey's
+assertion with no break beside it.
+
+Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
-excludes those two by name, reports any mutation that changed nothing, and
-measures which probe each break caught rather than taking the notes on trust.
+excludes those two by name, reports any mutation that changed nothing, reports
+any that never reached a probe, and measures which probe each break caught
+rather than taking the notes on trust.
 
 `opacity/` and `exit/` were the last two written, and later than the rest for a
 reason that was not schedule. Both test a hub rather than an offer engine:

@@ -206,18 +206,50 @@ can repeat any row.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. **Re-measured twice on 2026-09-10**,
-the second time after the mandate's thresholds, at an exploration rate of 0.2.
+written from its output rather than from intent. **Re-measured in full on
+2026-09-11**, after the two conformance roles, the store, and the passkey's
+assertion, at an exploration rate of 0.2.
 
-| | first run | closing run |
-|---|---|---|
-| mutations | 167 | **173** (171 counted, 2 excluded for breaking the shared fixture) |
-| declarations | 183 | **188** |
-| probes at runtime | 197 | **202** |
-| shown to fail | 191 | **197** |
-| not shown to fail | 6 | **5** |
-| surviving | 0 | **0** |
-| inert | 0 | **1, found and fixed** |
+| | 2026-09-09 | 2026-09-10 | 2026-09-11 |
+|---|---|---|---|
+| mutations | 167 | 173 | **184** (182 counted, 2 excluded for breaking the shared fixture) |
+| declarations | 183 | 188 | **202** |
+| probes at runtime | 197 | 202 | **216**, one of them skipped |
+| shown to fail | 191 | 197 | **206** |
+| not shown to fail | 6 | 5 | **10**, named below |
+| surviving | 0 | 0 | **0** |
+| inert | 0 | 1, found and fixed | **0** |
+| aborting before a probe runs | 1 | 1 | **3** |
+
+**The count of unproven probes went up, and the cause is in the harness rather
+than in the suites.** Seeding the role-split pair was added on 2026-09-11 so the
+`roles/` suite could read one party after writing to the other, and
+`conformance.sh` runs under `set -e`. A mutation that breaks that seed therefore
+kills the run before `bun test` starts. Three now do: `roles_are_swapped`,
+`registry_needs_both_roles` and `require_registered_merchant`, each dying at
+`scripts/seed.ts:73`. They are reported as ABORTED, which is honest, and the
+cost is that **four `roles/` probes and one `registry/` probe that the previous
+generation proved are now proven by nothing.** The fix is for the role-split
+seed not to be fatal, so the probes fail with their own names; it is not made
+here, because a change to `conformance.sh` means this whole table must be
+measured again before it can be quoted.
+
+**The engine's own unit tests are a separate population**: 62 at runtime, 30 of
+them shown to fail. They are not added to the 206 above. `coverage.sh` prints
+the union of both, which was 236 lines in this run, and dividing that by the
+conformance count is the error corrected on 2026-09-10 and described below.
+
+**`scripts/fragility.py` against the same run**: of 209 probes with a catch,
+**66 rest on a single mutation**, and 8 rest only on a mutation that spans nine
+or more suites, which is the shape of one breaking the shared fixture rather
+than one the corpus catches.
+
+**It was killed for memory twice**, at 86 and at 154 of 184, and neither kill
+cost more than the mutation it landed on: `coverage.sh` had been taught the day
+before to keep each verdict in a directory keyed by the content of `src`, the
+scripts and the suites. Both kills left a mutation applied to `src`, once to
+`offers.ts` and once to `http.ts`, which is the state the dirty-`src` guard
+exists to refuse.
 
 **The closing run was killed for memory at 155 of 173 and resumed**, which cost
 two things worth recording. The kill left a mutation applied to `src`, and it
@@ -240,15 +272,20 @@ any probe runs. The run before it, on 2026-09-09, read 161 mutations, 179
 declarations, 192 probes at runtime and 187 shown to fail; it is superseded and
 kept here so the movement is legible.
 
-**The five that have never been shown to fail**, each named rather than counted. There were six until `no_delivery_route` was written on 2026-09-10 for the last row, which is why that row is struck rather than removed: the shape of the gap is worth keeping:
+**The ten that have never been shown to fail**, each named rather than counted. Five of them are the ordinary five, and five arrived on 2026-09-11: four in `roles/` and one in `registry/`, all of them for the same reason, which is the aborting seed described above rather than anything about the probes themselves:
 
 | Probe | Why |
 |---|---|
-| `approval` > an offer is accepted from another client as it is from the reference hub | Its mutation is `reject_foreign_offer_client`, which is excluded for breaking the fixture across twelve suites |
+| `approval` > an offer is accepted from another client as it is from the reference hub | Its mutation is `reject_foreign_offer_client`, which is excluded for breaking the fixture across fourteen suites |
 | `registry` > an offer names a merchant the registry does not list, and is created | Its mutation is `require_registered_merchant`, which aborts the setup |
-| `binding` > consumed and lost cannot be reached from the digital binding | Needs a deployment with no physical binding, which this one is not |
+| `binding` > consumed and lost cannot be reached from the digital binding | Needs a deployment with no physical binding, which this one is not. **It is the one probe the run reports as skipped**, so it is unproven twice over: not shown to fail, and not run |
 | `exit` > recovering does not make the recoverer able to read | The reference authenticates nobody, so a recoverer's view and a stranger's are the same view. The probe says so in its own note |
 | `floor` > one short of the floor is refused | The boundary case. `floor_off_by_one` moves the floor and is caught elsewhere before this probe sees it |
+| `approval` > a set carries a signature or an assertion, and not both | Written on 2026-09-11 with the passkey's assertion, and no mutation was written beside it. The recurring failure of this project, in its plainest form |
+| `roles` > a hub alone answers for the household and the mandate | `roles_are_swapped` proved it and now aborts in the seed |
+| `roles` > an engine alone answers for offers | Same |
+| `roles` > an engine alone answers for deciding, because authority travels in the signature | Same. This is the probe written for the day's largest correction, and it currently proves nothing |
+| `roles` > both roles answer for the registry | `registry_needs_both_roles` proved it and now aborts in the seed |
 | ~~`absence` > a delivery is readable on the household's surface~~ | ~~New on 2026-09-10 and unproven from the first day.~~ **Proven the same day** by `no_delivery_route`, which removes the route the probe asserts. The gap was the ordinary one: the mutations written beside it moved the delivery to where a merchant reads it, and nothing asked whether the household's own surface worked at all |
 
 **Read the numerator and the denominator over the same population.** The run of
