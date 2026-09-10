@@ -30,7 +30,7 @@ A merchant exposes Valence-conformant endpoints and carries the Ataraxia mark. A
 
 Each was written after considering whether to omit it. An editor who removes them to make the document cleaner has made it weaker.
 
-**The trademarks are unregistered and no application has been filed.** An earlier draft said "registration is in progress" — that was false and was corrected in `f2665d9`. Never restate it. Filing is deliberately deferred until the指定 goods and services can be written properly, which needs decisions that have not been made.
+**The trademarks are unregistered and no application has been filed.** An earlier draft said "registration is in progress", which was false and was corrected in `f2665d9`. Never restate it. Filing stays deferred until the designated goods and services can be written properly. **Two of the decisions it was waiting on were made on 2026-09-10**: the mark is filed in the founder's name rather than an operating company's, because a party that operates both sides cannot hold the mark that certifies; and it is filed once the shape of the first business can be written, and no sooner.
 
 **The mark never attaches to people** (clause 55). It attaches to software and hosts. Merchant endpoints and gift lineage do not discriminate on it. Excluding a fork happens only inside one person's own mandate, decided by whoever is protecting them. Any proposal that turns the mark into a gate contradicts both clause 55 and the section on what the constitution does not protect.
 
