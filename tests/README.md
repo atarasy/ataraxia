@@ -34,6 +34,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`roles/`](roles/) | 1, and spec §13.1 | An implementation answers for the surface it presents: an engine alone does not answer for the household's, a hub alone does not answer for the presenter's, the two offer actions that carry the person's authority are the hub's, and the registry is answered by either | yes |
 | [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
+| [`merchant-exit/`](merchant-exit/) | 5, 43, and spec §14.1 | A shop leaves with its ledgers: the catalogue, its own offers, how each settled, its recovery rows, no other presenter's offers, no private line and no delivery | yes |
 
 Every probe in the three written suites carries a note recording the mutation
 it was shown to catch, and [`MUTATIONS.md`](MUTATIONS.md) holds the ledger with
@@ -105,7 +106,7 @@ gate that overstates itself is worse than one that does not exist.
 
 ## Status
 
-September 2026. All twelve suites are written and pass against the reference
+September 2026. All thirteen suites are written and pass against the reference
 engine. Re-measured on 2026-09-10, after the mandate's thresholds: **202 probes at
 runtime from 188 declarations, against 173 deliberate breaks** listed in the
 ledger, and all but five have been shown to fail under at least one break. The ledger names those

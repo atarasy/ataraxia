@@ -1,5 +1,10 @@
 # exit
 
+**The shop's half moved out on 2026-09-11.** It is `merchant-exit/` now, because
+§13.1 puts a person's node move on the hub's surface and a shop's export on the
+engine's, and a suite that asked for both could not be pointed at either role
+alone.
+
 **Clauses 43, 52 and 53, and clauses 5 and 43 for the shop's own export (§14.1).**
 
 A household exports what it holds, moves its node to another host intact, and
