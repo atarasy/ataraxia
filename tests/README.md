@@ -105,9 +105,9 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All eleven suites are written and pass against the reference
-engine. Re-measured in full on 2026-09-10: **197 probes at runtime from 183
-declarations, against 168 deliberate breaks** listed in the ledger, and all but
-five have been shown to fail under at least one break. The ledger names those
+engine. Re-measured on 2026-09-10, after the mandate's thresholds: **202 probes at
+runtime from 188 declarations, against 173 deliberate breaks** listed in the
+ledger, and all but five have been shown to fail under at least one break. The ledger names those
 five one by one and says why each stands: two are proven only by breaks that are
 excluded for stopping every offer, two are properties of this deployment rather
 than weak probes, and one is a boundary case reached by another break first. A

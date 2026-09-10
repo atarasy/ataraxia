@@ -33,7 +33,7 @@ can repeat any row.
 | `no_floor` | The exploration floor check disabled | 6, and 1 unit test |
 | `pad_the_floor` | The check that a marked candidate qualifies as exploration removed, leaving the count. Re-measured 2026-09-09 after exploration became what the household has never been offered; still caught by the padding probe | 1, and 1 unit test |
 | `floor_bypass_field` | `exploration_floor_met` accepted from the request and honoured | 1 |
-| `floor_too_strict` | Comparison tightened to `marked <= required` | 9, and 18 unit tests |
+| `floor_too_strict` | Comparison tightened to `marked <= required` | 11, and 18 unit tests |
 | `floor_off_by_one` | Comparison weakened to `marked < required - 1` | 6, and 1 unit test |
 | `hide_exploration` | Dropped `is_exploration` from the candidate serialisation | 2 |
 | `silence_is_consent` | An undecided digital candidate becomes `kept` at expiry | 5, and 3 unit tests |
@@ -123,12 +123,12 @@ can repeat any row.
 | `any_party_note` | Any party name accepted in a note's `shared_with` | 1 |
 | `settle_anything` | The state guard on settlement removed, so an offer settles in any state | 2 |
 | `accept_unsigned_decisions` | The signature check on a decided set skipped | 1 |
-| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 108 |
+| `reject_foreign_offer_client` | `POST /offers` refused unless the user-agent is the reference hub's | 112 |
 | `address_on_offer` | A delivery address put on the offer serialisation | 1 |
 | `attest_returns_private_key` | The attestation route generates a key pair and returns the private half | 1 |
 | `floor_ignores_exhaustion` | An offer let through with no exploration to a household that has seen everything, which is the sell-out a cap on the floor would license. Rewritten 2026-09-09 when the cap itself was withdrawn | 1, and 1 unit test |
 | `household_declares_consumed` | A household allowed to decide `consumed` and `lost` in the physical binding | 1, and 1 unit test |
-| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 18, and 4 unit tests |
+| `decide_writes_on_refusal` | Each decision line written as it is checked, so a refused set leaves earlier lines written | 22, and 4 unit tests |
 | `withdraw_after_decision` | Withdraw allowed after a signed decision | 1 |
 | `charge_the_recipient` | A ceremonial offer reserved and committed against the household on the offer, the recipient | 1 |
 | `default_beside_kept` | A default shipped at expiry beside a candidate the recipient had kept | 1 |
@@ -140,7 +140,7 @@ can repeat any row.
 | `attest_overwrites` | A merchant's attested key replaced by a later caller | 1 |
 | `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval | 2 |
 | `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and 1 unit test |
-| `gift_is_billed` | A used gift billed to the person who received it | 1, and 1 unit test |
+| `gift_is_billed` | A used gift billed to the person who received it | 2, and 1 unit test |
 | `note_default_nobody` | A note's `shared_with` defaulted to nobody, so a line written before giving reaches no one | 1 |
 | `duplicate_check_without_grant` | The duplicate check answered without consulting the permission ledger | 1 |
 | `duplicate_check_unlogged` | The duplicate check answered without writing the row into the recipient's record | 1 |
@@ -149,7 +149,7 @@ can repeat any row.
 | `merchant_export_drops_settlements` | The settlement rows emptied in the shop's export. Before 2026-09-10 the three probes on this export asserted the format and that two arrays were non-empty, nothing asserted settlements, and this mutation survived | 1 |
 | `merchant_export_drops_recoveries` | The shop's own recovery rows emptied in its export, so a shop that ran the physical binding arrives at its new platform without any record of what it placed and got back | 1 |
 | `merchant_export_leaks_delivery` | A delivery row added to the shop's export, which would hand a receiving platform every household's delivery code (§14.1, §7.5b) | 1 |
-| `tightening_needs_cosigner` | Every mandate change made to need the co-signers, so a person cannot lower their own ceiling | 1 |
+| `tightening_needs_cosigner` | Every mandate change made to need the co-signers, so a person cannot lower their own ceiling | 5 |
 | `daily_ceiling_ignored` | The daily sum dropped at settlement, which is the state every version before 2026-09-10 shipped: the field did not exist and nothing bound a household's day across presenters (§16.3) | 1 |
 | `absent_daily_ceiling_is_zero` | A missing daily ceiling read as a ceiling of zero, so every settlement is refused. **Its 17 probes are catches and not a broken fixture**: each fails on its own assertion, having asked for a settlement and been refused, rather than in its setup | 17 |
 | `co_sign_category_ignored` | The category check dropped, so a set the person said needs two signatures goes through on one (§16.4) | 1 |
@@ -161,7 +161,7 @@ can repeat any row.
 | `computation_grant_raw` | Raw data admitted as a computation's result form | 1 |
 | `unsigned_catalogue` | A catalogue accepted without the presenter's signature | 1 |
 | `presenter_always_attested` | Every presenter reported as root-endorsed. Failed no probe on its first run: the only presenter a probe read was the rooted one | 1 |
-| `loosening_without_cosigner` | A mandate loosened on the person's signature alone | 2 |
+| `loosening_without_cosigner` | A mandate loosened on the person's signature alone | 4 |
 | `ceiling_not_enforced` | An offer presented over the ceiling the person signed. Failed no probe on its first run: nothing placed one | 1 |
 | `lapsed_mandate_still_works` | An offer presented on a mandate that had lapsed. Failed no probe on its first run: nothing used one | 1 |
 | `unattested_counts_as_given` | An unattested edge counted as having been given, so a stranger who registers a key can empty a household's exploration floor | 1 |
@@ -174,7 +174,7 @@ can repeat any row.
 | `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
 | `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
 | `export_no_format` | The export's format string blanked | 5 |
-| `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 7 |
+| `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 8 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
 | `no_delivery_route` | The household's own read of its delivery removed, so `GET /offers/{id}/delivery` answers 404. The wall around the merchant was proven from the first day and the surface the wall protects was not, which left the control probe unproven until this was written (2026-09-10) | 1 |
 | `delivery_on_the_offer` | The delivery code and the carriage put on the offer view, where a merchant reads them (clause 49, §7.5b). The first version of this script changed the stored candidate and **survived**: `offerView` names every field it emits, so nothing reaches a response by being stored, and the mutation has to change the view | 1 |
@@ -188,21 +188,42 @@ can repeat any row.
 | `unknown_giver_differs` | A 404 for an unattested key and a 200 for a quiet giver | 1 |
 | `withdraw_is_not_final` | Withdraw leaves candidates open, and a withdrawn offer can be decided | 3 |
 | `withdraw_twice` | An offer withdrawn twice | 1 |
-| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 15, and 1 unit test |
+| `settle_at_latest_config` | Settlement resolves the presenter's newest catalogue rather than the version stamped on the offer | 17, and 1 unit test |
 | `routes_all_registered` | Every forbidden and intent-layer route of §9.1 and clause 1 registered at once | 17 |
 | `renders_empty_alternatives` | The clause 59 guard left intact and the alternatives emptied in the serialisation, so the screen renders with none | 1 |
 | `resolve_first_config` | The presenter's earliest catalogue resolved whatever version the offer named (§6.3) | 1 |
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
-written from its output rather than from intent. **Re-measured in full on
-2026-09-10**, after the delivery wall, the merchant-export probes and the
-rebuilt padding probe went in, against the reference engine at an exploration
-rate of 0.2: **167 mutations, 183 declarations, 197 probes at runtime, 191 of
-them shown to fail, six not shown to fail, no mutation surviving and none
-inert.** One of the six was proven later the same day by `no_delivery_route`,
-written for it, which brings the corpus to **168 mutations and 192 probes shown
-to fail, with five not shown to fail**. Two mutations are excluded from the count because they break the
+written from its output rather than from intent. **Re-measured twice on 2026-09-10**,
+the second time after the mandate's thresholds, at an exploration rate of 0.2.
+
+| | first run | closing run |
+|---|---|---|
+| mutations | 167 | **173** (171 counted, 2 excluded for breaking the shared fixture) |
+| declarations | 183 | **188** |
+| probes at runtime | 197 | **202** |
+| shown to fail | 191 | **197** |
+| not shown to fail | 6 | **5** |
+| surviving | 0 | **0** |
+| inert | 0 | **1, found and fixed** |
+
+**The closing run was killed for memory at 155 of 173 and resumed**, which cost
+two things worth recording. The kill left a mutation applied to `src`, and it
+was restored only after reading the diff against the script that produced it.
+And **the run's own summary never printed**, so the survivors and the inert
+were reconstructed from the logs instead: a mutation whose logs hold no failing
+probe either survived or aborted, and exactly one does, which is
+`require_registered_merchant`, the one that aborts.
+
+**The inert one was caused by this session's own change.**
+`hide_merchant_on_candidate` anchored on `ships` running straight into
+`predicted_conversion` in the candidate view, and §16.4's `category` was
+inserted between them the same day. The script then changed nothing, reported
+nothing, and would have passed for a mutation the corpus catches. It is
+re-anchored on the two lines clause 12 is actually about, and catches its probe
+again. **This is the third time an anchor has drifted under a new field**, and
+each time the harness check is what found it. Two mutations are excluded from the count because they break the
 shared fixture, and one of those, `require_registered_merchant`, aborts before
 any probe runs. The run before it, on 2026-09-09, read 161 mutations, 179
 declarations, 192 probes at runtime and 187 shown to fail; it is superseded and
