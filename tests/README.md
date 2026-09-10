@@ -30,7 +30,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`lineage/`](lineage/) | 2, 19, 22, and spec §7.1, §7.6 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
 | [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
 | [`approval/`](approval/) | 6, 34, 35, 36, 54, 58, 59, and spec §10 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
-| [`permissions/`](permissions/) | 9, 20, 37 to 42, 46, 47, 58, and spec §7.4, §7.5, §16 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced | yes |
+| [`permissions/`](permissions/) | 9, 20, 37 to 42, 46, 47, 58, and spec §7.4, §7.5, §16 to §16.6 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced. Since 2026-09-10 also the mandate's thresholds: a daily ceiling across presenters, the categories that need a second signature, a cooling window with a route to take a signed set back, and a refusal that names which of them refused | yes |
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
 
