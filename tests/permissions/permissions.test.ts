@@ -2,6 +2,9 @@ import { describe, expect, test } from "bun:test";
 import {
   call,
   conformingOffer,
+  coSignDecisions,
+  createConformingOffer,
+  decide,
   findKey,
   HOUSEHOLD,
   MANDATE_STATE,
@@ -466,6 +469,156 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
       signatures: signMandate(stale, true),
     });
     expect([409, 422]).toContain(refused.status);
+  });
+});
+
+describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, §16.5)", () => {
+  /**
+   * Written 2026-09-10, when the ceiling and the lapse were the only two
+   * protections a mandate carried. `04` §8 of the concept documents proposed
+   * the other three and nothing was built; these probes and the mutations
+   * beside them are what makes them more than a proposal.
+   *
+   * Each test sets its protection, uses it, and puts the mandate back. A
+   * protection left on the shared fixture would fail every suite that settles
+   * afterwards, which is the shape of a mutation that breaks the fixture
+   * rather than one the corpus catches.
+   */
+  const current = async () => {
+    const read = await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`);
+    expect(read.status).toBe(200);
+    return read.body as {
+      id: string;
+      household: string;
+      ceiling_out_of_network: number;
+      ceiling_daily: number | null;
+      co_sign_categories: string[];
+      cooling_seconds: number | null;
+      co_signers: string[];
+      lapses_at: number;
+      version: number;
+    };
+  };
+
+  const put = async (over: Record<string, unknown>, withCoSigner: boolean) => {
+    const now = await current();
+    const next = { ...now, ...over, version: now.version + 1 };
+    return {
+      response: await call("POST", "/_node/mandates", {
+        ...next,
+        signatures: signMandate(next, withCoSigner),
+      }),
+      next,
+    };
+  };
+
+  const keepEverything = (offer: { candidates: { id: string }[] }) =>
+    offer.candidates.map((c) => ({ candidate: c.id, valence: "kept", kept_as: "self" }));
+
+  /** An offer a person can decide on: created, then presented. */
+  const presented = async () => {
+    const offer = await createConformingOffer();
+    const shown = await call("POST", `/offers/${offer.id}/present`, {});
+    expect(shown.status).toBe(200);
+    return shown.body as { id: string; candidates: { id: string; category: string | null }[] };
+  };
+
+  test("a settlement above the daily ceiling is refused, and the refusal names it", async () => {
+    // NOTE (mutation check, 2026-09-10): daily_ceiling_ignored drops the sum
+    // at settlement. This assertion failed with 200: a ceiling the person
+    // signed bound nothing at all.
+    const set = await put({ ceiling_daily: 1 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const offer = await presented();
+      const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+      expect(decided.status).toBe(200);
+      const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+      expect(settled.status).toBe(422);
+      // §16.6. Four refusals share this status code. A `422` that does not say
+      // which threshold refused is one no person can act on.
+      expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+    } finally {
+      // Removing a ceiling is a loosening, so it needs the co-signer.
+      expect((await put({ ceiling_daily: null }, true)).response.status).toBe(201);
+    }
+  });
+
+  test("no daily ceiling is not a ceiling of zero", async () => {
+    // §16. Absent is not zero, which is the difference between "the person set
+    // no daily limit" and "the person set one that refuses everything".
+    const mandate = await current();
+    expect(mandate.ceiling_daily).toBe(null);
+    const offer = await presented();
+    const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+    expect(decided.status).toBe(200);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect((settled.body as { charged: number }).charged).toBeGreaterThan(0);
+  });
+
+  test("a named category needs a second signature on the decided set", async () => {
+    // NOTE (mutation check, 2026-09-10): co_sign_category_ignored drops the
+    // category check. This assertion failed with 200: a set the person said
+    // needed two signatures went through on one.
+    const offer = await presented();
+    const named = offer.candidates.find((c) => c.category === "tea");
+    expect(named).toBeDefined();
+    const set = await put({ co_sign_categories: ["tea"] }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const decisions = keepEverything(offer);
+      const alone = await decide(offer.id, { decisions });
+      expect(alone.status).toBe(422);
+      expect((alone.body as { error: string }).error).toBe("mandate_co_sign_required");
+
+      const together = await decide(offer.id, {
+        decisions,
+        co_signature: coSignDecisions(offer.id, decisions as never),
+      });
+      expect(together.status).toBe(200);
+    } finally {
+      expect((await put({ co_sign_categories: [] }, true)).response.status).toBe(201);
+    }
+  });
+
+  test("a set inside its cooling window does not settle, and can be taken back", async () => {
+    // NOTE (mutation check, 2026-09-10): cooling_settles_immediately drops the
+    // window. This assertion failed with 200: a decision the person could
+    // still take back was already money.
+    const set = await put({ cooling_seconds: 3600 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const offer = await presented();
+      const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+      expect(decided.status).toBe(200);
+      expect((decided.body as { state: string }).state).toBe("decided");
+
+      const early = await call("POST", `/offers/${offer.id}/settle`, {});
+      expect(early.status).toBe(422);
+      expect((early.body as { error: string }).error).toBe("mandate_cooling");
+
+      // §16.5. Taking it back is the person's alone and needs no co-signer.
+      const withdrawn = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+      expect(withdrawn.status).toBe(200);
+      expect((withdrawn.body as { state: string }).state).toBe("presented");
+      const back = (withdrawn.body as { candidates: { valence: string }[] }).candidates;
+      expect(back.every((c) => c.valence === "offered")).toBe(true);
+    } finally {
+      // Shortening cooling is a loosening, and removing it is the shortest.
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
+  test("adding a category tightens and removing one loosens", async () => {
+    // §16.1. The direction is the whole rule: a person may protect themselves
+    // alone and may not unprotect themselves alone.
+    const added = await put({ co_sign_categories: ["coffee"] }, false);
+    expect(added.response.status).toBe(201);
+    const removedAlone = await put({ co_sign_categories: [] }, false);
+    expect(removedAlone.response.status).toBe(422);
+    const removedTogether = await put({ co_sign_categories: [] }, true);
+    expect(removedTogether.response.status).toBe(201);
   });
 });
 

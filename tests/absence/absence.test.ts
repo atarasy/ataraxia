@@ -430,7 +430,7 @@ describe("absence: no identity and no credential reaches the merchant (clause 49
   test("an offer and its settlement carry no name, address, card or contact", async () => {
     // NOTE (mutation check, 2026-09-09): address_on_offer put a delivery
     // address on the offer serialisation. This assertion failed, naming
-    // `address`. A delivery goes to a code (02 §3); an address on the offer
+    // `address`. A delivery goes to a code, never to an address; an offer
     // is the merchant learning where the household lives.
     const offer = await createConformingOffer();
     const read = await call("GET", `/offers/${offer.id}`);
@@ -544,6 +544,67 @@ describe("absence: aggregates that must not be displayed (§7.7)", () => {
     if (acts.status === 200) {
       expect(findKey(acts.body, looksLike(FORBIDDEN_AGGREGATES))).toEqual([]);
     }
+  });
+});
+
+describe("absence: the delivery code stays on the person's side (clause 49, §7.5b)", () => {
+  /**
+   * Clause 49 keeps identity from the merchant, and a carrier's code is not an
+   * address and resolves to one. A merchant holding it reads where the
+   * household lives from the carrier, with no field for an address anywhere.
+   * So the wall is not "no address field", it is "nothing that resolves to
+   * one", and this is where that distinction is checked.
+   */
+  test("a delivery is readable on the household's surface", async () => {
+    // NOTE (mutation check, 2026-09-10): delivery_on_the_offer moves carriage
+    // and the code onto the offer, where a merchant reads them. This assertion
+    // is the control for that one: the surface has to work before its absence
+    // elsewhere means anything.
+    const offer = await createConformingOffer();
+    const put = await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 550,
+      code: "dc-probe-1",
+      status: "in_transit",
+    });
+    expect(put.status).toBe(201);
+    const got = await call("GET", `/offers/${offer.id}/delivery`);
+    expect(got.status).toBe(200);
+    const d = got.body as { carriage: number; code: string; status: string };
+    expect(d.carriage).toBe(550);
+    expect(d.code).toBe("dc-probe-1");
+    expect(d.status).toBe("in_transit");
+  });
+
+  test("the code and the carriage are on no merchant-facing surface", async () => {
+    // NOTE (mutation check, 2026-09-10): delivery_on_the_offer serialises the
+    // delivery onto the offer. This assertion failed, naming `code`.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 550,
+      code: "dc-probe-2",
+      status: "in_transit",
+    });
+    for (const path of [`/offers/${offer.id}`, `/offers/${offer.id}/settlement`]) {
+      const seen = await call("GET", path);
+      const text = JSON.stringify(seen.body ?? {});
+      expect(text).not.toContain("dc-probe-2");
+      expect(text.toLowerCase()).not.toContain("carriage");
+    }
+  });
+
+  test("a merchant's export carries no delivery", async () => {
+    // NOTE (mutation check, 2026-09-10): merchant_export_leaks_delivery adds
+    // the deliveries to valence-merchant/1. This assertion failed.
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 550,
+      code: "dc-probe-3",
+      status: "delivered",
+    });
+    const who = await presenter();
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    expect(exported.status).toBe(200);
+    expect(JSON.stringify(exported.body)).not.toContain("dc-probe-3");
   });
 });
 

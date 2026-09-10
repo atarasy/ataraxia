@@ -124,6 +124,27 @@ describe("exit: the move (clause 52)", () => {
     const who = await presenter();
     const offer = await seedSomethingToMove();
 
+    // A ledger with no rows moves correctly by doing nothing, so grant one.
+    const opened = await call(
+      "POST",
+      `/households/${encodeURIComponent(household())}/actions`,
+      { describes: "drafting next week's order", expires_at: Date.now() + 60_000 }
+    );
+    expect(opened.status).toBe(201);
+    const granted = await call(
+      "POST",
+      `/households/${encodeURIComponent(household())}/permissions`,
+      {
+        kind: "party",
+        grantee: "carrier-a",
+        scope: ["delivery_window"],
+        purpose: "to leave the box when someone is home",
+        expires_at: Date.now() + 60_000,
+        asked_from: (opened.body as { id: string }).id,
+      }
+    );
+    expect(granted.status).toBe(201);
+
     const exported = await call(
       "GET",
       `/households/${encodeURIComponent(household())}/export`
@@ -140,11 +161,21 @@ describe("exit: the move (clause 52)", () => {
     // The same questions, asked of both hosts. The settlement is on the list
     // because leaving it off is what let a mutation drop settlements from the
     // export while both hosts still answered alike: nothing asked.
+    //
+    // The permission ledger joined this list on 2026-09-09, and the reason is
+    // the one at the head of this file. The ledger, the queries and the
+    // mandates were all built that day, after this probe was written, and none
+    // of them reached the export or this list. A member who moved kept their
+    // offers and lost every permission they had granted, and the suite stayed
+    // green because the four paths below were all anyone asked. A list is the
+    // thing this probe exists to avoid depending on, and it is still a list;
+    // what can be done is to add to it whenever a surface is added.
     for (const path of [
       `/offers/${offer.id}`,
       `/offers/${offer.id}/settlement`,
       `/offers?household=${encodeURIComponent(household())}&presenter=${encodeURIComponent(who)}`,
       `/households/${encodeURIComponent(household())}/receipts`,
+      `/households/${encodeURIComponent(household())}/permissions`,
     ]) {
       const first = await call("GET", path);
       const second = await callSecond("GET", path);
@@ -290,6 +321,41 @@ describe("exit: recovery is not reading (clause 53)", () => {
     expect(rows.some((r) => r.initiated_by === "key-recoverer-1")).toBe(true);
   });
 
+  test("the recovery log survives a move to another host", async () => {
+    // NOTE (mutation check, 2026-09-09): import_drops_recoveries removes the
+    // one line on the receiving host that restores the log. This assertion
+    // failed, because the second host answered with an empty list.
+    // Clause 53 says the log leaves with the node, and until 2026-09-09 it did
+    // exactly that and no more: the export carried it and the import dropped
+    // it. Restoring the data without adding this probe left the mutation
+    // surviving, which is the same failure one layer up.
+    const house = `household-recovery-move-${Math.random().toString(36).slice(2)}`;
+    await call("POST", "/_node/channels", {
+      household: house,
+      channels: [{ channel: "own-email", controlled_by_recoverer: false }],
+    });
+    await call("POST", "/_node/recoverers", { household: house, keys: ["key-recoverer-move"] });
+    const recovered = await call("POST", `/households/${house}/recoveries`, {
+      by: "key-recoverer-move",
+    });
+    expect(recovered.status).toBe(201);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const imported = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(imported.status).toBe(201);
+
+    const first = await call("GET", `/households/${house}/recoveries`);
+    const second = await callSecond("GET", `/households/${house}/recoveries`);
+    expect(second.status).toBe(first.status);
+    expect(second.body).toEqual(first.body);
+    expect(
+      (second.body as { recoveries: { initiated_by: string }[] }).recoveries.some(
+        (r) => r.initiated_by === "key-recoverer-move"
+      )
+    ).toBe(true);
+  });
+
   test("someone who is not a recoverer cannot recover", async () => {
     // NOTE (mutation check, 2026-09-09): anyone_can_recover removed the check
     // that the caller is a named recoverer. This assertion failed with 201.
@@ -385,6 +451,51 @@ describe("exit: a shop leaves with its ledgers (clauses 5, 43, §14.1)", () => {
     };
     for (const o of shop.offers) expect(o.presenter).toBe(who);
     for (const c of shop.configs) expect(c.presenter).toBe(who);
+  });
+
+  test("the export carries how each offer settled, and the shop's recovery rows", async () => {
+    // NOTE (mutation check, 2026-09-10): merchant_export_drops_settlements and
+    // merchant_export_drops_recoveries each empty one array. Both survived
+    // before this probe existed: the three probes here asserted the format,
+    // that configs and offers are non-empty, and that neither belongs to
+    // another presenter, and nothing asserted the other two arrays at all.
+    // §14.1 says what this specification owes the shop is that leaving is
+    // possible and complete, and "complete" was resting on nothing.
+    const who = await presenter();
+    const offer = await seedSomethingToMove();
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+
+    // A digital offer produces no recovery row, so asserting only that the
+    // array exists let merchant_export_drops_recoveries survive. The shop's
+    // recovery rows are the half of §14.1 that only the physical binding
+    // writes, so one is placed and collected here.
+    // A fresh household: the one above has been offered every product, and a
+    // presenter with nothing new for a household makes it no offer (§5.1).
+    // The export is the presenter's, so a second household belongs in it.
+    const placed = await createConformingOffer({
+      household: freshHousehold(),
+      binding: "physical",
+    });
+    await call("POST", `/offers/${placed.id}/present`, {});
+    const [head, ...tail] = placed.candidates;
+    const collected = await call("POST", `/offers/${placed.id}/recovery`, {
+      returned: tail.map((c) => c.id),
+      consumed: [head!.id],
+    });
+    expect(collected.status).toBe(200);
+
+    const exported = await call("GET", `/presenters/${encodeURIComponent(who)}/export`);
+    expect(exported.status).toBe(200);
+    const shop = exported.body as {
+      offers: { id: string }[];
+      settlements: { offer: string }[];
+      recoveries: unknown[];
+    };
+    expect(shop.recoveries.length).toBeGreaterThan(0);
+    // Every offer that settled is answered for in the export.
+    expect(shop.settlements.length).toBeGreaterThan(0);
+    expect(shop.settlements.some((s) => s.offer === offer.id)).toBe(true);
   });
 
   test("it carries only the lines a household shared with the merchant", async () => {

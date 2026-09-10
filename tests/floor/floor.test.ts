@@ -247,6 +247,14 @@ describe("floor: what counts as novelty cannot be manufactured (§5)", () => {
       { household, config_version: CONFIG_VERSION_NARROW }
     ));
     expect(trimmed.status).toBe(422);
+    // The status alone cannot tell the two refusals apart. Measured 2026-09-09:
+    // under `novelty_from_this_catalogue` the narrow catalogue has nothing left
+    // to offer, so the engine refuses with `nothing_new` instead of the floor,
+    // and a probe that checked only the code passed while the mutation stood.
+    // What is being checked here is that the presenter still owes exploration
+    // because its OTHER catalogues hold novelty, so the refusal must name the
+    // floor.
+    expect(trimmed.text.toLowerCase()).toContain("exploration");
   });
 });
 
@@ -289,52 +297,51 @@ describe("floor: the floor cannot be padded (§5.1)", () => {
    * back as exploration with a high prediction.
    */
   test("a kept, well-predicted product cannot be marked as exploration", async () => {
-    // NOTE (mutation check, 2026-09-08): pad_the_floor removed the
-    // qualification check from the reference engine, leaving the count. This
-    // assertion failed with 201: an offer of two products the household had
-    // already kept, both marked exploration, was accepted.
-    // Built to meet the floor at whatever rate the deployment runs, because
-    // the earlier two-candidate version was refused for the floor rather than
-    // for padding once the rate went above 0.5, and the probe then failed on
-    // its own setup.
+    // NOTE (mutation check, 2026-09-10): pad_the_floor removes the
+    // qualification check and leaves the count. This assertion failed with
+    // 201, and it names the refusal so that the two 422s cannot be confused.
+    //
+    // The version before 2026-09-10 offered every product in the first offer,
+    // which left the household with nothing novel at all, so the padded offer
+    // was refused with `nothing_new` whatever the padding check did, and the
+    // probe passed under the mutation for four days. Measured: pad_the_floor
+    // failed no conformance probe and only the engine's own unit test.
+    //
+    // So the first offer teaches the household exactly one product and leaves
+    // the rest novel. The padded offer then meets the count using only that
+    // product, and a correct engine refuses it for the floor while an engine
+    // that counts without qualifying accepts it.
     const known = PRODUCTS[0]!;
-    const required = floorFor(PRODUCTS.length);
     const household = freshHousehold();
-    const first = offerBody(
-      PRODUCTS.map((product, i) => ({
-        product,
-        predicted_conversion: i < required ? 0.05 : 0.9,
-        is_exploration: i < required,
-      })),
+    const first = await call("POST", "/offers", offerBody(
+      [{ product: known, predicted_conversion: 0.05, is_exploration: true }],
       { household }
-    );
-    const created = await call("POST", "/offers", first);
-    expect(created.status).toBe(201);
-    const offer = created.body as { id: string; candidates: { id: string }[] };
+    ));
+    expect(first.status).toBe(201);
+    const offer = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const decided = await decide(offer.id, {
-      decisions: offer.candidates.map((c, i) => ({
-        candidate: c.id,
-        valence: i === 0 ? "kept" : "returned",
-        ...(i === 0 ? { kept_as: "self" } : {}),
-      })),
+      decisions: [{ candidate: offer.candidates[0]!.id, valence: "kept", kept_as: "self" }],
     });
     expect(decided.status).toBe(200);
 
-    // The same product offered back as exploration. It has been offered to
-    // this household before, so under §5.1 it is not exploration whatever the
-    // prediction, and the count is met, so an implementation that checks only
-    // the count accepts it.
+    // `known` has been offered to this household, so under §5.1 it is not
+    // exploration whatever the prediction. The other products still are, so
+    // the presenter has something new and `nothing_new` cannot fire: the only
+    // reason left to refuse is the floor.
+    const required = floorFor(PRODUCTS.length);
     const padded = offerBody(
-      PRODUCTS.map((product, i) => ({
+      PRODUCTS.map((product) => ({
         product,
-        predicted_conversion: product === known ? 0.95 : i < required ? 0.05 : 0.9,
-        is_exploration: i < required,
+        predicted_conversion: product === known ? 0.95 : 0.9,
+        is_exploration: product === known,
       })),
       { household }
     );
     const refused = await call("POST", "/offers", padded);
+    expect(required).toBe(1); // the construction above marks exactly one
     expect(refused.status).toBe(422);
+    expect(refused.text.toLowerCase()).toContain("exploration");
   });
 });
 

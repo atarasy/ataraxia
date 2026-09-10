@@ -33,6 +33,35 @@ built. One column is the capability.
 moves neither the ledger nor the records. A ledger that records the model is
 one that follows it.
 
+## The mandate's thresholds (§16.3 to §16.6, added 2026-09-10)
+
+Five probes here are not about permissions at all. They are about the other
+thing clause 47 names, which is the protections a person sets while they have
+capacity, and they live in this suite because the mandate does.
+
+A person can set a daily ceiling across every presenter, name the merchant's
+own categories that need a second signature on a decided set, and hold a signed
+set for a cooling window with a route to take it back. **Each probe sets its
+protection, uses it, and puts the mandate back.** A protection left on the
+shared fixture would fail every suite that settles afterwards, which is the
+shape of a mutation that breaks the fixture rather than one the corpus catches,
+and it would be this suite's fault rather than the implementation's.
+
+**Two of the five are about the shape of the rules rather than their effect.**
+One asserts that an absent daily ceiling is not a ceiling of zero: "the person
+set no limit" and "the person set one that refuses everything" are different
+states and an implementation that confuses them refuses every settlement. The
+other asserts the direction of change, that adding a category is the person's
+alone and removing one waits on the co-signer. **A protection a person can
+remove by themselves is not one, and a protection they cannot add by themselves
+is a guardian.**
+
+**A refusal must name itself.** Four refusals in §16 share a status code, and a
+probe asserts the name each carries. This is the defect that let
+`novelty_from_this_catalogue` survive every probe on an earlier run: two
+different refusals sharing a status code and nothing else, so no probe and no
+person could tell them apart.
+
 ## What it does not reach
 
 Whether a grantee actually respects its scope. These probes check the shape of

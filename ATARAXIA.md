@@ -39,7 +39,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 1. The infrastructure does not sit in the intent layer. It resolves and does not rank: it has no search, no ranking, and no answer that depends on who asks or on what they want.
 2. Identity has a root outside this system, one per person. Nothing here issues an identity: not the hub, not a node, not a host.
 3. Everything a member touches can be replaced by the member: the password manager, the model, the host, the merchant. What cannot be removed is the enforcement point and this constitution. The enforcement point is a conforming hub, and any conforming hub will do; this one is published and forkable.
-4. No fee on the person side is a function of what was bought, and no fee on the merchant side is a share of what was sold. One party may operate both sides; the party that certifies conformance operates neither.
+4. No fee on the person side is a function of what was bought, and no fee on the merchant side is a share of what was sold or a function of what was kept. One party may operate both sides; the party that certifies conformance operates neither.
 5. What a member runs and what conformance is judged by are open source: the hub, the node, the specification, the reference engine and the tests. A merchant-side platform may be closed. Whatever it is, it holds no position the tests do not grant, and a merchant can leave it with its data.
 6. A person's agent prefers a merchant for what it does, never for where it is hosted: no entry, endpoint or feed names a platform, and the agent has no field to prefer on. Conformance is the one property of a host it may weigh. Every exclusion the agent makes shows the person the published rule that made it.
 7. Data is used where it is. A grant moves; the data it covers does not, and nothing here needs a copy of it first. What does travel, an edge, a receipt, a history returned, travels toward the person and never toward a centre.
@@ -62,7 +62,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 17. Positive signals are visible only as acts of the recipient, such as giving the item onward, reciprocating, or writing thanks. Purchases the system observed are never shown.
 18. Reciprocation is never prompted. It is made easy; it is not notified and it has no deadline.
 19. A recipient's profile starts empty. Beyond the fact of receipt, nothing is recorded until they become a giver themselves.
-20. What a recipient has received is known to no one but the recipient: no route lists it, a receipt resolves to nothing, and a giver avoids a duplicate only by asking the recipient's own node, under a grant that recipient gave for that giver and that use.
+20. What a recipient has received is recorded in the recipient's own node. A giver holds the gift they sent and a merchant what it shipped, and neither holds anything more; no party but the recipient holds the union. No route lists it, a receipt resolves to nothing, and a giver avoids a duplicate only by asking the recipient's own node, under a grant that recipient gave for that giver and that use.
 21. Lineage shows people and does not hide merchants. Network size is never displayed. What is shown is density within one's own circle.
 22. A lineage edge is recognised by the person's key and the merchant's receipt. It is not discriminated by which hub produced it.
 
@@ -110,10 +110,10 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 
 ## 9. Keys, nodes and the hub
 
-50. The hub is open source (clause 5) and it is the enforcement point (clause 3): every refusal this constitution requires is in its code, where anyone can read it and anyone can fork it.
+50. Withdrawn on 2026-09-10. It asserted that every refusal this constitution requires is in the hub's code. Its checkable content was already clauses 3 and 5, and the assertion was neither checkable nor a prohibition. What is true instead is under "What this constitution does not protect". The slot keeps its number: renumbering for one clause would rewrite every citation in three repositories again.
 51. The only thing asked of a password manager is a signature. Not the screen, not credential injection, not the recovery policy.
 52. The default host is replaceable and blind. A member can move an entire node to another host.
-53. Recovery and routine reading are separate powers. A recoverer cannot read. Recovery is logged and the person is notified.
+53. Recovery and routine reading are separate powers. A recoverer cannot read: they hold one of three shares of the ledger's envelope key, and one share decrypts nothing. Recovery is logged and the person is notified.
 54. The approval screen is drawn by a party to no transaction. Not by the merchant, not by the password manager, not by the model.
 55. The mark attaches to software and hosts. Merchant endpoints and lineage do not discriminate on it. No mark that grades members is created. A fork may be excluded only inside one person's own mandate, by the person protecting them.
 
@@ -135,6 +135,7 @@ It protects the person. It does not protect other people, and it does not protec
 - Someone running a fork with the constitution removed has removed their own protection. That is what the right to exit means. Their gifts still enter lineage, provided the identity and the transaction are real.
 - A member using an ad-supported fork is influenced by advertising. Human gift-giving has always been influenced by advertising, and lineage is a human record including that. We do not prevent it.
 - Someone who genuinely needs protection, such as a parent losing capacity, is protected by the family who protects them, through conditions inside that person's own mandate. Not by a gate on the network.
+- **Not every clause is enforced in code, and this document does not claim otherwise.** Fifteen of the sixty-one are named by no probe, and several of those are not the kind of thing a program can refuse: clause 57 is a procedure, clause 56 is about governance seats, clause 4 is a shape of fees. How much is enforced is a measured number rather than a claim, and the measurement is published with the tests in this repository. Clause 50 asserted completeness until 2026-09-10, when it was withdrawn for asserting what could not be checked.
 
 ----
 

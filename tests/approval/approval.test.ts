@@ -65,12 +65,15 @@ async function deliberated(overrides: Record<string, unknown> = {}) {
 
 describe("approval: what a proposal must carry (clause 59)", () => {
   test("every candidate carries alternatives and the argument against it", async () => {
-    // NOTE (mutation check, 2026-09-09): approval_without_deliberation
-    // rendered the screen from the offer alone. This assertion failed.
-    // NOTE (mutation check, 2026-09-09): approval_without_deliberation rendered
-    // the screen from the offer alone. This assertion failed. An agent that
-    // proposes without saying what else it considered has made the household's
-    // tap a formality, which is what clause 59 exists to prevent.
+    // NOTE (mutation check, 2026-09-09): renders_empty_alternatives leaves the
+    // guard intact and empties the serialisation, so the screen renders 200
+    // with no alternatives and this assertion fails. An agent that proposes
+    // without saying what else it considered has made the household's tap a
+    // formality, which is what clause 59 exists to prevent.
+    // This note used to name approval_without_deliberation. The full
+    // re-measurement showed that mutation breaks the guard instead, so the two
+    // refusal probes below catch it and this one never sees it. A note is a
+    // claim; only the measurement says whether it is true.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
     expect(approval.status).toBe(200);
