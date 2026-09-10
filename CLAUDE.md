@@ -6,7 +6,7 @@ Guidance for Claude Code working in this repository.
 
 The **constitution** for commerce infrastructure that returns the intent layer to the person, its trademark policy, and the scaffold for the conformance tests that enforce it. `atarasy/ataraxia`, public, MIT. Nothing to build, lint or deploy. Everything here is prose, and the prose is load-bearing.
 
-**All documents in this repository are in English.** The working strategy documents are in Japanese and live in a private Obsidian vault at `~/Documents/GitHub/hacci/Projects/Atarasy/` — read its `CLAUDE.md` before making a change that follows from a decision, rather than a correction.
+**All documents in this repository are in English.** So are the working strategy documents, which live in a private Obsidian vault at `~/Documents/GitHub/hacci/Projects/Atarasy/`; they were Japanese until 2026-09-08 and were converted in place. Read that folder's `CLAUDE.md` before making a change that follows from a decision rather than from a correction.
 
 Sibling: `~/Documents/GitHub/valence` (`atarasy/valence`) holds the specification. A clause that is enforced structurally is enforced *there*, in an API shape, not here.
 
