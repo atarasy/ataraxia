@@ -95,6 +95,9 @@ export function canonicalMandate(m: {
   id: string;
   household: string;
   ceiling_out_of_network: number;
+  ceiling_daily?: number | null;
+  co_sign_categories?: string[];
+  cooling_seconds?: number | null;
   co_signers: string[];
   lapses_at: number;
   version: number;
@@ -104,6 +107,15 @@ export function canonicalMandate(m: {
       m.id,
       m.household,
       String(m.ceiling_out_of_network),
+      // §16. The three protections of 2026-09-10 sit in the record's order.
+      // Absent is not zero: an empty line is no ceiling and no cooling.
+      m.ceiling_daily === undefined || m.ceiling_daily === null
+        ? ""
+        : String(m.ceiling_daily),
+      [...(m.co_sign_categories ?? [])].sort().join(","),
+      m.cooling_seconds === undefined || m.cooling_seconds === null
+        ? ""
+        : String(m.cooling_seconds),
       [...m.co_signers].sort().join(","),
       String(m.lapses_at),
       String(m.version),
@@ -150,6 +162,11 @@ export function canonicalDecisions(offerId: string, decisions: DecisionSpec[]): 
 
 export function signDecisions(offerId: string, decisions: DecisionSpec[]): string {
   return sign(null, canonicalDecisions(offerId, decisions), MANDATE_KEY).toString("base64");
+}
+
+/** §16.4. The same bytes, signed by the co-signer the mandate names. */
+export function coSignDecisions(offerId: string, decisions: DecisionSpec[]): string {
+  return sign(null, canonicalDecisions(offerId, decisions), CO_SIGNER_KEY).toString("base64");
 }
 
 /**

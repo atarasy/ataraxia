@@ -150,6 +150,11 @@ can repeat any row.
 | `merchant_export_drops_recoveries` | The shop's own recovery rows emptied in its export, so a shop that ran the physical binding arrives at its new platform without any record of what it placed and got back | 1 |
 | `merchant_export_leaks_delivery` | A delivery row added to the shop's export, which would hand a receiving platform every household's delivery code (§14.1, §7.5b) | 1 |
 | `tightening_needs_cosigner` | Every mandate change made to need the co-signers, so a person cannot lower their own ceiling | 1 |
+| `daily_ceiling_ignored` | The daily sum dropped at settlement, which is the state every version before 2026-09-10 shipped: the field did not exist and nothing bound a household's day across presenters (§16.3) | 1 |
+| `absent_daily_ceiling_is_zero` | A missing daily ceiling read as a ceiling of zero, so every settlement is refused. **Its 17 probes are catches and not a broken fixture**: each fails on its own assertion, having asked for a settlement and been refused, rather than in its setup | 17 |
+| `co_sign_category_ignored` | The category check dropped, so a set the person said needs two signatures goes through on one (§16.4) | 1 |
+| `cooling_settles_immediately` | The cooling window dropped, so a decision the person could still take back is already money (§16.5) | 1 |
+| `mandate_refusals_share_a_reason` | Every mandate refusal given the same name, which is the defect `novelty_from_this_catalogue` was: two different refusals sharing a status code and nothing else (§16.6) | 3 |
 | `mandate_any_version` | Any mandate version accepted, so an old signature can be replayed onto a new record | 1 |
 | `result_form_on_party_ok` | A result form accepted on a party grant | 1 |
 | `computation_grant_without_form` | A grant to a computation accepted with no result form | 2 |
