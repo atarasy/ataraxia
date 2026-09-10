@@ -50,7 +50,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as nineteen environment variables:
+as twenty environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -72,6 +72,7 @@ as nineteen environment variables:
 | `VALENCE_PRICES_LATER` | the prices in that later catalogue, as JSON |
 | `VALENCE_BINDINGS` | which bindings this deployment implements, comma separated |
 | `VALENCE_RECOVERY_GRACE_DAYS` | days after the recovery deadline before an uncollected candidate is lost |
+| `VALENCE_RP_ID` | the name a member's device signs for, which the deployment declares for itself (§10.5, §14b). The probes build assertions for it, and an implementation that compared some other name would accept what no member's device made |
 | `VALENCE_SECOND_HOST_URL` | a second host of the same implementation, for the move in `exit/` |
 
 Seeding a catalogue and attesting a key are deployment plumbing the

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { generateKeyPairSync } from "node:crypto";
 import {
   CONFIG_VERSION,
   HOUSEHOLD,
@@ -225,5 +226,37 @@ describe("roles: the registry belongs to neither (clause 1, §17)", () => {
     // engine ran would make resolution a presenter's favour.
     expect(await status(ENGINE_ONLY, "/registry")).toBe(200);
     expect(await status(HUB_ONLY, "/registry")).toBe(200);
+  });
+});
+
+describe("roles: a key belongs to neither (clause 2, §13.2)", () => {
+  test("both roles register one", async () => {
+    // NOTE (no measurable mutation, 2026-09-11): identities_need_both_roles
+    // gives the route to the engine, and it aborts rather than being caught.
+    // The reference's own seed reads the role table, so under the mutation it
+    // posts every key to the engine alone, and its first lineage edge to the
+    // hub is then refused as unattested before any probe runs. A hub that
+    // cannot hold a key cannot be seeded, so against this deployment the
+    // requirement is enforced by the fixture; the probe is here because
+    // another implementation's harness may seed differently. It is named
+    // among the unproven in MUTATIONS.md rather than counted.
+    //
+    // Both roles verify signatures, so both hold keys, and clause 2 puts the
+    // root of identity outside either. A hub that could not take a key could
+    // not check the edge a person signs; an engine that could not take one
+    // could not check a catalogue.
+    for (const base of [ENGINE_ONLY, HUB_ONLY]) {
+      const pair = generateKeyPairSync("ed25519");
+      const response = await fetch(`${base}/_identities`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          key: `key-roles-${Math.random().toString(36).slice(2, 10)}`,
+          public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+          attested: false,
+        }),
+      });
+      expect(response.status).toBe(201);
+    }
   });
 });

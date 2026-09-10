@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { generateKeyPairSync } from "node:crypto";
 import {
   call,
   conformingOffer,
@@ -289,8 +290,10 @@ describe("approval: a confirmation is the person's signature (clause 35)", () =>
 });
 
 /** An offer a person can decide on: created, then presented. */
-async function presentedOffer(): Promise<{ id: string; candidates: { id: string }[] }> {
-  const offer = await createConformingOffer();
+async function presentedOffer(
+  overrides: Record<string, unknown> = {}
+): Promise<{ id: string; candidates: { id: string }[] }> {
+  const offer = await createConformingOffer(overrides);
   const shown = await call("POST", `/offers/${offer.id}/present`, {});
   expect(shown.status).toBe(200);
   return shown.body as { id: string; candidates: { id: string }[] };
@@ -354,7 +357,102 @@ describe("approval: a passkey confirms by challenge (§10.5)", () => {
     }));
     const response = await call("POST", `/offers/${offer.id}/decisions`, {
       decisions,
-      assertion: assertDecisions(offer.id, decisions, "webauthn.create"),
+      assertion: assertDecisions(offer.id, decisions, { ceremony: "webauthn.create" }),
+    });
+    expect(response.status).toBe(422);
+    expect((response.body as { error: string }).error).toBe("bad_signature");
+  });
+
+  test("an assertion made without the person verifying themselves is refused", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_ignores_user_verification
+    // stops reading the flag. This assertion failed with 200: a set was
+    // confirmed by a device that never checked who was at it.
+    //
+    // WebAuthn's user-verified flag says the device checked that it was this
+    // person, by a biometric or a PIN, before it signed. Without it the
+    // signature says the key was used, and clause 35 asks that the person
+    // agreed.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions, { verified: false }),
+    });
+    expect(response.status).toBe(422);
+    expect((response.body as { error: string }).error).toBe("bad_signature");
+  });
+
+  test("an assertion made with nobody at the device is refused", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_ignores_user_presence
+    // stops reading the flag. This assertion failed with 200: a set was
+    // confirmed with nobody at the device.
+    //
+    // The user-present flag says a person touched the device. A device that
+    // signed without one is a key acting alone.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions, { present: false }),
+    });
+    expect(response.status).toBe(422);
+    expect((response.body as { error: string }).error).toBe("bad_signature");
+  });
+
+  test("an assertion signed on the P-256 curve confirms it", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_ed25519_only checks every
+    // signature the way ed25519 is checked. This assertion failed with 422:
+    // the key most devices carry was refused rather than accepted.
+    //
+    // Most phones and laptops carry a P-256 key (ES256), and the key
+    // registered for the mandate says how its signatures are checked. The
+    // fixture's mandate key is ed25519, so this probe registers a key of its
+    // own under a mandate of its own; `/_identities` is in the specification
+    // (§13.2), which is why the suite may call it.
+    const mandate = `mandate-p256-${Math.random().toString(36).slice(2, 10)}`;
+    const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const registered = await call("POST", "/_identities", {
+      key: mandate,
+      public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+      attested: false,
+    });
+    expect(registered.status).toBe(201);
+    const offer = await presentedOffer({ mandate });
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions, { key: pair.privateKey }),
+    });
+    expect(response.status).toBe(200);
+    expect((response.body as { state: string }).state).toBe("decided");
+  });
+
+  test("an assertion made for another relying party is refused", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_for_any_relying_party stops
+    // comparing the name. This assertion failed with 200: an assertion a
+    // device made for another site confirmed a set here.
+    //
+    // The first 32 bytes an authenticator signs are the SHA-256 of the site
+    // it signed for. A deployment declares its own name (§14b) so that an
+    // assertion made for some other hub, with this set as its challenge and a
+    // good signature, is still not a confirmation here.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions, { relyingParty: "elsewhere.example" }),
     });
     expect(response.status).toBe(422);
     expect((response.body as { error: string }).error).toBe("bad_signature");

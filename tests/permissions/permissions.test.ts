@@ -10,6 +10,7 @@ import {
   MANDATE_STATE,
   meansAnyOf,
   PRODUCTS,
+  signDecisions,
   signMandate,
   sleep,
   soon,
@@ -606,6 +607,57 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       expect(back.every((c) => c.valence === "offered")).toBe(true);
     } finally {
       // Shortening cooling is a loosening, and removing it is the shortest.
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
+
+  test("a confirmation taken back cannot be sent again (§10.5)", async () => {
+    // NOTE (mutation check, 2026-09-11): confirmation_reusable stops recording
+    // what has confirmed this offer. This assertion failed with 200 and the
+    // offer read `decided` again, after the person had taken it back.
+    //
+    // The canonical form binds a decided set to an offer and to nothing else,
+    // so the bytes that confirmed it are still good after the person takes it
+    // back. Whatever saw them once, the hub that carried them included, could
+    // put the set back inside the window §16.5 gives the person to change
+    // their mind. Found by an adversarial pass on 2026-09-11 and measured
+    // before it was closed: decide, withdraw, resend, and the offer read
+    // `decided` again.
+    const set = await put({ cooling_seconds: 3600 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const offer = await presented();
+      const decisions = keepEverything(offer);
+      const signature = signDecisions(offer.id, decisions as never);
+      const first = await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature });
+      expect(first.status).toBe(200);
+      expect((await call("DELETE", `/offers/${offer.id}/decisions`, undefined)).status).toBe(200);
+      const again = await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature });
+      expect(again.status).toBe(422);
+      expect((again.body as { error: string }).error).toBe("confirmation_reused");
+      // NOTE (mutation check, 2026-09-11): confirmation_token_is_the_string
+      // identifies a confirmation by the string that was posted. This
+      // assertion failed with 200: base64 has many spellings for one
+      // signature, and a register of strings holds none of the others, so a
+      // space put the withdrawn set back.
+      for (const spelling of [
+        signature.replace(/=+$/, ""),
+        signature.replace(/\+/g, "-").replace(/\//g, "_"),
+        `${signature.slice(0, 8)} ${signature.slice(8)}`,
+      ]) {
+        const respelled = await call("POST", `/offers/${offer.id}/decisions`, {
+          decisions,
+          signature: spelling,
+        });
+        expect([spelling.slice(0, 12), respelled.status]).toEqual([spelling.slice(0, 12), 422]);
+        expect((respelled.body as { error: string }).error).toBe("confirmation_reused");
+      }
+      // The offer is where the withdrawal left it, not where the replay
+      // wanted it.
+      const read = await call("GET", `/offers/${offer.id}`);
+      expect((read.body as { state: string }).state).toBe("presented");
+    } finally {
       expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
     }
   });

@@ -7,6 +7,7 @@ import {
   freshHousehold,
   LINEAGE_EDGE,
   presenter,
+  signDecisions,
 } from "../lib/probe.js";
 
 /**
@@ -112,6 +113,46 @@ describe("exit: the export (clause 43)", () => {
 });
 
 describe("exit: the move (clause 52)", () => {
+
+  test("what has already confirmed an offer moves with the node (§10.5)", async () => {
+    // NOTE (mutation check, 2026-09-11): export_drops_confirmations leaves the
+    // register out. This assertion failed: the export carried the offer and
+    // no record of what had confirmed it.
+    //
+    // §10.5 says a confirmation is used once, and that rule lives in what a
+    // host remembers rather than in what a signature says. So a move that
+    // carried the offers and not the memory would reset it: an adversarial
+    // pass measured a set withdrawn on one host and put back on a second with
+    // the confirmation captured on the first, and the person who changed hosts
+    // left the protection behind.
+    //
+    // **What this probe does not do** is replay it. Reaching that state needs
+    // the set taken back, which needs a cooling window (§16.5) that this
+    // suite's mandate does not carry; `permissions/` holds the replay probe
+    // against one host. Here the question is whether the register crosses,
+    // which is the half the move is about.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const carried = (exported.body as { confirmations?: Record<string, string[]> }).confirmations;
+    expect(Object.keys(carried ?? {})).toContain(offer.id);
+    expect((carried ?? {})[offer.id]?.length).toBeGreaterThan(0);
+    // Opaque on purpose: what identifies a confirmation is the receiving
+    // host's business to compare and nobody's to read as a signature.
+    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
+    const moved = await callSecond("GET", `/offers/${offer.id}`);
+    expect((moved.body as { state: string }).state).toBe("decided");
+  });
+
   test("the second host answers as the first did", async () => {
     // NOTE (mutation check, 2026-09-09): export_drops_settlements left the
     // settlements out of the export. The schema was still valid and the file

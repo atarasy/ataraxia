@@ -1,4 +1,4 @@
-import { createPrivateKey, sign, createHash } from "node:crypto";
+import { createPrivateKey, sign, createHash, type KeyObject } from "node:crypto";
 /**
  * The probes talk to an implementation over HTTP and nothing else. They know
  * no route that is not in the Valence specification, and they import nothing
@@ -165,24 +165,58 @@ export function signDecisions(offerId: string, decisions: DecisionSpec[]): strin
 }
 
 /**
+ * §14b. The relying party this deployment accepts assertions for: the name a
+ * member's device signs for, which is the hub's own. A deployment that names
+ * none cannot tell whom an assertion was made for, and the specification has
+ * it refuse the shape rather than guess.
+ */
+export const RP_ID = required("VALENCE_RP_ID");
+
+/**
  * §10.5. What a member's device sends: an authenticator's assertion, whose
- * challenge is the decided set. A passkey cannot sign the canonical bytes, so
- * they travel as the challenge instead.
+ * challenge is the decided set. The suite builds it rather than asking for a
+ * device, because a suite that needed a real authenticator could not run
+ * anywhere.
  *
- * The suite builds one with the mandate's own key, because a suite that needed
- * a real authenticator could not run anywhere.
+ * The authenticator data is in the shape WebAuthn §6.1 gives it, because an
+ * implementation reads the flags out of it: the SHA-256 of a relying party
+ * id, one byte of flags and a counter. `present` and `verified` are what the
+ * flags say, and a real device sets both when a person confirms. The hash is
+ * of the name the deployment declared (§14b), because an implementation
+ * compares it. `key` is the
+ * private half of whatever key the offer's mandate was registered with; the
+ * fixture's is ed25519, and a probe that registered a P-256 key passes its
+ * own.
  */
 export function assertDecisions(
   offerId: string,
   decisions: DecisionSpec[],
-  ceremony: "webauthn.get" | "webauthn.create" = "webauthn.get"
+  options: {
+    ceremony?: "webauthn.get" | "webauthn.create";
+    present?: boolean;
+    verified?: boolean;
+    key?: KeyObject;
+    relyingParty?: string;
+  } = {}
 ) {
+  const {
+    ceremony = "webauthn.get",
+    present = true,
+    verified = true,
+    key = MANDATE_KEY,
+    relyingParty = RP_ID,
+  } = options;
   const challenge = createHash("sha256")
     .update(canonicalDecisions(offerId, decisions))
     .digest("base64url");
-  const authenticatorData = Buffer.from("valence-conformance-authenticator");
+  const flags = (present ? 0x01 : 0) | (verified ? 0x04 : 0);
+  const authenticatorData = Buffer.concat([
+    createHash("sha256").update(relyingParty).digest(),
+    Buffer.from([flags]),
+    Buffer.from([0, 0, 0, 1]),
+  ]);
   const clientDataJson = Buffer.from(
-    JSON.stringify({ type: ceremony, challenge, origin: "https://conformance.example" }),
+    JSON.stringify({ type: ceremony, challenge, origin: `https://${relyingParty}` }),
     "utf8"
   );
   const signed = Buffer.concat([
@@ -192,11 +226,11 @@ export function assertDecisions(
   return {
     authenticator_data: authenticatorData.toString("base64"),
     client_data_json: clientDataJson.toString("base64"),
-    signature: sign(null, signed, MANDATE_KEY).toString("base64"),
+    // ed25519 signs the bytes as they are; a P-256 key signs their SHA-256.
+    signature: sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", signed, key).toString("base64"),
   };
 }
 
-/** §16.4. The same bytes, signed by the co-signer the mandate names. */
 export function coSignDecisions(offerId: string, decisions: DecisionSpec[]): string {
   return sign(null, canonicalDecisions(offerId, decisions), CO_SIGNER_KEY).toString("base64");
 }
