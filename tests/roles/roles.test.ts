@@ -1,4 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import {
+  CONFIG_VERSION,
+  HOUSEHOLD,
+  MANDATE,
+  freshHousehold,
+  PRODUCTS,
+  signDecisions,
+  soon,
+} from "../lib/probe.js";
 
 /**
  * §13.1. An implementation may present the engine's surface, the hub's, or
@@ -37,6 +46,49 @@ async function answers(base: string, path: string, method = "GET"): Promise<bool
   return body.error !== "not_this_role";
 }
 
+/** A call that returns the body, for the end-to-end probe below. */
+async function send(base: string, method: string, path: string, body?: unknown): Promise<unknown> {
+  const response = await fetch(`${base}${path}`, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`${method} ${path} -> ${response.status} ${text}`);
+  }
+  return text ? JSON.parse(text) : {};
+}
+
+/** §16.3. What the hub says has settled for this household today. */
+async function total(): Promise<number> {
+  const body = (await send(
+    HUB_ONLY,
+    "GET",
+    `/households/${encodeURIComponent(HOUSEHOLD)}/settled?since=0`
+  )) as { total: number };
+  return body.total;
+}
+
+function offerBody(who: string = HOUSEHOLD) {
+  // The same shape `lib/probe.ts` builds, written out here because this suite
+  // posts to a party the library does not know about.
+  return {
+    binding: "digital",
+    household: who,
+    purpose: "replenish",
+    config_version: CONFIG_VERSION,
+    expires_at: soon(60_000),
+    mandate: MANDATE,
+    candidates: PRODUCTS.map((product) => ({
+      product,
+      quantity: 1,
+      predicted_conversion: 0.05,
+      is_exploration: true,
+    })),
+  };
+}
+
 async function status(base: string, path: string, method = "GET"): Promise<number> {
   const response = await fetch(`${base}${path}`, {
     method,
@@ -59,11 +111,18 @@ describe("roles: an engine alone answers for the presenter's surface (§13.1)", 
     expect(await answers(ENGINE_ONLY, "/lineage/acts?household=probe")).toBe(false);
   });
 
-  test("it does not answer for the two offer actions that carry the person's authority", async () => {
-    // The path is the offer's and the role is the hub's. An engine that
-    // answered here would be taking the person's signature and the person's
-    // delivery surface with it.
-    expect(await answers(ENGINE_ONLY, "/offers/probe/decisions", "POST")).toBe(false);
+  test("it answers for deciding, because authority travels in the signature", async () => {
+    // Deciding was the hub's until 2026-09-11, on the reasoning that a decided
+    // set is the person's. It is, and clause 35 makes it so by the signature,
+    // which whoever answers the route cannot forge. What answering it needs is
+    // the offer, and only the engine has one.
+    expect(await answers(ENGINE_ONLY, "/offers/probe/decisions", "POST")).toBe(true);
+  });
+
+  test("it does not answer for the household's delivery surface", async () => {
+    // §7.5b. A carrier's code resolves to an address, so a merchant must not
+    // read one. This is the action whose path is the offer's and whose role is
+    // the hub's, and a hub holds deliveries without holding offers.
     expect(await answers(ENGINE_ONLY, "/offers/probe/delivery")).toBe(false);
   });
 });
@@ -74,15 +133,88 @@ describe("roles: a hub alone answers for the person's surface (§13.1)", () => {
     expect(await answers(HUB_ONLY, "/_node/mandates/probe")).toBe(true);
   });
 
-  test("it answers for deciding and for delivery", async () => {
-    expect(await answers(HUB_ONLY, "/offers/probe/decisions", "POST")).toBe(true);
+  test("it answers for delivery and not for deciding", async () => {
     expect(await answers(HUB_ONLY, "/offers/probe/delivery")).toBe(true);
+    expect(await answers(HUB_ONLY, "/offers/probe/decisions", "POST")).toBe(false);
   });
 
   test("it does not answer for the presenter's surface", async () => {
     expect(await answers(HUB_ONLY, "/offers", "POST")).toBe(false);
     expect(await answers(HUB_ONLY, "/offers/probe/settle", "POST")).toBe(false);
     expect(await answers(HUB_ONLY, "/_presenter/configs", "POST")).toBe(false);
+  });
+});
+
+describe("roles: the two parties are one implementation (§13.2)", () => {
+  /**
+   * The probes above ask **who answers**, which is what §13.1 was written to
+   * make checkable. They cannot ask whether an answer has anything behind it,
+   * and on 2026-09-11 that gap hid three defects for a day: an engine summing
+   * its own settlements, a hub exporting an empty node, and deciding assigned
+   * to the party without the offer.
+   *
+   * This one asks the other question. It settles an offer on the engine and
+   * reads the result from the hub, so nothing but a working interface between
+   * them can make it pass.
+   */
+  test("a settlement on the engine reaches the person's own copy on the hub", async () => {
+    const before = await total();
+    const offer = (await send(ENGINE_ONLY, "POST", "/offers", offerBody())) as {
+      id: string;
+      candidates: { id: string }[];
+    };
+    expect(offer.id).toBeTruthy();
+    await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "kept" as const,
+      kept_as: "self" as const,
+    }));
+    const decided = await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      signature: signDecisions(offer.id, decisions),
+    });
+    expect((decided as { state: string }).state).toBe("decided");
+    const settled = (await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/settle`, {})) as {
+      charged: number;
+    };
+    expect(settled.charged).toBeGreaterThan(0);
+
+    // The hub is a different process with a different store. What it knows
+    // about this settlement it can only have been told.
+    const after = await total();
+    expect(after - before).toBe(settled.charged);
+  });
+
+  test("the hub alone exports a node that has the offer in it", async () => {
+    // A household of its own: novelty is per household (clause 26), and the
+    // probe above has already been offered every product in the catalogue.
+    const who = freshHousehold();
+    // Clause 43, §13.2. Until 2026-09-11 the export read the engine's store,
+    // so a hub presenting its role alone answered this route with an empty
+    // node: the route was there and there was nothing behind it.
+    const offer = (await send(ENGINE_ONLY, "POST", "/offers", offerBody(who))) as {
+      id: string;
+      candidates: { id: string }[];
+    };
+    await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/present`, {});
+    // Clause 8: what was declined belongs in the person's copy as much as what
+    // was kept, so this set refuses everything and the export still carries it.
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      signature: signDecisions(offer.id, decisions),
+    });
+
+    const node = (await send(
+      HUB_ONLY,
+      "GET",
+      `/households/${encodeURIComponent(who)}/export`
+    )) as { offers?: { id: string }[] };
+    expect(node.offers?.some((o) => o.id === offer.id)).toBe(true);
   });
 });
 
