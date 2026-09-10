@@ -1,4 +1,4 @@
-import { createPrivateKey, sign } from "node:crypto";
+import { createPrivateKey, sign, createHash } from "node:crypto";
 /**
  * The probes talk to an implementation over HTTP and nothing else. They know
  * no route that is not in the Valence specification, and they import nothing
@@ -162,6 +162,38 @@ export function canonicalDecisions(offerId: string, decisions: DecisionSpec[]): 
 
 export function signDecisions(offerId: string, decisions: DecisionSpec[]): string {
   return sign(null, canonicalDecisions(offerId, decisions), MANDATE_KEY).toString("base64");
+}
+
+/**
+ * §10.5. What a member's device sends: an authenticator's assertion, whose
+ * challenge is the decided set. A passkey cannot sign the canonical bytes, so
+ * they travel as the challenge instead.
+ *
+ * The suite builds one with the mandate's own key, because a suite that needed
+ * a real authenticator could not run anywhere.
+ */
+export function assertDecisions(
+  offerId: string,
+  decisions: DecisionSpec[],
+  ceremony: "webauthn.get" | "webauthn.create" = "webauthn.get"
+) {
+  const challenge = createHash("sha256")
+    .update(canonicalDecisions(offerId, decisions))
+    .digest("base64url");
+  const authenticatorData = Buffer.from("valence-conformance-authenticator");
+  const clientDataJson = Buffer.from(
+    JSON.stringify({ type: ceremony, challenge, origin: "https://conformance.example" }),
+    "utf8"
+  );
+  const signed = Buffer.concat([
+    authenticatorData,
+    createHash("sha256").update(clientDataJson).digest(),
+  ]);
+  return {
+    authenticator_data: authenticatorData.toString("base64"),
+    client_data_json: clientDataJson.toString("base64"),
+    signature: sign(null, signed, MANDATE_KEY).toString("base64"),
+  };
 }
 
 /** §16.4. The same bytes, signed by the co-signer the mandate names. */

@@ -8,6 +8,7 @@ import {
   meansAnyOf,
   PRICES,
   signDecisions,
+  assertDecisions,
 } from "../lib/probe.js";
 
 /**
@@ -284,6 +285,95 @@ describe("approval: a confirmation is the person's signature (clause 35)", () =>
 
     const signed = await decide(offer.id, { decisions: set });
     expect(signed.status).toBe(200);
+  });
+});
+
+/** An offer a person can decide on: created, then presented. */
+async function presentedOffer(): Promise<{ id: string; candidates: { id: string }[] }> {
+  const offer = await createConformingOffer();
+  const shown = await call("POST", `/offers/${offer.id}/present`, {});
+  expect(shown.status).toBe(200);
+  return shown.body as { id: string; candidates: { id: string }[] };
+}
+
+describe("approval: a passkey confirms by challenge (§10.5)", () => {
+  /**
+   * Written 2026-09-11, when building the member's side found that the
+   * specification asked for something no password manager can do. An
+   * authenticator signs its own data and the hash of the client's, never bytes
+   * a caller hands it, so the decided set travels as the **challenge**.
+   *
+   * That is why the challenge here is not random. A random one proves a person
+   * was present; clause 35 asks what they agreed to.
+   */
+  test("an assertion whose challenge is this set confirms it", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_challenge_unchecked drops
+    // the comparison. This assertion failed with 200 for a set the person
+    // never saw.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions),
+    });
+    expect(response.status).toBe(200);
+    expect((response.body as { state: string }).state).toBe("decided");
+  });
+
+  test("an assertion for another set does not confirm this one", async () => {
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const elsewhere = assertDecisions("some-other-offer", decisions);
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: elsewhere,
+    });
+    expect(response.status).toBe(422);
+    expect((response.body as { error: string }).error).toBe("bad_signature");
+  });
+
+  test("a registration ceremony is not a confirmation", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_accepts_registration stops
+    // checking which ceremony the assertion came from. Until this probe was
+    // written the requirement was held by a unit test alone, which is proof
+    // about one engine rather than about an implementation, and the mutation
+    // failed nothing here.
+    //
+    // `webauthn.create` proves a person made a key. Clause 35 asks what they
+    // agreed to, and a key that has just been made has agreed to nothing.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      assertion: assertDecisions(offer.id, decisions, "webauthn.create"),
+    });
+    expect(response.status).toBe(422);
+    expect((response.body as { error: string }).error).toBe("bad_signature");
+  });
+
+  test("a set carries a signature or an assertion, and not both", async () => {
+    // A body with both leaves which one was checked to the implementation, and
+    // a caller could then satisfy the weaker.
+    const offer = await presentedOffer();
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const response = await call("POST", `/offers/${offer.id}/decisions`, {
+      decisions,
+      signature: signDecisions(offer.id, decisions),
+      assertion: assertDecisions(offer.id, decisions),
+    });
+    expect(response.status).toBe(400);
   });
 });
 
