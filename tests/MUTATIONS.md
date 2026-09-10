@@ -171,6 +171,7 @@ can repeat any row.
 | `export_no_format` | The export's format string blanked | 5 |
 | `ignore_config_version` (re-anchored 2026-09-09) | The first catalogue resolved whatever version the offer named | 7 |
 | `import_accepts_anything` | An import accepted in any format | 1 |
+| `no_delivery_route` | The household's own read of its delivery removed, so `GET /offers/{id}/delivery` answers 404. The wall around the merchant was proven from the first day and the surface the wall protects was not, which left the control probe unproven until this was written (2026-09-10) | 1 |
 | `delivery_on_the_offer` | The delivery code and the carriage put on the offer view, where a merchant reads them (clause 49, §7.5b). The first version of this script changed the stored candidate and **survived**: `offerView` names every field it emits, so nothing reaches a response by being stored, and the mutation has to change the view | 1 |
 | `inaction_field_on_acts` | A `responded` field added to every act | 1, and 1 unit test |
 | `present_expired` | An offer presented after its expiry | 1 |
@@ -194,13 +195,15 @@ written from its output rather than from intent. **Re-measured in full on
 rebuilt padding probe went in, against the reference engine at an exploration
 rate of 0.2: **167 mutations, 183 declarations, 197 probes at runtime, 191 of
 them shown to fail, six not shown to fail, no mutation surviving and none
-inert.** Two mutations are excluded from the count because they break the
+inert.** One of the six was proven later the same day by `no_delivery_route`,
+written for it, which brings the corpus to **168 mutations and 192 probes shown
+to fail, with five not shown to fail**. Two mutations are excluded from the count because they break the
 shared fixture, and one of those, `require_registered_merchant`, aborts before
 any probe runs. The run before it, on 2026-09-09, read 161 mutations, 179
 declarations, 192 probes at runtime and 187 shown to fail; it is superseded and
 kept here so the movement is legible.
 
-**The six that have never been shown to fail**, each named rather than counted:
+**The five that have never been shown to fail**, each named rather than counted. There were six until `no_delivery_route` was written on 2026-09-10 for the last row, which is why that row is struck rather than removed: the shape of the gap is worth keeping:
 
 | Probe | Why |
 |---|---|
@@ -209,7 +212,7 @@ kept here so the movement is legible.
 | `binding` > consumed and lost cannot be reached from the digital binding | Needs a deployment with no physical binding, which this one is not |
 | `exit` > recovering does not make the recoverer able to read | The reference authenticates nobody, so a recoverer's view and a stranger's are the same view. The probe says so in its own note |
 | `floor` > one short of the floor is refused | The boundary case. `floor_off_by_one` moves the floor and is caught elsewhere before this probe sees it |
-| `absence` > a delivery is readable on the household's surface | **New on 2026-09-10 and unproven from the first day.** It asserts a route exists; the mutations written beside it move the delivery to where a merchant reads it, which the two probes next to it catch. A mutation that removes the route would prove this one |
+| ~~`absence` > a delivery is readable on the household's surface~~ | ~~New on 2026-09-10 and unproven from the first day.~~ **Proven the same day** by `no_delivery_route`, which removes the route the probe asserts. The gap was the ordinary one: the mutations written beside it moved the delivery to where a merchant reads it, and nothing asked whether the household's own surface worked at all |
 
 **Read the numerator and the denominator over the same population.** The run of
 2026-09-10 has a union of 212 lines, of which **191 are conformance probes and

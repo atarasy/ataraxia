@@ -106,12 +106,13 @@ gate that overstates itself is worse than one that does not exist.
 
 September 2026. All eleven suites are written and pass against the reference
 engine. Re-measured in full on 2026-09-10: **197 probes at runtime from 183
-declarations, against 167 deliberate breaks** listed in the ledger, and all but
-six have been shown to fail under at least one break. The ledger names those
-six one by one and says why each stands: two are proven only by breaks that are
+declarations, against 168 deliberate breaks** listed in the ledger, and all but
+five have been shown to fail under at least one break. The ledger names those
+five one by one and says why each stands: two are proven only by breaks that are
 excluded for stopping every offer, two are properties of this deployment rather
-than weak probes, one is a boundary case reached by another break first, and one
-was written on 2026-09-10 and has no break of its own yet. **No mutation
+than weak probes, and one is a boundary case reached by another break first. A
+sixth was on that list for a few hours, until the break that proves it was
+written. **No mutation
 survives and none is inert**, which is a thing this suite could not tell you
 until 2026-09-09, when the harness was corrected. Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
