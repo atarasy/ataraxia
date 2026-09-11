@@ -217,6 +217,22 @@ can repeat any row.
 | `cosignature_refuses_assertion` | A co-signature takes a string alone, so a family whose co-signer holds a passkey can name a category needing a second signature and then have no way to give one | 1 |
 | `recovery_leaves_no_moment` | A physical collection decides an offer without recording when, so the window never starts and **the record of what a household used can be reverted at any time, by anyone holding the offer id, with no signature** | 1 |
 | `both_shapes_accepted` | A decided set carrying a signature and an assertion both is taken, and the engine reads the signature. **The probe for this was written on 2026-09-11 with no mutation beside it** and was one of the six never shown to fail; the mutation was written the same day | 1 |
+| `raising_is_not_loosening` | A raised ceiling stops counting as a loosening, so the co-signer requirement is never reached for the one change clause 46 names. Second break beside `loosening_without_cosigner`, which removes the requirement rather than the reason to apply it | 1 |
+| `dropping_a_cosigner_is_not_loosening` | Removing a co-signer stops counting as a loosening, so the people a person named while they had capacity can be removed one at a time by that person alone | 4 |
+| `every_change_loosens` | Every change counts as a loosening, so lowering a ceiling waits on whoever the person named. A protection a person cannot tighten by themselves is not theirs | 9 |
+| `version_may_go_backwards` | Only versions from the future are refused, so an old version and its old signature are replayed onto a record that has moved past them. Second break beside `mandate_any_version` | 1 |
+| `categories_outside_the_signed_form` | The categories needing a second signature leave the signed bytes, so a relay adds or drops one without touching the signature. Second break beside `mandate_form_is_malleable`, which makes the same list malleable instead | 3 |
+| `recovery_log_names_nobody` | The recovery is logged and the name of whoever did it is empty. Second break beside `recovery_not_logged`: a log that cannot say who acted answers no question clause 53 asks | 2 |
+| `export_drops_recoveries` | The recovery log is written and left behind on a move, so a member arrives at a new host with no record of who recovered their access | 2 |
+| `everyone_is_a_recoverer` | The membership check is kept and answered with the caller, so it passes for whoever asks. Second break beside `anyone_can_recover`, which removes the guard rather than corrupting what it reads | 1 |
+| `a_channel_is_enough` | Naming a recoverer asks only that some channel exists rather than that one is outside the recoverer's control, so a recoverer holding every channel can recover in silence | 1 |
+| `export_format_has_no_version` | The export keeps its format's name and drops its version, so a receiving host knows the shape's name and not which shape | 1 |
+| `lineage_export_drops_the_giver` | The engine returns only the edges pointing at a household, which is what the giver's surface shows, so a member who moves loses their own record of what they gave. **Placed in the engine rather than in the export** so that it cannot drift with `export_only_what_surfaces_show`, which breaks the same probe one line away | 2 |
+| `import_reads_a_format_it_does_not_know` | The import asks that a document name a format and not that the name be one this host knows, so an export written for another implementation is read field by field and whatever cannot be parsed is dropped in silence | 1 |
+
+**Twelve of these were written on 2026-09-11 to thicken the thinnest part of the corpus**, after `fragility.py` measured 70 of 227 probes resting on a single mutation. They are second breaks for the `mandates` and `exit` probes, which are where a person's own protections are: the co-signers, the ceilings, the recovery log and what leaves with a node. A probe caught by one mutation loses its proof the moment that script's anchor drifts, and four anchors have drifted here already. Where a second break could sit in a different file from the first it was put there, because two anchors on one line drift together.
+
+**One probe could not be given a second break, and the reason is worth more than the mutation would have been.** `an assertion for one version does not record another (§16.1)` rests on the challenge check in `verifyAssertion`, and every other way of admitting a wrong assertion also rejects the right ones: the suites compute the canonical form themselves, so weakening the form in the engine stops the seed rather than a probe, and weakening the challenge derivation rejects every assertion the suites make. **That probe rests on one mutation because it rests on one check**, which is a fact about the design and not a gap in the corpus. Two mutations written for it were measured, found to break the fixture or to miss, and discarded rather than kept as ledger rows nobody could reproduce.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
@@ -224,20 +240,24 @@ written from its output rather than from intent. **Re-measured in full on
 2026-09-11**, after the two conformance roles, the store, and the passkey's
 assertion, at an exploration rate of 0.2.
 
-| | 2026-09-09 | 2026-09-10 | 2026-09-11 | 2026-09-11, seed fixed |
-|---|---|---|---|---|
-| mutations | 167 | 173 | 184 (182 counted) | **192** (190 counted, 2 excluded for breaking the shared fixture) |
-| declarations | 183 | 188 | 202 | **210** |
-| probes at runtime | 197 | 202 | 216, one skipped | **223**, one skipped |
-| shown to fail | 191 | 197 | 206 | **217** |
-| not shown to fail | 6 | 5 | 10 | **6** |
-| surviving | 0 | 0 | 0 | **0** |
-| inert | 0 | 1, found and fixed | 0 | **0** |
-| aborting before a probe runs | 1 | 1 | 3 | **1** |
+| | 2026-09-09 | 2026-09-10 | 2026-09-11 | 2026-09-11, seed fixed | 2026-09-11, midday |
+|---|---|---|---|---|---|
+| mutations | 167 | 173 | 184 (182 counted) | 192 (190 counted, 2 excluded for breaking the shared fixture) | **198** (196 counted, the same 2 excluded) |
+| declarations | 183 | 188 | 202 | 210 | **218** |
+| probes at runtime | 197 | 202 | 216, one skipped | 223, one skipped | **231**, one skipped |
+| shown to fail | 191 | 197 | 206 | 217 | **225** |
+| not shown to fail | 6 | 5 | 10 | 6 | **5** |
+| surviving | 0 | 0 | 0 | 0 | **0** |
+| inert | 0 | 1, found and fixed | 0 | 0 | **0** |
+| aborting before a probe runs | 1 | 1 | 3 | 1 | **1** |
 
-**The last column is valence `125b5bc` and ataraxia `a3952e3`**, measured the same day after the role-split seed was made non-fatal. The three role-table mutations that aborted in the column before it are caught by name: `roles_are_swapped` by nine probes, `registry_needs_both_roles` by four, `identities_need_both_roles` by three. The engine's own unit tests are a separate population and are not in the ratio: 40 of them failed under at least one mutation. **Of the 217 probes with a catch, 110 rest on a single mutation.** The raw logs of this run were lost to a reboot of the machine before they were archived, so the per-row counts below it are not regenerated from them; the figures here were computed from those logs before the reboot and recorded in the session that ran it.
+**The fourth column is valence `125b5bc` and ataraxia `a3952e3`**, measured after the role-split seed was made non-fatal. The three role-table mutations that aborted in the column before it are caught by name: `roles_are_swapped` by nine probes, `registry_needs_both_roles` by four, `identities_need_both_roles` by three. Of the 217 probes with a catch, 110 rested on a single mutation. The raw logs of that run were lost to a reboot of the machine before they were archived, so nothing below it is regenerated from them; the figures were computed from those logs before the reboot and recorded in the session that ran it.
 
-**What came after it has not been measured.** Later the same day added the assertion shape to a mandate change and a co-signature, the import rule, the escaped canonical form, the collection's moment and a mutation for the one probe that had none, which leaves the corpus at 198 mutations and 231 probes at runtime (one skipped), all passing clean. Each of the six new mutations was run alone against the whole corpus and caught by the probe that names it. None of that is a sweep.
+**The last column is valence `21be218` and ataraxia `0a1c935`**, swept between 10:05 and 12:47 on 2026-09-11, and it is the first run whose raw logs were kept: they are archived outside `/tmp`, which is where `coverage.sh` writes them and where the reboot found the last set. It covers the six mutations the column before it did not reach, which are the assertion shape on a mandate change and on a co-signature, the import rule, the escaped canonical form, the collection's moment, and one for the probe that had none.
+
+**What was added after that run is not in it.** Twelve mutations on 2026-09-11, each run alone against the whole corpus, which leaves the corpus at **210** and the last swept figure at 198. Every one was watched failing the probe it was written for, and what each caught is in its row. Two more were written, measured, and discarded: one stopped the seed instead of a probe, and one was refused by the probe it was meant to slip past. **A mutation nobody can reproduce is not a ledger row**, so they are named here and not in the table.
+
+**How to read the two ratios, which are not the same number.** Of 231 probes declared and run, one skips and 225 have been shown to fail, counting only the 196 mutations that do not break the shared fixture; counting the other two as well makes it 227. So **five runnable probes have no proof from this run**. The engine's own unit tests are a separate population and are not in that ratio: 78 run, and 40 of them failed under at least one mutation. **Of the 227 probes with a catch, 70 rest on a single mutation**, which is where this corpus is thinnest, and seven rest only on a mutation that spans nine or more suites, which is the shape of one that breaks the fixture rather than one the corpus catches. `scripts/fragility.py` in the valence repository names all of them.
 
 **The count of unproven probes went up, and the cause is in the harness rather
 than in the suites.** Seeding the role-split pair was added on 2026-09-11 so the
