@@ -153,6 +153,48 @@ describe("exit: the move (clause 52)", () => {
     expect((moved.body as { state: string }).state).toBe("decided");
   });
 
+
+  test("an import adds what this host does not hold, and changes nothing it does (§14.2)", async () => {
+    // NOTE (mutation check, 2026-09-11): import_overwrites_an_offer lets it
+    // through. This assertion failed with 201: the offer this host held at
+    // `presented` read `decided` afterwards, with every candidate kept.
+    //
+    // Found by measuring rather than by reading: a node handed to a host said
+    // an offer was decided and every candidate kept, with no signature
+    // anywhere, and settling it charged for goods nobody agreed to. Clause 35
+    // makes a confirmation the person's signature and §10.5 refuses a decided
+    // set without one; this route walked past both.
+    //
+    // Verifying the decision instead was ruled out the same day: an assertion
+    // names the host it was made for, so no host can verify a confirmation
+    // made at another. A move lands on a host holding none of these offers,
+    // so it is untouched by this; what is refused is the other thing the
+    // route could do.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const node = exported.body as {
+      offers: { id: string; state: string; candidates: { valence: string; kept_as: string | null; decided_at: number | null }[] }[];
+    };
+    for (const o of node.offers) {
+      if (o.id !== offer.id) continue;
+      o.state = "decided";
+      for (const c of o.candidates) {
+        c.valence = "kept";
+        c.kept_as = "self";
+        c.decided_at = Date.now();
+      }
+    }
+    // The same host it came from, which is not a move.
+    const back = await call("POST", `/households/${house}/import`, node);
+    expect(back.status).toBe(409);
+    expect((back.body as { error: string }).error).toBe("bad_state");
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect((read.body as { state: string }).state).toBe("presented");
+  });
+
   test("the second host answers as the first did", async () => {
     // NOTE (mutation check, 2026-09-09): export_drops_settlements left the
     // settlements out of the export. The schema was still valid and the file

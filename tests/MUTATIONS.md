@@ -201,7 +201,7 @@ can repeat any row.
 | `registry_needs_both_roles` | The registry answerable only where both roles run, so a single-role deployment cannot resolve a key and resolution becomes a favour a full deployment does rather than neutral infrastructure (clause 1) | 1, and 1 unit test |
 | `store_does_not_write_through` | The rows kept in memory and never written, which is what every version before 2026-09-11 did. **Everything answers and every probe passes**: the loss arrives at the next restart, and a suite that talks HTTP to a running process cannot outlive it. Caught by a unit test that reopens the file | 1 unit test |
 | `state_change_is_not_committed` | A changed offer no longer put back in the map. **Everything answers and the whole corpus passes**, and a restart returns every offer in the state it was created in, because a map writes through on `set` and cannot see a field of a value it handed out being assigned. Found on 2026-09-11 by restarting a server against the same file, the day after the store landed and passed | 1 unit test |
-| `assertion_challenge_unchecked` | A passkey's assertion accepted without checking that its challenge is this decided set. What is left proves a person was present, which is what a random challenge gives; clause 35 asks what they agreed to, and this confirms a set they never saw (§10.5) | 1, and 2 unit tests |
+| `assertion_challenge_unchecked` | A passkey's assertion accepted without checking that its challenge is what was agreed to, a decided set or, since the evening of 2026-09-11, a mandate. Re-anchored when the check moved into the general verifier. What is left proves a person was present, which is what a random challenge gives; clause 35 asks what they agreed to, and this confirms a set they never saw (§10.5) | 1, and 2 unit tests |
 | `assertion_accepts_registration` | A registration ceremony accepted as a confirmation. `webauthn.create` proves a person made a key and agrees to nothing. **The probe for it was written on 2026-09-11**, when this mutation failed only a unit test: a requirement held by one engine's own tests is not held at the boundary the suites certify | 1, and 1 unit test |
 | `assertion_ignores_user_verification` | The user-verified flag no longer read, so a device that signed without checking who was at it confirms a set. What is left proves a key was used; clause 35 asks that a person agreed | 1, and 1 unit test |
 | `assertion_ignores_user_presence` | The user-present flag no longer read, so a device with nobody at it confirms a set | 1, and 1 unit test |
@@ -211,6 +211,12 @@ can repeat any row.
 | `confirmation_token_is_the_string` | A confirmation identified by the string that was posted rather than by what it decodes to. **`Buffer.from(x, "base64")` reads far more strings than one**: it ignores whitespace and padding and takes the base64url alphabet, so one signature has an unbounded number of spellings and a register of strings holds none of the others. An ECDSA signature has a second door of its own, a twin `(r, n - s)` that verifies alike and that anyone who saw the first can compute without the key. Found by a second adversarial round on 2026-09-11, against the fix the first round had asked for | 1, and 2 unit tests |
 | `export_drops_confirmations` | The register left out of a node's export, so a household that moves arrives with its offers and none of what confirmed them, and the one-use rule resets at the new host (clause 52, §14.1) | 1 |
 | `identities_need_both_roles` | `/_identities` given to the engine, so a hub presenting its role alone cannot take a key and holds nothing to verify a person's signature against (clause 2, §13.2). **It aborts rather than being caught**, and is excluded for it: the reference's own seed reads the role table, so under the mutation every key goes to the engine alone and the seed's first lineage edge to the hub is refused as unattested before any probe runs. A hub that cannot hold a key cannot be seeded | aborts |
+| `mandate_refuses_assertion` | A mandate change takes a bare signature and nothing else, which is what the route did until 2026-09-11. A passkey cannot sign bytes a caller hands it, so a member of a hub **could record no ceiling, no cooling window and no co-signer**, and §16.5 went with it. Found by building the screen where a member sets their own protections | 2 |
+| `import_overwrites_an_offer` | An import may change an offer the host already holds. **A node handed to a host said an offer was decided and every candidate kept, with no signature anywhere, and settling it charged 6,000.** Measured before the rule existed; verifying the decision instead was ruled out, because an assertion names the host it was made for | 1 |
+| `mandate_form_is_malleable` | The mandate's two lists joined without escaping their items, so `["coffee","tea"]` and `["coffee,tea"]` are the same bytes and **a relay can drop a protection under a signature that still verifies**. Found by the third adversarial round | 1 |
+| `cosignature_refuses_assertion` | A co-signature takes a string alone, so a family whose co-signer holds a passkey can name a category needing a second signature and then have no way to give one | 1 |
+| `recovery_leaves_no_moment` | A physical collection decides an offer without recording when, so the window never starts and **the record of what a household used can be reverted at any time, by anyone holding the offer id, with no signature** | 1 |
+| `both_shapes_accepted` | A decided set carrying a signature and an assertion both is taken, and the engine reads the signature. **The probe for this was written on 2026-09-11 with no mutation beside it** and was one of the six never shown to fail; the mutation was written the same evening | 1 |
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
@@ -218,16 +224,20 @@ written from its output rather than from intent. **Re-measured in full on
 2026-09-11**, after the two conformance roles, the store, and the passkey's
 assertion, at an exploration rate of 0.2.
 
-| | 2026-09-09 | 2026-09-10 | 2026-09-11 |
-|---|---|---|---|
-| mutations | 167 | 173 | **184** (182 counted, 2 excluded for breaking the shared fixture) |
-| declarations | 183 | 188 | **202** |
-| probes at runtime | 197 | 202 | **216**, one of them skipped |
-| shown to fail | 191 | 197 | **206** |
-| not shown to fail | 6 | 5 | **10**, named below |
-| surviving | 0 | 0 | **0** |
-| inert | 0 | 1, found and fixed | **0** |
-| aborting before a probe runs | 1 | 1 | **3** |
+| | 2026-09-09 | 2026-09-10 | 2026-09-11 | 2026-09-11, seed fixed |
+|---|---|---|---|---|
+| mutations | 167 | 173 | 184 (182 counted) | **192** (190 counted, 2 excluded for breaking the shared fixture) |
+| declarations | 183 | 188 | 202 | **210** |
+| probes at runtime | 197 | 202 | 216, one skipped | **223**, one skipped |
+| shown to fail | 191 | 197 | 206 | **217** |
+| not shown to fail | 6 | 5 | 10 | **6** |
+| surviving | 0 | 0 | 0 | **0** |
+| inert | 0 | 1, found and fixed | 0 | **0** |
+| aborting before a probe runs | 1 | 1 | 3 | **1** |
+
+**The last column is valence `125b5bc` and ataraxia `a3952e3`**, measured the same day after the role-split seed was made non-fatal. The three role-table mutations that aborted in the column before it are caught by name: `roles_are_swapped` by nine probes, `registry_needs_both_roles` by four, `identities_need_both_roles` by three. The engine's own unit tests are a separate population and are not in the ratio: 40 of them failed under at least one mutation. **Of the 217 probes with a catch, 110 rest on a single mutation.** The raw logs of this run were lost to a reboot of the machine before they were archived, so the per-row counts below it are not regenerated from them; the figures here were computed from those logs before the reboot and recorded in the session that ran it.
+
+**What came after it has not been measured.** The same evening added the assertion shape to a mandate change and a co-signature, the import rule, the escaped canonical form, the collection's moment and a mutation for the one probe that had none, which leaves the corpus at 198 mutations and 231 probes at runtime (one skipped), all passing clean. Each of the six new mutations was run alone against the whole corpus and caught by the probe that names it. None of that is a sweep.
 
 **The count of unproven probes went up, and the cause is in the harness rather
 than in the suites.** Seeding the role-split pair was added on 2026-09-11 so the
@@ -280,7 +290,7 @@ any probe runs. The run before it, on 2026-09-09, read 161 mutations, 179
 declarations, 192 probes at runtime and 187 shown to fail; it is superseded and
 kept here so the movement is legible.
 
-**The eleven that had never been shown to fail when this was measured**, each named rather than counted. **The last six of them are answered rather than open**: later the same day the role-split seed was made non-fatal, so a mutation that breaks the role table lets the run reach `bun test` and the probe fails with its own name. The table is left as it was measured, because a table rewritten from an expectation is not a measurement; the corpus is being measured again and the number will move. Five of them are the ordinary five, and five arrived on 2026-09-11: four in `roles/` and one in `registry/`, all of them for the same reason, which is the aborting seed described above rather than anything about the probes themselves:
+**The six never shown to fail in the run after the seed fix**, each named rather than counted. The four role probes and the registry probe that the seed had cost are proven again, and one more, the both-shapes probe, gained its mutation the same evening and waits on the next sweep:
 
 | Probe | Why |
 |---|---|
@@ -289,12 +299,12 @@ kept here so the movement is legible.
 | `binding` > consumed and lost cannot be reached from the digital binding | Needs a deployment with no physical binding, which this one is not. **It is the one probe the run reports as skipped**, so it is unproven twice over: not shown to fail, and not run |
 | `exit` > recovering does not make the recoverer able to read | The reference authenticates nobody, so a recoverer's view and a stranger's are the same view. The probe says so in its own note |
 | `floor` > one short of the floor is refused | The boundary case. `floor_off_by_one` moves the floor and is caught elsewhere before this probe sees it |
-| `approval` > a set carries a signature or an assertion, and not both | Written on 2026-09-11 with the passkey's assertion, and no mutation was written beside it. The recurring failure of this project, in its plainest form |
-| `roles` > a hub alone answers for the household and the mandate | `roles_are_swapped` proved it and now aborts in the seed |
-| `roles` > an engine alone answers for offers | Same |
-| `roles` > an engine alone answers for deciding, because authority travels in the signature | Same. This is the probe written for the day's largest correction, and it currently proves nothing |
-| `roles` > both roles answer for the registry | `registry_needs_both_roles` proved it and now aborts in the seed |
-| `roles` > both roles register a key | New on 2026-09-11 with `identities_need_both_roles`, and unproven for the same few hours and the same reason as the four above: the mutation gives `/_identities` to the engine, the seed then leaves the hub with no keys, and the run dies before a probe starts |
+| `approval` > a set carries a signature or an assertion, and not both | Written on 2026-09-11 with the passkey's assertion, and no mutation was written beside it. The recurring failure of this project, in its plainest form **Its mutation, `both_shapes_accepted`, was written on the evening of 2026-09-11** and fails this probe and no other; the run that would count it has not happened |
+| ~~`roles` > a hub alone answers for the household and the mandate~~ | ~~`roles_are_swapped` proved it and now aborts in the seed~~ **Proven again** once the seed was made non-fatal |
+| ~~`roles` > an engine alone answers for offers~~ | ~~Same~~ **Proven again** once the seed was made non-fatal |
+| ~~`roles` > an engine alone answers for deciding, because authority travels in the signature~~ | ~~The probe written for the day's largest correction, and for a few hours it proved nothing.~~ **Proven again** once the seed was made non-fatal |
+| ~~`roles` > both roles answer for the registry~~ | ~~`registry_needs_both_roles` proved it and aborted in the seed~~ **Proven again**, by four probes |
+| ~~`roles` > both roles register a key~~ | ~~New on 2026-09-11 and unproven for the same reason~~ **Proven** by `identities_need_both_roles` once the seed was made non-fatal |
 | ~~`absence` > a delivery is readable on the household's surface~~ | ~~New on 2026-09-10 and unproven from the first day.~~ **Proven the same day** by `no_delivery_route`, which removes the route the probe asserts. The gap was the ordinary one: the mutations written beside it moved the delivery to where a merchant reads it, and nothing asked whether the household's own surface worked at all |
 
 **Read the numerator and the denominator over the same population.** The run of

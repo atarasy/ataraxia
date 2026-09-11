@@ -86,7 +86,7 @@ export const MANDATE_STATE: {
   }
 })();
 
-const CO_SIGNER_KEY = createPrivateKey(
+export const CO_SIGNER_KEY = createPrivateKey(
   Buffer.from(MANDATE_STATE.co_signer_key, "base64").toString("utf8")
 );
 
@@ -112,11 +112,13 @@ export function canonicalMandate(m: {
       m.ceiling_daily === undefined || m.ceiling_daily === null
         ? ""
         : String(m.ceiling_daily),
-      [...(m.co_sign_categories ?? [])].sort().join(","),
+      // Each item escaped before the join, as §16.1 now requires: a plain
+      // comma join made ["coffee","tea"] and ["coffee,tea"] the same bytes.
+      [...(m.co_sign_categories ?? [])].sort().map(encodeURIComponent).join(","),
       m.cooling_seconds === undefined || m.cooling_seconds === null
         ? ""
         : String(m.cooling_seconds),
-      [...m.co_signers].sort().join(","),
+      [...m.co_signers].sort().map(encodeURIComponent).join(","),
       String(m.lapses_at),
       String(m.version),
     ].join("\n"),
@@ -139,6 +141,41 @@ export function signMandate(
     }
   }
   return out;
+}
+
+/**
+ * §16.1. What a member's device sends where the specification asks the person
+ * to sign a mandate: an assertion whose challenge is the mandate's canonical
+ * bytes. The suite builds it rather than asking for an authenticator, as
+ * `assertDecisions` does and for the same reason.
+ *
+ * A passkey cannot sign bytes a caller hands it, which is why this exists at
+ * all: without it a member who holds one could record no protection.
+ */
+export function assertMandate(
+  m: Parameters<typeof canonicalMandate>[0],
+  options: { key?: KeyObject; relyingParty?: string } = {}
+) {
+  const { key = MANDATE_KEY, relyingParty = RP_ID } = options;
+  const challenge = createHash("sha256").update(canonicalMandate(m)).digest("base64url");
+  const authenticatorData = Buffer.concat([
+    createHash("sha256").update(relyingParty).digest(),
+    Buffer.from([0x05]),
+    Buffer.from([0, 0, 0, 1]),
+  ]);
+  const clientDataJson = Buffer.from(
+    JSON.stringify({ type: "webauthn.get", challenge, origin: `https://${relyingParty}` }),
+    "utf8"
+  );
+  const signed = Buffer.concat([
+    authenticatorData,
+    createHash("sha256").update(clientDataJson).digest(),
+  ]);
+  return {
+    authenticator_data: authenticatorData.toString("base64"),
+    client_data_json: clientDataJson.toString("base64"),
+    signature: sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", signed, key).toString("base64"),
+  };
 }
 
 export type DecisionSpec = {

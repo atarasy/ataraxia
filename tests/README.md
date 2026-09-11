@@ -108,22 +108,26 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All thirteen suites are written and pass against the reference
-engine. Re-measured in full on 2026-09-11, after the two conformance roles, the
-store and the passkey's assertion: **216 probes at runtime from 202
-declarations, against 184 deliberate breaks** listed in the ledger, and **206
-have been shown to fail** under at least one break. **No mutation survives and
-none is inert**, which is a thing this suite could not tell you until
-2026-09-09, when the harness was corrected.
+engine. **Last measured in full on 2026-09-11, after the role-split seed was made
+non-fatal: 223 probes at runtime from 210 declarations, against 192 deliberate
+breaks** listed in the ledger, and **217 have been shown to fail** under at least
+one break. **No mutation survives and none is inert**, and one aborts before a
+probe runs, which is the one that always has.
 
-**Ten probes have not been shown to fail, and the ledger names every one.** Five
-are the standing five: two are proven only by breaks excluded for stopping every
-offer, two are properties of this deployment rather than weak probes, and one is
-a boundary case reached by another break first. Five arrived with this
-generation, and four of those are in `roles/`: seeding the role-split pair is
-now fatal when a break stops it, so the three breaks that stopped it are
-reported as aborting rather than as caught. That is honest and it is a loss, and
-the ledger says what the fix is. The tenth was written beside the passkey's
-assertion with no break beside it.
+**Six probes had not been shown to fail in that run, and the ledger names every
+one.** Five are the standing five: two are proven only by breaks excluded for
+stopping every offer, two are properties of this deployment rather than weak
+probes, and one is a boundary case reached by another break first. The sixth
+was written beside the passkey's assertion with no break beside it, and was
+given one the same evening.
+
+**What came after that run is not in it.** The evening of 2026-09-11 added the
+assertion shape to a mandate change and a co-signature, a rule that an import
+does not change an offer a host already holds, and an escaped canonical form for
+the mandate, which leaves the corpus at 198 breaks and 231 probes at runtime,
+all passing. Each new break was run alone against the whole corpus and caught by
+the probe that names it. That is evidence about each break and not a sweep, so
+no ratio is quoted for it.
 
 Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`

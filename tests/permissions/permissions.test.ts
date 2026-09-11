@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { generateKeyPairSync } from "node:crypto";
 import {
   call,
   conformingOffer,
@@ -10,6 +11,9 @@ import {
   MANDATE_STATE,
   meansAnyOf,
   PRODUCTS,
+  assertDecisions,
+  assertMandate,
+  CO_SIGNER_KEY,
   signDecisions,
   signMandate,
   sleep,
@@ -513,6 +517,25 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     };
   };
 
+  /**
+   * Put the mandate back as it was, if a probe's write went through.
+   *
+   * A probe that expects a refusal writes nothing when the engine is right,
+   * and under the mutation it exists to catch it writes whatever it sent into
+   * the shared mandate. Measured 2026-09-11: assertion_challenge_unchecked
+   * failed fifteen probes, most of them in other suites that settle, because a
+   * version probe left a cooling window behind. A probe that fails for the
+   * right reason must not take the corpus down with it.
+   */
+  const restore = async (was: Awaited<ReturnType<typeof current>>) => {
+    const now = await current();
+    if (now.version === was.version) return;
+    const back = { ...was, version: now.version + 1 };
+    expect(
+      (await call("POST", "/_node/mandates", { ...back, signatures: signMandate(back, true) })).status
+    ).toBe(201);
+  };
+
   const keepEverything = (offer: { candidates: { id: string }[] }) =>
     offer.candidates.map((c) => ({ candidate: c.id, valence: "kept", kept_as: "self" }));
 
@@ -657,6 +680,191 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       // wanted it.
       const read = await call("GET", `/offers/${offer.id}`);
       expect((read.body as { state: string }).state).toBe("presented");
+    } finally {
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
+
+  test("a passkey records the protections a person sets (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-11): mandate_refuses_assertion takes a
+    // bare signature and nothing else, which is what the route did until this
+    // day. This assertion failed with 422 bad_signature: the assertion is read
+    // as if it were a signature over the bytes, which it is not, so a person
+    // who had signed in the only shape their device can produce was told their
+    // signature was bad.
+    //
+    // Found by building the screen where a member sets their own protections,
+    // which is how the same defect was found in §10.5 that morning. An
+    // authenticator signs its own data and the hash of the client's, never
+    // bytes a caller hands it, so a person who holds a passkey and nothing
+    // else could record no ceiling, no cooling window and no co-signer. §16.5
+    // went with it: without a cooling window there is nothing to take a
+    // decided set back into.
+    const now = await current();
+    const next = { ...now, cooling_seconds: 3600, version: now.version + 1 };
+    const recorded = await call("POST", "/_node/mandates", {
+      ...next,
+      assertions: { [next.household]: assertMandate(next) },
+    });
+    expect(recorded.status).toBe(201);
+    try {
+      const read = await call("GET", `/_node/mandates/${encodeURIComponent(next.id)}`);
+      expect((read.body as { cooling_seconds: number }).cooling_seconds).toBe(3600);
+    } finally {
+      // Removing a cooling window is a loosening, so it carries the co-signer.
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
+  test("an assertion for one version does not record another (§16.1)", async () => {
+    // The challenge is the mandate's canonical bytes, and a version is inside
+    // them. Without that a person who agreed to one change would have agreed
+    // to every later one.
+    const now = await current();
+    const next = { ...now, cooling_seconds: 3600, version: now.version + 1 };
+    const later = { ...next, cooling_seconds: 60 };
+    try {
+      const wrong = await call("POST", "/_node/mandates", {
+        ...later,
+        assertions: { [later.household]: assertMandate(next) },
+      });
+      expect(wrong.status).toBe(422);
+      expect((wrong.body as { error: string }).error).toBe("bad_signature");
+    } finally {
+      await restore(now);
+    }
+  });
+
+  test("a change carries a signature or an assertion, and not both (§16.1)", async () => {
+    const now = await current();
+    const next = { ...now, cooling_seconds: 3600, version: now.version + 1 };
+    try {
+      const both = await call("POST", "/_node/mandates", {
+        ...next,
+        signatures: signMandate(next, false),
+        assertions: { [next.household]: assertMandate(next) },
+      });
+      expect(both.status).toBe(400);
+    } finally {
+      await restore(now);
+    }
+  });
+
+  test("the key a member actually holds records a mandate (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-11): assertion_ed25519_only checks every
+    // signature the way ed25519 is checked. This assertion failed with 422
+    // bad_signature: the key most devices carry was refused, which is what
+    // left a member of a hub unable to record any protection at all.
+    //
+    // The probes above sign with the fixture's ed25519 key and would pass
+    // against an implementation that took ed25519 alone, which is the one that
+    // leaves a real member unable to record anything. So this one registers a
+    // key of the kind a device makes and records with it. `/_identities` is in
+    // the specification (§13.2), which is why a probe may call it.
+    const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const who = `household-p256-${Math.random().toString(36).slice(2, 10)}`;
+    const registered = await call("POST", "/_identities", {
+      key: who,
+      public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+      attested: false,
+    });
+    expect(registered.status).toBe(201);
+    const mandate = {
+      id: `mandate-p256-${Math.random().toString(36).slice(2, 10)}`,
+      household: who,
+      ceiling_out_of_network: 100000,
+      ceiling_daily: null,
+      co_sign_categories: [] as string[],
+      cooling_seconds: 3600,
+      co_signers: [] as string[],
+      lapses_at: Date.now() + 365 * 86_400_000,
+      version: 1,
+    };
+    const recorded = await call("POST", "/_node/mandates", {
+      ...mandate,
+      assertions: { [who]: assertMandate(mandate, { key: pair.privateKey }) },
+    });
+    expect(recorded.status).toBe(201);
+  });
+
+  test("a category cannot be dropped by moving a comma (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-11): mandate_form_is_malleable joins the
+    // lists without escaping them. This assertion failed with 201: the record
+    // took a category nobody signed for, and the signature still verified.
+    //
+    // A plain comma join makes ["coffee","tea"] and ["coffee,tea"] the same
+    // bytes, so whoever relays the change can post the second while the person
+    // signed the first: the record then names one category that matches
+    // nothing, the protection is gone, and the signature still verifies.
+    const now = await current();
+    const signed = { ...now, co_sign_categories: ["coffee", "tea"], version: now.version + 1 };
+    const relayed = { ...signed, co_sign_categories: ["coffee,tea"] };
+    try {
+      const posted = await call("POST", "/_node/mandates", {
+        ...relayed,
+        signatures: signMandate(signed, true),
+      });
+      expect(posted.status).toBe(422);
+      expect((posted.body as { error: string }).error).toBe("bad_signature");
+    } finally {
+      await restore(now);
+    }
+  });
+
+  test("a co-signer's passkey can co-sign (§16.4)", async () => {
+    // NOTE (mutation check, 2026-09-11): cosignature_refuses_assertion takes a
+    // string alone. This assertion failed with 422 mandate_co_sign_required:
+    // the co-signer had signed in the only shape their device can produce and
+    // the engine went on asking for a second signature it would not take.
+    const set = await put({ co_sign_categories: ["tea"] }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const offer = await presented();
+      const decisions = keepEverything(offer);
+      const alone = await decide(offer.id, { decisions });
+      expect(alone.status).toBe(422);
+      expect((alone.body as { error: string }).error).toBe("mandate_co_sign_required");
+      const together = await decide(offer.id, {
+        decisions,
+        co_signature: assertDecisions(offer.id, decisions as never, { key: CO_SIGNER_KEY }),
+      });
+      expect(together.status).toBe(200);
+    } finally {
+      expect((await put({ co_sign_categories: [] }, true)).response.status).toBe(201);
+    }
+  });
+
+  test("a collection starts the window it is measured against (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-11): recovery_leaves_no_moment decides the
+    // offer without recording when. This assertion failed with 200 well after
+    // the window had closed: the record of what a household used went back to
+    // `offered`, and nobody had signed anything to make that happen.
+    //
+    // The physical binding is the one place an offer becomes decided without
+    // anybody signing: the route comes back, and what was used and what came
+    // back decides it (§11.2). If that leaves no moment, the window that makes
+    // a decision final never starts.
+    const set = await put({ cooling_seconds: 1 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      expect(created.status).toBe(201);
+      const offer = created.body as { id: string; candidates: { id: string }[] };
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      const [used, ...back] = offer.candidates;
+      const collected = await call("POST", `/offers/${offer.id}/recovery`, {
+        returned: back.map((c) => c.id),
+        consumed: [used!.id],
+      });
+      expect(collected.status).toBe(200);
+      // The collection answers with its own row, so the offer is read back.
+      const afterCollection = await call("GET", `/offers/${offer.id}`);
+      expect((afterCollection.body as { state: string }).state).toBe("decided");
+      await sleep(1_500);
+      const late = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+      expect(late.status).toBe(422);
+      expect((late.body as { error: string }).error).toBe("cooling_over");
     } finally {
       expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
     }
