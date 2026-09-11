@@ -537,6 +537,13 @@ describe("absence: aggregates that must not be displayed (§7.7)", () => {
     );
     expect(list.status).toBe(200);
     expect(findKey(list.body, looksLike(FORBIDDEN_AGGREGATES))).toEqual([]);
+    // NOTE (mutation check, 2026-09-11): balance_on_the_household_list put
+    // `balance: 0` beside `offers`. Nothing went red. Two probes guard this
+    // surface and each carries a different list: the aggregates are checked
+    // here and the balance words live in FORBIDDEN_KEYS, which was applied to
+    // a single offer and to a settled one but never to the list. The hole was
+    // the cell between two lists, not a missing probe.
+    expect(findKey(list.body, looksLike(FORBIDDEN_KEYS))).toEqual([]);
   });
 
   test("the giver's lineage surface carries no total and no ranking", async () => {

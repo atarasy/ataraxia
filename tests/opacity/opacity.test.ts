@@ -49,6 +49,39 @@ const PROFILE_KEYS = [
   "no_response",
 ];
 
+/**
+ * §7.7 and clause 18. Ordering is the display a total would have been, and a
+ * prompt is the notification clause 18 forbids arriving as a field. Neither
+ * word was in any list in this repository until 2026-09-11, when
+ * `acts_carry_a_rank` and `a_reciprocate_field_on_the_circle` both passed
+ * every probe that reads those two surfaces.
+ */
+const ORDERING_KEYS = [
+  "rank",
+  "ranking",
+  "position",
+  "order",
+  "priority",
+  "degree",
+  "total",
+  "count",
+];
+
+const PROMPT_KEYS = [
+  "reciprocate",
+  "reciprocation",
+  "remind",
+  "reminder",
+  "nudge",
+  "prompt",
+  "suggest",
+  "suggested",
+  "owe",
+  "due",
+  "deadline",
+  "expires_at",
+];
+
 const giver = () => LINEAGE_EDGE.from as string;
 
 describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
@@ -87,6 +120,12 @@ describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
     );
     expect(acts.status).toBe(200);
     expect(findKey(acts.body, meansAnyOf(PROFILE_KEYS))).toEqual([]);
+    // NOTE (mutation check, 2026-09-11): acts_carry_a_rank put `rank` on each
+    // act. Every probe in this file passed, because the list above holds the
+    // words for inaction and none for ordering, and the ordering list lives
+    // in another suite. An order is the display a total would have been.
+    expect(findKey(acts.body, meansAnyOf(ORDERING_KEYS))).toEqual([]);
+    expect(findKey(acts.body, meansAnyOf(PROMPT_KEYS))).toEqual([]);
   });
 
   test("the surface carries no period, so an empty one is never reported", async () => {
@@ -100,6 +139,26 @@ describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
     );
     const body = acts.body as Record<string, unknown>;
     expect(Object.keys(body)).toEqual(["acts"]);
+  });
+
+  test("a gift someone received is not an act on their own surface", async () => {
+    // NOTE (mutation check, 2026-09-11): acts_include_gifts_not_answered
+    // removed the line that skips gift edges, so every gift a household
+    // received appeared among the acts directed at it. Nothing went red.
+    // The probe above posts an edge the giver sent and counts the giver's own
+    // acts, and `actsVisibleToGiver` filters on `edge.to` before it looks at
+    // the kind, so that scenario never reaches the line the mutation removes.
+    // This one asks from the other end. A gift sitting in the list makes the
+    // answer that never came readable as the row beside it, which is the join
+    // clause 16 exists to prevent.
+    await call("POST", "/lineage", LINEAGE_EDGE);
+    const acts = await call(
+      "GET",
+      `/lineage/acts?giver=${encodeURIComponent(LINEAGE_RECIPIENT)}`
+    );
+    expect(acts.status).toBe(200);
+    const rows = (acts.body as { acts: { kind?: string }[] }).acts;
+    expect(rows.every((a) => a.kind !== "gift")).toBe(true);
   });
 
   test("an unknown giver and a giver with no acts are indistinguishable", async () => {
@@ -261,6 +320,12 @@ describe("opacity: the lineage circle (clause 21, §7.7)", () => {
     expect(
       findKey(circle.body, meansAnyOf(["total", "count", "network_size", "rank", "reach", "degree"]))
     ).toEqual([]);
+    // NOTE (mutation check, 2026-09-11): a_reciprocate_field_on_the_circle put
+    // `reciprocate: true` on every row. Nothing went red, because no list in
+    // this repository held a word for prompting: clause 18's deadline half was
+    // checked on the receipts surface only, and the circle was checked for
+    // aggregates alone. A prompt arriving as a field is still a prompt.
+    expect(findKey(circle.body, meansAnyOf(PROMPT_KEYS))).toEqual([]);
   });
 
   test("the circle does not expand past direct edges", async () => {

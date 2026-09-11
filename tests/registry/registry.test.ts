@@ -135,6 +135,20 @@ describe("registry: the mark is not a gate (clause 55, §17.2)", () => {
     expect(entries.some((e) => e.mark === true)).toBe(true);
   });
 
+  test("an entry without the mark resolves", async () => {
+    // NOTE (mutation check, 2026-09-11): registry_resolve_needs_the_mark made
+    // resolve throw 404 for an entry that does not carry the mark. Every probe
+    // passed: the listing probes read both entries, and every resolve in this
+    // file resolved a merchant that happens to carry it. Being listed and
+    // being reachable are two gates, and clause 55 closes both.
+    const list = await call("GET", "/registry?protocol=valence");
+    const entries = (list.body as { entries: { merchant: string; mark: boolean }[] }).entries;
+    const unmarked = entries.find((e) => e.mark === false);
+    expect(unmarked).toBeDefined();
+    const resolved = await call("GET", `/registry/${encodeURIComponent(unmarked!.merchant)}`);
+    expect(resolved.status).toBe(200);
+  });
+
   test("filtering on the mark happens only when the caller asks by name", async () => {
     // NOTE (mutation check, 2026-09-09): registry_ignores_mark_filter
     // ignored ?mark=true and returned every entry. This assertion failed.
@@ -202,5 +216,28 @@ describe("registry: an attested key is not replaced (§17.1)", () => {
     expect(again.status).toBe(201);
     const replaced = await call("POST", "/registry/attest", { merchant, public_key: two });
     expect(replaced.status).toBe(409);
+    // NOTE (mutation check, 2026-09-11): attest_replaces_the_key wrote the new
+    // key and then threw the conflict, so the refusal above still returned 409
+    // while the stored key had already been replaced. This line catches it
+    // without a route that reads keys back: presenting the original key is
+    // idempotent and returns 201 while it is the stored one, and would
+    // conflict if the second key had taken its place.
+    const stillTheFirst = await call("POST", "/registry/attest", { merchant, public_key: one });
+    expect(stillTheFirst.status).toBe(201);
+  });
+
+  test("attestation answers with no key material (clause 2)", async () => {
+    // NOTE (mutation check, 2026-09-11): attest_returns_the_key_it_stored made
+    // the route answer with the key it had just recorded. Nothing went red,
+    // because no probe read this response's body at all. Clause 2 roots
+    // identity outside the system: this route records a key somebody brought,
+    // and a route that hands one back reads as the place keys come from.
+    const merchant = `probe-merchant-${Math.random().toString(36).slice(2, 8)}`;
+    const key = generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString();
+    const attested = await call("POST", "/registry/attest", { merchant, public_key: key });
+    expect(attested.status).toBe(201);
+    expect(
+      findKey(attested.body, meansAnyOf(["public_key", "key", "private_key", "secret", "seed", "pem"]))
+    ).toEqual([]);
   });
 });
