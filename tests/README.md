@@ -121,6 +121,10 @@ boundary case reached by another break first. The sixth of the previous run was
 the probe written beside the passkey's assertion with no break beside it; it has
 one now, and this run shows it failing.
 
+**Twenty-two breaks were added after that run and are not in its figures.** They are second ones for the probes the sweep found resting on a single break, in the three suites where a person's own protections are: `mandates`, `exit` and `permissions`. Each was run alone against the whole corpus and watched failing the probe it was written for, which is evidence about each break and not a sweep, so no ratio is quoted for them. The corpus stands at 220.
+
+**Two of them found a probe rather than an engine.** One registered the ledger's listing under the grantee instead of the household and nothing went red, because the probe asked for a single path; one put a price on the answer a person is shown when they grant, and the probe walked the stored ledger only. Both probes were widened and both breaks kept. **A break that survives because a probe asked too narrow a question is a finding about the probe**, and this is the second kind of hole these suites have: not a probe that cannot fail, but a probe that can only fail one way.
+
 **How much each proof rests on is a separate question from whether it exists.**
 Of the 227 probes with a catch, counting the excluded breaks too, **70 rest on a
 single break**: the corpus proves them, and one drifted anchor would stop
