@@ -274,6 +274,8 @@ can repeat any row.
 
 **One probe could not be given a second break, and the reason is worth more than the mutation would have been.** `an assertion for one version does not record another (§16.1)` rests on the challenge check in `verifyAssertion`, and every other way of admitting a wrong assertion also rejects the right ones: the suites compute the canonical form themselves, so weakening the form in the engine stops the seed rather than a probe, and weakening the challenge derivation rejects every assertion the suites make. **That probe rests on one mutation because it rests on one check**, which is a fact about the design and not a gap in the corpus. Two mutations written for it were measured, found to break the fixture or to miss, and discarded rather than kept as ledger rows nobody could reproduce.
 
+**Swept in full on 2026-09-12 over the 242 the corpus now holds: 241 caught, one aborting, none surviving and none inert**, at valence `34b6538` and ataraxia `0b92e8c`. `fragility.py` against the same logs reads 227 probes with a catch and **20 resting on a single break**, against 48 at 220 and 70 at 198.
+
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
 written from its output rather than from intent. **Re-measured in full on

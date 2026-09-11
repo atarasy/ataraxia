@@ -108,41 +108,38 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All thirteen suites are written and pass against the reference
-engine. **Last measured in full on 2026-09-11, evening, against the 220 breaks
-the corpus then held: 219 were caught, one aborted before a probe ran, none
-survived and none was inert.** The one that aborts is
-`require_registered_merchant`, which is the one that always has.
+engine. **Last measured in full on 2026-09-12, over the 242 breaks the corpus
+now holds: 241 were caught, one aborted before a probe ran, none survived and
+none was inert.** The one that aborts is `require_registered_merchant`, which
+is the one that always has.
 
-**What the run does not say.** The number of declarations was not measured in
-this run, so no "x of y" is quoted against it. **The probe count at runtime was
-measured on the same code an hour later: 231 tests across 13 files, with one
-skipped, and 78 unit tests beside them.** The
-sweep's own list of what was shown to fail holds 265 entries, and that number
-mixes conformance probes with the reference engine's unit tests, which the
-sweep runs beside them; `scripts/fragility.py`, reading the same logs, separates
-them and counts **227 probes with a catch**. Take a ratio from the second number
-or from neither.
+**How much each proof rests on, measured against the same logs.** Of the **227
+probes with a catch, 20 rest on a single break**, against 48 in the sweep of 220
+and 70 in the sweep of 198. **Five rest only on a break that spans nine or more
+suites**, which is the shape of one that breaks the shared fixture rather than
+one the corpus catches, and those five are named by `scripts/fragility.py` in
+the reference engine's repository.
 
-**The twenty-two breaks written for the single-catch probes are in this run**,
-unlike the midday one. They were written for the three suites where a person's
-own protections are, `mandates`, `exit` and `permissions`, and what they bought
-is measurable: **of the 227 probes with a catch, 48 now rest on a single break,
-against 70 before they were added.**
+**What the run does not say.** The number of declarations was not measured, so
+no "x of y" is quoted against it. The sweep's own list of what was shown to fail
+holds 268 entries, and that number mixes conformance probes with the reference
+engine's unit tests, which the sweep runs beside them; the 227 above comes from
+`fragility.py`, which separates them. At runtime the suites are **231 tests
+across 13 files with one skipped**, and the engine's own tests are 78.
 
-**Twenty-five more breaks were written after that run and are not in its figures. Ten of them survived the first time they were run, and not one was an engine defect.** Four were probes guarding a route and not the surface beside it, or reading a refusal's status and not its effect; two were the fixture, whose two registry entries were named so that mark-first order and key order were the same list; three were not mutations at all, changing a return type, building a map nothing used, or taking a branch the route cannot reach; and one removed a line the existing probe's scenario could never reach. **All ten are caught now**, by six widened or new probes and one change to the seed. The corpus reached 245 and stands at 242: three mutations were retired on 2026-09-12 with §16.4, the per-purchase second signature, which left the specification that day. `MUTATIONS.md` says which was which.
+**Twenty-five of those 242 were written on the evening of 2026-09-11, and ten of them survived the first time they were run, and not
 
 **That is a third kind of hole, and it is the one this repository had not named: a probe that guards one response and not its neighbours.** The suites hold nine key lists, each defined inside one suite and applied to a few routes in it. `balance` sat in a list that never reached the household's offer list; `rank` sat in three lists and in none that reached the giver's acts; nothing anywhere held a word for prompting, so a field inviting a person to reciprocate passed every probe that reads the surface clause 18 protects.
 
 **Two of them found a probe rather than an engine.** One registered the ledger's listing under the grantee instead of the household and nothing went red, because the probe asked for a single path; one put a price on the answer a person is shown when they grant, and the probe walked the stored ledger only. Both probes were widened and both breaks kept. **A break that survives because a probe asked too narrow a question is a finding about the probe**, and this is the second kind of hole these suites have: not a probe that cannot fail, but a probe that can only fail one way.
 
-**How much each proof rests on is a separate question from whether it exists.**
-Forty-eight probes rest on one break: the corpus proves them, and one drifted
-anchor would stop proving them without anything turning red. Four breaks span
-nine or more suites, which is the shape of one that breaks the shared fixture
-rather than one the corpus catches, and seven probes are proven only by one of
-those four. `scripts/fragility.py` in the reference engine's repository names
-them all, and `scripts/anchors.py` reported **0 drifted anchors across 245
-scripts** after this run.
+**How much each proof rests on is a separate question from whether it exists**,
+and the twenty probes that rest on one break are the corpus's thin end: it
+proves them, and one drifted anchor would stop proving them without anything
+turning red. `scripts/fragility.py` names them, and `scripts/anchors.py`
+reported **0 drifted anchors across 242 scripts** after this run. **The number
+fell from 70 to 48 to 20 across three sweeps**, which is what writing a second
+break for a singly-proven probe buys, measured rather than assumed.
 
 Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
