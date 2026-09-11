@@ -338,7 +338,7 @@ export const LINEAGE_EDGE: Record<string, unknown> = (() => {
     throw new Error("VALENCE_LINEAGE_EDGE must be a JSON object");
   }
   const edge = parsed as Record<string, unknown>;
-  for (const key of ["from", "to", "product", "merchant", "kind", "signature"]) {
+  for (const key of ["from", "to", "product", "merchant", "maker", "kind", "signature"]) {
     if (typeof edge[key] !== "string" || edge[key] === "") {
       throw new Error(`VALENCE_LINEAGE_EDGE is missing ${key}`);
     }

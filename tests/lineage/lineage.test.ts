@@ -53,15 +53,21 @@ describe("lineage: an edge is not discriminated by its client (§7.1)", () => {
     expect(second.status).toBe(201);
   });
 
-  test("the accepted edge names the merchant (clause 12)", async () => {
+  test("the accepted edge names the merchant and the maker (clause 12)", async () => {
     // NOTE (mutation check, 2026-09-08): hide_merchant dropped `merchant` from
     // the edge response. This assertion failed. The merchant is never hidden,
     // and lineage is where hiding it would be most tempting.
+    //
+    // NOTE (mutation check, 2026-09-12): hide_maker_on_edge drops `maker`.
+    // Clause 12 ends "every lineage edge names who made it", and the edge
+    // carried the merchant alone until the maker became a party of its own.
     const posted = await call("POST", "/lineage", LINEAGE_EDGE);
     expect(posted.status).toBe(201);
     const edge = posted.body as Record<string, unknown>;
     expect(typeof edge.merchant).toBe("string");
     expect(edge.merchant).not.toBe("");
+    expect(typeof edge.maker).toBe("string");
+    expect(edge.maker).not.toBe("");
   });
 
   test("an edge with a broken signature is refused", async () => {

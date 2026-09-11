@@ -735,6 +735,28 @@ describe("presence: what must not be hidden (clause 12)", () => {
     }
   });
 
+  test("who made it is a party of its own, not the merchant's name again", async () => {
+    // NOTE (mutation check, 2026-09-12): maker_is_the_merchant copies the
+    // merchant onto the candidate's maker. This assertion failed.
+    //
+    // The probe above asks that a candidate names a merchant and a carrier,
+    // and until 2026-09-12 the specification answered clause 12's "names who
+    // made it" with the merchant's own field, glossed as "who made it: the
+    // merchant of record". That held while the two were the same party. The
+    // decision of 2026-09-10 ended it: a weekly box holds four makers' goods
+    // and is one merchant's, because a maker is a supplier and not a seller.
+    // A conforming deployment whose fixture sells what it made will pass this
+    // by accident, which is why the reference's own seed names them apart.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { merchant?: unknown; maker?: unknown }[] }).candidates;
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const c of candidates) {
+      expect(typeof c.maker).toBe("string");
+      expect(c.maker).not.toBe("");
+    }
+  });
+
   test("every line of a receipt names its merchant of record (clause 11)", async () => {
     // NOTE (mutation check, 2026-09-09): settlement_lines_without_merchant
     // kept the lines and blanked the merchant on each. This assertion
@@ -752,7 +774,7 @@ describe("presence: what must not be hidden (clause 12)", () => {
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
     const body = settled.body as {
-      lines?: { merchant?: unknown }[];
+      lines?: { merchant?: unknown; maker?: unknown }[];
       signed_by?: unknown;
       signed_as?: unknown;
     };
@@ -761,6 +783,12 @@ describe("presence: what must not be hidden (clause 12)", () => {
     for (const line of body.lines!) {
       expect(typeof line.merchant).toBe("string");
       expect(line.merchant).not.toBe("");
+      // NOTE (mutation check, 2026-09-12): receipt_line_without_maker blanks
+      // the maker on each line. This assertion failed. Clause 12 asks that
+      // every line of every receipt name who made it, and until 2026-09-12
+      // the line carried the merchant twice over under two names.
+      expect(typeof line.maker).toBe("string");
+      expect(line.maker).not.toBe("");
     }
     expect(body.signed_as).toBe("agent");
     expect(typeof body.signed_by).toBe("string");
