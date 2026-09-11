@@ -108,26 +108,25 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All thirteen suites are written and pass against the reference
-engine. **Last measured in full on 2026-09-11, after the role-split seed was made
-non-fatal: 223 probes at runtime from 210 declarations, against 192 deliberate
-breaks** listed in the ledger, and **217 have been shown to fail** under at least
-one break. **No mutation survives and none is inert**, and one aborts before a
+engine. **Last measured in full on 2026-09-11, midday: 231 probes at runtime
+from 218 declarations, against 198 deliberate breaks** listed in the ledger, and
+**225 have been shown to fail** under at least one break that does not stop
+every offer. **No break survives and none is inert**, and one aborts before a
 probe runs, which is the one that always has.
 
-**Six probes had not been shown to fail in that run, and the ledger names every
-one.** Five are the standing five: two are proven only by breaks excluded for
-stopping every offer, two are properties of this deployment rather than weak
-probes, and one is a boundary case reached by another break first. The sixth
-was written beside the passkey's assertion with no break beside it, and was
-given one later the same day.
+**Five probes had not been shown to fail in that run**, and they are the
+standing five: two are proven only by breaks excluded for stopping every offer,
+two are properties of this deployment rather than weak probes, and one is a
+boundary case reached by another break first. The sixth of the previous run was
+the probe written beside the passkey's assertion with no break beside it; it has
+one now, and this run shows it failing.
 
-**What came after that run is not in it.** Later on 2026-09-11 came the
-assertion shape to a mandate change and a co-signature, a rule that an import
-does not change an offer a host already holds, and an escaped canonical form for
-the mandate, which leaves the corpus at 198 breaks and 231 probes at runtime,
-all passing. Each new break was run alone against the whole corpus and caught by
-the probe that names it. That is evidence about each break and not a sweep, so
-no ratio is quoted for it.
+**How much each proof rests on is a separate question from whether it exists.**
+Of the 227 probes with a catch, counting the excluded breaks too, **70 rest on a
+single break**: the corpus proves them, and one drifted anchor would stop
+proving them without anything turning red. `scripts/fragility.py` in the
+reference engine's repository names them, and it is worth running beside any
+figure quoted from here.
 
 Two of the breaks stop any offer being created, so probes
 that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
