@@ -119,9 +119,9 @@ one.** Five are the standing five: two are proven only by breaks excluded for
 stopping every offer, two are properties of this deployment rather than weak
 probes, and one is a boundary case reached by another break first. The sixth
 was written beside the passkey's assertion with no break beside it, and was
-given one the same evening.
+given one later the same day.
 
-**What came after that run is not in it.** The evening of 2026-09-11 added the
+**What came after that run is not in it.** Later on 2026-09-11 came the
 assertion shape to a mandate change and a co-signature, a rule that an import
 does not change an offer a host already holds, and an escaped canonical form for
 the mandate, which leaves the corpus at 198 breaks and 231 probes at runtime,
