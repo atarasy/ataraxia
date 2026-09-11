@@ -221,9 +221,29 @@ describe("permissions: what the ledger does not carry (clause 39, 41)", () => {
     // capability in one column.
     const read = await call("GET", `/households/${encodeURIComponent(HOUSEHOLD)}/permissions`);
     expect(read.status).toBe(200);
-    expect(
-      findKey(read.body, meansAnyOf(["compensation", "price", "fee", "payment", "reward", "amount"]))
-    ).toEqual([]);
+    const PRICES_A_GRANT = meansAnyOf([
+      "compensation",
+      "price",
+      "fee",
+      "payment",
+      "reward",
+      "amount",
+    ]);
+    expect(findKey(read.body, PRICES_A_GRANT)).toEqual([]);
+    // Widened 2026-09-11: the ledger was walked and the answer the person is
+    // shown when they grant was not. the_grant_response_prices_it put the
+    // figure on that response, where a market in permissions would appear
+    // first, and this probe stored nothing to see it in.
+    const action = await liveAction();
+    const granted = await grant(HOUSEHOLD, {
+      grantee: "merchant-priced",
+      scope: ["purchase_history"],
+      purpose: "to see what a grant answers with",
+      expires_at: soon(60_000),
+      asked_from: action,
+    });
+    expect(granted.status).toBe(201);
+    expect(findKey(granted.body, PRICES_A_GRANT)).toEqual([]);
   });
 
   test("no field names a model", async () => {
@@ -242,8 +262,19 @@ describe("permissions: what the ledger does not carry (clause 39, 41)", () => {
     // to whom.
     // The ledger is the household's view. A grantee that could read it would
     // learn what else the household has granted, and to whom.
-    const read = await call("GET", "/permissions");
-    expect(read.status).toBe(404);
+    // Widened 2026-09-11: the clause is about the capability and not about the
+    // spelling. a_grantee_can_list_what_it_holds registered the same listing
+    // under the grantee rather than under the household, and this probe, which
+    // asked for one path, saw nothing.
+    for (const path of [
+      "/permissions",
+      "/grantees/merchant-1/permissions",
+      "/permissions/merchant-1",
+      "/grantees/merchant-1/grants",
+    ]) {
+      const read = await call("GET", path);
+      expect(read.status).toBe(404);
+    }
   });
 });
 
