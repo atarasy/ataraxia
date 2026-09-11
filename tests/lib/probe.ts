@@ -96,7 +96,6 @@ export function canonicalMandate(m: {
   household: string;
   ceiling_out_of_network: number;
   ceiling_daily?: number | null;
-  co_sign_categories?: string[];
   cooling_seconds?: number | null;
   co_signers: string[];
   lapses_at: number;
@@ -114,7 +113,6 @@ export function canonicalMandate(m: {
         : String(m.ceiling_daily),
       // Each item escaped before the join, as §16.1 now requires: a plain
       // comma join made ["coffee","tea"] and ["coffee,tea"] the same bytes.
-      [...(m.co_sign_categories ?? [])].sort().map(encodeURIComponent).join(","),
       m.cooling_seconds === undefined || m.cooling_seconds === null
         ? ""
         : String(m.cooling_seconds),

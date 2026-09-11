@@ -528,7 +528,6 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       household: string;
       ceiling_out_of_network: number;
       ceiling_daily: number | null;
-      co_sign_categories: string[];
       cooling_seconds: number | null;
       co_signers: string[];
       lapses_at: number;
@@ -610,31 +609,6 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
     expect((settled.body as { charged: number }).charged).toBeGreaterThan(0);
-  });
-
-  test("a named category needs a second signature on the decided set", async () => {
-    // NOTE (mutation check, 2026-09-10): co_sign_category_ignored drops the
-    // category check. This assertion failed with 200: a set the person said
-    // needed two signatures went through on one.
-    const offer = await presented();
-    const named = offer.candidates.find((c) => c.category === "tea");
-    expect(named).toBeDefined();
-    const set = await put({ co_sign_categories: ["tea"] }, false);
-    expect(set.response.status).toBe(201);
-    try {
-      const decisions = keepEverything(offer);
-      const alone = await decide(offer.id, { decisions });
-      expect(alone.status).toBe(422);
-      expect((alone.body as { error: string }).error).toBe("mandate_co_sign_required");
-
-      const together = await decide(offer.id, {
-        decisions,
-        co_signature: coSignDecisions(offer.id, decisions as never),
-      });
-      expect(together.status).toBe(200);
-    } finally {
-      expect((await put({ co_sign_categories: [] }, true)).response.status).toBe(201);
-    }
   });
 
   test("a set inside its cooling window does not settle, and can be taken back", async () => {
@@ -806,7 +780,6 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       household: who,
       ceiling_out_of_network: 100000,
       ceiling_daily: null,
-      co_sign_categories: [] as string[],
       cooling_seconds: 3600,
       co_signers: [] as string[],
       lapses_at: Date.now() + 365 * 86_400_000,
@@ -819,18 +792,25 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect(recorded.status).toBe(201);
   });
 
-  test("a category cannot be dropped by moving a comma (§16.1)", async () => {
-    // NOTE (mutation check, 2026-09-11): mandate_form_is_malleable joins the
-    // lists without escaping them. This assertion failed with 201: the record
-    // took a category nobody signed for, and the signature still verified.
+  test("a co-signer cannot be fused by moving a comma (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-11, re-anchored 2026-09-12): 
+    // mandate_form_is_malleable joins the list without escaping it. This
+    // assertion failed with 201: the record took a co-signer nobody signed
+    // for, and the signature still verified.
     //
-    // A plain comma join makes ["coffee","tea"] and ["coffee,tea"] the same
-    // bytes, so whoever relays the change can post the second while the person
-    // signed the first: the record then names one category that matches
-    // nothing, the protection is gone, and the signature still verifies.
+    // A plain comma join makes ["a","b"] and ["a,b"] the same bytes, so
+    // whoever relays the change can post the second while the person signed
+    // the first: the record then names one co-signer nobody holds, after
+    // which no loosening can ever be signed, and the signature still
+    // verifies. The probe read the category list until §16.4 was withdrawn;
+    // the defect was always on both.
     const now = await current();
-    const signed = { ...now, co_sign_categories: ["coffee", "tea"], version: now.version + 1 };
-    const relayed = { ...signed, co_sign_categories: ["coffee,tea"] };
+    const signed = {
+      ...now,
+      co_signers: [...now.co_signers, "cs-one", "cs-two"].sort(),
+      version: now.version + 1,
+    };
+    const relayed = { ...signed, co_signers: [...now.co_signers, "cs-one,cs-two"].sort() };
     try {
       const posted = await call("POST", "/_node/mandates", {
         ...relayed,
@@ -840,29 +820,6 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       expect((posted.body as { error: string }).error).toBe("bad_signature");
     } finally {
       await restore(now);
-    }
-  });
-
-  test("a co-signer's passkey can co-sign (§16.4)", async () => {
-    // NOTE (mutation check, 2026-09-11): cosignature_refuses_assertion takes a
-    // string alone. This assertion failed with 422 mandate_co_sign_required:
-    // the co-signer had signed in the only shape their device can produce and
-    // the engine went on asking for a second signature it would not take.
-    const set = await put({ co_sign_categories: ["tea"] }, false);
-    expect(set.response.status).toBe(201);
-    try {
-      const offer = await presented();
-      const decisions = keepEverything(offer);
-      const alone = await decide(offer.id, { decisions });
-      expect(alone.status).toBe(422);
-      expect((alone.body as { error: string }).error).toBe("mandate_co_sign_required");
-      const together = await decide(offer.id, {
-        decisions,
-        co_signature: assertDecisions(offer.id, decisions as never, { key: CO_SIGNER_KEY }),
-      });
-      expect(together.status).toBe(200);
-    } finally {
-      expect((await put({ co_sign_categories: [] }, true)).response.status).toBe(201);
     }
   });
 
@@ -901,16 +858,6 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     }
   });
 
-  test("adding a category tightens and removing one loosens", async () => {
-    // §16.1. The direction is the whole rule: a person may protect themselves
-    // alone and may not unprotect themselves alone.
-    const added = await put({ co_sign_categories: ["coffee"] }, false);
-    expect(added.response.status).toBe(201);
-    const removedAlone = await put({ co_sign_categories: [] }, false);
-    expect(removedAlone.response.status).toBe(422);
-    const removedTogether = await put({ co_sign_categories: [] }, true);
-    expect(removedTogether.response.status).toBe(201);
-  });
 });
 
 describe("permissions: a grant to a computation (clauses 9, 39, §7.5)", () => {

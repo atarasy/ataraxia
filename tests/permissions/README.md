@@ -39,9 +39,10 @@ Five probes here are not about permissions at all. They are about the other
 thing clause 47 names, which is the protections a person sets while they have
 capacity, and they live in this suite because the mandate does.
 
-A person can set a daily ceiling across every presenter, name the merchant's
-own categories that need a second signature on a decided set, and hold a signed
-set for a cooling window with a route to take it back. **Each probe sets its
+A person can set a daily ceiling across every presenter and hold a signed set
+for a cooling window with a route to take it back. **A third protection was
+here until 2026-09-12**: the merchant's own categories needing a second
+signature on a decided set, which §16.4 carried and which was withdrawn. **Each probe sets its
 protection, uses it, and puts the mandate back.** A protection left on the
 shared fixture would fail every suite that settles afterwards, which is the
 shape of a mutation that breaks the fixture rather than one the corpus catches,
