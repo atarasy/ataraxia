@@ -394,6 +394,41 @@ export const PRICES: Record<string, number> = (() => {
 })();
 
 /**
+ * Who made each product, as the deployment declares it, in the same shape as
+ * `VALENCE_PRICES`.
+ *
+ * **This exists because presence is not the assertion.** Clause 12 asks that a
+ * candidate name who made it, and a probe that only checks the field is a
+ * non-empty string passes an implementation that fills it with the merchant's
+ * own name, which is what the specification did until 2026-09-12. Measured the
+ * same day: `maker_is_the_merchant` survived the first probe written for it.
+ *
+ * A deployment whose merchant makes everything it sells declares the merchant
+ * here and the probe is satisfied, which is correct: the two parties are the
+ * same for that shop. What the probe refuses is an implementation that answers
+ * with a party the catalogue did not name.
+ */
+export const MAKERS: Record<string, string> = (() => {
+  const raw = required("VALENCE_MAKERS");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_MAKERS is not valid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("VALENCE_MAKERS must be a JSON object of product to maker");
+  }
+  const makers = parsed as Record<string, unknown>;
+  for (const [ref, maker] of Object.entries(makers)) {
+    if (typeof maker !== "string" || maker === "") {
+      throw new Error(`VALENCE_MAKERS: ${ref} is not a non-empty string`);
+    }
+  }
+  return makers as Record<string, string>;
+})();
+
+/**
  * A catalogue version registered after `VALENCE_CONFIG_VERSION`, in which at
  * least one product has a different price, and the prices it carries.
  *

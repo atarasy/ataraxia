@@ -50,7 +50,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twenty environment variables:
+as twenty-one environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -65,6 +65,7 @@ as twenty environment variables:
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_UNATTESTED_EDGE` | a well-formed, signed edge whose giver's key no identity root endorsed (§7.1) |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
+| `VALENCE_MAKERS` | who made each of those products, as JSON. Clause 12 asks a candidate to name who made it, and a probe that checks only for a non-empty string passes an implementation that fills the field with the merchant's own name. Where a merchant makes what it sells, the two are the same name and this says so |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
 | `VALENCE_CONFIG_VERSION_NARROW` | a catalogue version under the same presenter naming only a subset of the products (§5: the floor counts what the presenter still has across every catalogue) |
 | `VALENCE_CONFIG_VERSION_UNROOTED` | a catalogue version of a presenter whose key no identity root endorsed (§5.2) |

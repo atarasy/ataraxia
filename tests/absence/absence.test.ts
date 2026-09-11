@@ -12,6 +12,7 @@ import {
   presenter,
   PRICES,
   PRODUCTS,
+  MAKERS,
 } from "../lib/probe.js";
 
 /**
@@ -749,11 +750,20 @@ describe("presence: what must not be hidden (clause 12)", () => {
     // by accident, which is why the reference's own seed names them apart.
     const offer = await createConformingOffer();
     const read = await call("GET", `/offers/${offer.id}`);
-    const candidates = (read.body as { candidates: { merchant?: unknown; maker?: unknown }[] }).candidates;
+    const candidates = (read.body as { candidates: { product: string; merchant?: unknown; maker?: unknown }[] })
+      .candidates;
     expect(candidates.length).toBeGreaterThan(0);
     for (const c of candidates) {
       expect(typeof c.maker).toBe("string");
       expect(c.maker).not.toBe("");
+      // **Presence is not the assertion**, and the first version of this probe
+      // stopped there. `maker_is_the_merchant` survived it by filling the field
+      // with the merchant's own name, which is exactly what the specification
+      // did until this field existed. The deployment declares who made each
+      // product, and the candidate has to carry that party rather than any
+      // other; where a merchant makes what it sells, the two are the same name
+      // and the declaration says so.
+      expect(c.maker).toBe(MAKERS[c.product]);
     }
   });
 
