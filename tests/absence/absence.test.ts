@@ -400,10 +400,16 @@ describe("absence: a line is shown to whom the writer says, and never becomes a 
 
 describe("absence: no identity and no credential reaches the merchant (clause 49)", () => {
   /**
-   * Clause 49, as rewritten on 2026-09-09. An offer, a receipt and a
-   * delivery carry a key, a token and a delivery code, and no field for a
-   * name, an address, a card or a contact. The walk covers the documents a
-   * merchant-side implementation returns about a household.
+   * Clause 49, amended 2026-09-11. An offer, a receipt and a delivery carry a
+   * key, a token and a delivery code, and no field for a name, an address, a
+   * card or a contact. The walk covers the documents a merchant-side
+   * implementation returns about a household.
+   *
+   * What the amendment added, that nothing sent can charge a person again and
+   * that a payment's record at a merchant's own provider is no surface defined
+   * here, is not reached from here: it happens at a payment provider, and this
+   * corpus talks to an engine. The sentence this probe stands on is the last
+   * one, which is unchanged.
    */
   const CREDENTIAL_KEYS = [
     "address",
