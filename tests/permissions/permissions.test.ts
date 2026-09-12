@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
   call,
+  HAS_PHYSICAL,
+  settleSigned,
   conformingOffer,
   coSignDecisions,
   createConformingOffer,
@@ -611,6 +613,42 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect((settled.body as { charged: number }).charged).toBeGreaterThan(0);
   });
 
+  test.if(HAS_PHYSICAL)("a cooling window does not bar a statement the household signs", async () => {
+    // NOTE (mutation check, 2026-09-13): cooling_bars_a_statement restores the
+    // window over a statement settlement. The settle assertion failed with
+    // 422 mandate_cooling.
+    //
+    // Question 42, decided 2026-09-13. §11 moves a box out of `presented`
+    // when a collection resolves its last line, stamping the window's start
+    // with the collection's own moment, so a box the household never answered
+    // sat inside a window: its signature was refused for the whole window and
+    // discarded, while §6.5's block on the presenter's next box stood. A
+    // member who set a day lost a day of deliveries after every swap with
+    // anything used. Where the statement is the application there is nothing
+    // to take back and nothing to cool.
+    const set = await put({ cooling_seconds: 3600 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      expect(created.status).toBe(201);
+      const offer = created.body as { id: string; candidates: { id: string }[] };
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      const [used, ...rest] = offer.candidates;
+      expect((await call("POST", `/offers/${offer.id}/delivery`, {
+        carriage: 300, code: `dc-cool-${offer.id.slice(0, 8)}`, status: "delivered",
+      })).status).toBe(201);
+      expect((await call("POST", `/offers/${offer.id}/recovery`, {
+        returned: rest.map((c) => c.id), consumed: [used!.id],
+      })).status).toBe(200);
+      const settled = await settleSigned(offer.id);
+      expect(settled.status).toBe(200);
+    } finally {
+      // Shortening cooling is a loosening and removing it is the shortest,
+      // which is how the test beside this one puts it back.
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
   test("a set inside its cooling window does not settle, and can be taken back", async () => {
     // NOTE (mutation check, 2026-09-10): cooling_settles_immediately drops the
     // window. This assertion failed with 200: a decision the person could
@@ -823,7 +861,41 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     }
   });
 
-  test("a collection starts the window it is measured against (§16.5)", async () => {
+  test.if(HAS_PHYSICAL)("a collection's own moment is what a box with nothing used waits out (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-13): recovery_leaves_no_moment decides the
+    // offer without recording when. This assertion failed with 200, because a
+    // box whose window never started settles at once.
+    //
+    // **This is where a collection's moment is still read after questions 42
+    // and 43.** A box with goods used settles on the household's signature and
+    // no window bars it (question 42); a box the collection resolved cannot be
+    // withdrawn at all (question 43). What is left is a box that came back with
+    // nothing used: it needs no statement, so the presenter settles it, and
+    // the window the collection started is what it waits out. The probe that
+    // used to cover `recovery_leaves_no_moment` asserted the withdrawal path,
+    // which both decisions closed, so the cover moved here rather than going.
+    const set = await put({ cooling_seconds: 1 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      expect(created.status).toBe(201);
+      const offer = created.body as { id: string; candidates: { id: string }[] };
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      expect((await call("POST", `/offers/${offer.id}/recovery`, {
+        returned: offer.candidates.map((c) => c.id),
+        consumed: [],
+      })).status).toBe(200);
+      const early = await call("POST", `/offers/${offer.id}/settle`, {});
+      expect(early.status).toBe(422);
+      expect((early.body as { error: string }).error).toBe("mandate_cooling");
+      await sleep(1_500);
+      expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
+    } finally {
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
+  test.if(HAS_PHYSICAL)("a box the collection resolved cannot be taken back, window or no window (§16.5)", async () => {
     // NOTE (mutation check, 2026-09-11): recovery_leaves_no_moment decides the
     // offer without recording when. This assertion failed with 200 well after
     // the window had closed: the record of what a household used went back to
@@ -849,10 +921,12 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       // The collection answers with its own row, so the offer is read back.
       const afterCollection = await call("GET", `/offers/${offer.id}`);
       expect((afterCollection.body as { state: string }).state).toBe("decided");
-      await sleep(1_500);
+      // **Question 43, 2026-09-13.** This box carries no signed set, so the
+      // withdrawal is refused outright rather than by the window. The probe
+      // asserted `cooling_over` here until the rule changed under it.
       const late = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
-      expect(late.status).toBe(422);
-      expect((late.body as { error: string }).error).toBe("cooling_over");
+      expect(late.status).toBe(409);
+      expect((late.body as { error: string }).error).toBe("not_withdrawable");
     } finally {
       expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
     }

@@ -1048,6 +1048,30 @@ describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there
     expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
   });
 
+  test("an import cannot rewrite a recorded carriage either", async () => {
+    // NOTE (mutation check, 2026-09-13): import_rewrites_the_carriage drops
+    // the guard. The last assertion failed, reading 800.
+    //
+    // §7.5b. The guard on `record` was true of one door and false of the
+    // other: the household's own move route reached a plain overwrite with
+    // nothing in between. A figure the household was shown before it signed
+    // must not move, whichever door it comes through.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; household: string };
+    const code = `dc-imp-${offer.id.slice(0, 8)}`;
+    expect((await call("POST", `/offers/${offer.id}/delivery`, { carriage: 500, code, status: "placed" })).status).toBe(201);
+    const imported = await call("POST", `/households/${encodeURIComponent(offer.household)}/import`, {
+      // The route refuses anything that is not an export (`http.ts` checks the
+      // format before it reads a field), so the shape is an export carrying
+      // one delivery and nothing else.
+      format: "valence-node/4",
+      deliveries: [{ offer: offer.id, carriage: 800, code, status: "delivered", updated_at: Date.now() }],
+    });
+    expect([409, 422]).toContain(imported.status);
+    const read = await call("GET", `/offers/${offer.id}/delivery`);
+    expect((read.body as { carriage: number }).carriage).toBe(500);
+  });
+
   test("a delivery update moves the status and may not move the carriage", async () => {
     // NOTE (mutation check, 2026-09-12): delivery_carriage_overwritten drops
     // the check. The last assertion failed, reading 800.
@@ -1067,6 +1091,40 @@ describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there
     expect(changed.status).toBe(422);
     const read = await call("GET", `/offers/${offer.id}/delivery`);
     expect((read.body as { carriage: number }).carriage).toBe(500);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: a set nobody signed is not a set anyone can take back (§16.5)", () => {
+  test("a box the collection resolved cannot be withdrawn", async () => {
+    // NOTE (mutation check, 2026-09-13): withdraw_a_set_nobody_signed drops
+    // the check. The status assertion failed with 200, the box read
+    // `presented` with its collection verdicts intact, and the next box from
+    // the same presenter then presented where it had been refused.
+    //
+    // Question 43. Withdrawing removes a commitment, which is why this route
+    // needs no signature; where the household signed nothing there is none to
+    // remove. What the route did instead was hide the box from the
+    // household's own list, refuse its signature as out of state, and lift
+    // §6.5's block, so a presenter that withdrew the box left the consumed
+    // goods charged to nobody.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [used, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [used!.id],
+    });
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect((read.body as { state: string }).state).toBe("decided");
+
+    const taken = await call("DELETE", `/offers/${offer.id}/decisions`);
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
+    // And it is still the box it was, so the household can still sign it.
+    expect((await call("GET", `/offers/${offer.id}`)).body).toMatchObject({ state: "decided" });
+    expect((await settleSigned(offer.id)).status).toBe(200);
   });
 });
 
