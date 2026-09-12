@@ -7,7 +7,9 @@ import {
   HAS_PHYSICAL,
   PRICES,
   PRODUCTS,
+  CONFIG_VERSION_UNROOTED,
   DISCLOSURE,
+  PRODUCTS_UNROOTED,
   RECOVERY_GRACE_DAYS,
   settleSigned,
   signStatement,
@@ -780,12 +782,22 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     expect([400, 422]).toContain(refused.status);
   });
 
-  test("the refusal names no other offer (clause 8)", async () => {
-    // NOTE (mutation check, 2026-09-12): refusal_names_the_offer puts the
-    // waiting offer's id back in the message. This assertion failed.
-    // The caller is a presenter and the waiting box is another presenter's.
-    // Naming it told one merchant another's offer id, which `GET /offers/{id}`
-    // then served to anyone: products, prices, and which lines were used.
+  test("the block is this presenter's, and another presenter's box is not stopped (clause 8)", async () => {
+    // NOTE (mutation check, 2026-09-12): block_spans_presenters drops the
+    // presenter check. The last assertion failed with 422.
+    //
+    // **The scope is a constitutional requirement, not a convenience.** Clause
+    // 8 gives a merchant what was declined to it and the union to nobody but
+    // the person; a block computed across presenters is an engine computing
+    // that union and answering a merchant out of it, which is the objection
+    // §16.3 already records against the daily ceiling. Suppressing the offer
+    // id does not cure it, because what leaks is that something is unsettled
+    // elsewhere. It is also the only scope that means the same thing on a
+    // split deployment, where each engine holds its own offers.
+    //
+    // The second presenter here is the one §5.2's fixtures supply, whose key
+    // no identity root endorsed. That is beside the point being tested and is
+    // the only second presenter the suite is given.
     const household = freshHousehold();
     const held = PRODUCTS[PRODUCTS.length - 1]!;
     const shown = PRODUCTS.slice(0, -1);
@@ -793,18 +805,33 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
       household,
       candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
     }));
+    expect(first.status).toBe(201);
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
     const [used, ...others] = one.candidates;
     await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
-    const second = await call("POST", "/offers", physicalOffer({
+
+    // The same presenter is stopped, and its refusal carries no offer id.
+    const mine = await call("POST", "/offers", physicalOffer({
       household,
       candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
     }));
-    const two = second.body as { id: string };
+    const two = mine.body as { id: string };
     const refused = await call("POST", `/offers/${two.id}/present`, {});
     expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
     expect(refused.text).not.toContain(one.id);
+
+    // Another presenter's box is not.
+    const theirs = await call("POST", "/offers", physicalOffer({
+      household,
+      config_version: CONFIG_VERSION_UNROOTED,
+      candidates: PRODUCTS_UNROOTED.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    expect(theirs.status).toBe(201);
+    const three = theirs.body as { id: string };
+    expect((await call("POST", `/offers/${three.id}/present`, {})).status).toBe(200);
+
     expect((await settleSigned(one.id)).status).toBe(200);
   });
 
