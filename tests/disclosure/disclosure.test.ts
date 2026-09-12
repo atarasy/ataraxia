@@ -49,6 +49,39 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     expect(mine!.signature).toBe(DISCLOSURE.signature);
   });
 
+  test("the screen a person signs from carries it too", async () => {
+    // NOTE (mutation check, 2026-09-12): disclosure_not_on_the_approval_screen
+    // leaves it off the approval render. This assertion failed.
+    //
+    // **The requirement was satisfied on a surface nobody signs from** until
+    // the day it was written: the block reached `GET /offers/{id}` and stopped
+    // there, while a member's hub reads `GET /offers/{id}/approval`. §10a.4
+    // asks that the person see it before they sign, and the screen they sign
+    // on is this one.
+    const offer = await createConformingOffer();
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = {
+        alternatives: ["the same tea in a smaller tin"],
+        argument_against: "you have two of these already",
+      };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const blocks = (approval.body as { disclosures?: unknown }).disclosures as
+      | { merchant: string; items: { label: string; value: string }[] }[]
+      | undefined;
+    expect(Array.isArray(blocks)).toBe(true);
+    const mine = blocks!.find((b) => b.merchant === DISCLOSURE.merchant);
+    expect(mine).toBeDefined();
+    expect(mine!.items).toEqual(DISCLOSURE.items);
+  });
+
   test("no request field writes one", async () => {
     // A field through which a caller can write a seller's legal text is the
     // same defect as a field through which a caller can write a price (§3.1).
