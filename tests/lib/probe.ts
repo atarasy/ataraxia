@@ -38,6 +38,49 @@ export const PRODUCTS_UNROOTED = required("VALENCE_PRODUCTS_UNROOTED")
 export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
 
 /**
+ * §10a. A product in `VALENCE_CONFIG_VERSION` whose merchant has registered no
+ * disclosure, so that the refusal can be reached. A deployment that has one
+ * for every merchant cannot show a probe what happens when one is missing,
+ * which is the requirement with the consequence.
+ */
+export const PRODUCT_UNDISCLOSED = required("VALENCE_PRODUCT_UNDISCLOSED");
+
+/**
+ * §10a. The block the merchant of `VALENCE_PRODUCTS` composed, as it was
+ * registered. The probes compare what an offer carries against this, because
+ * the requirement is that it is returned **as composed**: a probe that only
+ * checked the field was present would pass an implementation that reordered
+ * the items, summarised them, or translated them.
+ */
+export const DISCLOSURE: {
+  merchant: string;
+  version: string;
+  items: { label: string; value: string }[];
+  signature: string;
+} = (() => {
+  const raw = required("VALENCE_DISCLOSURE");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_DISCLOSURE is not valid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("VALENCE_DISCLOSURE must be a JSON object");
+  }
+  const d = parsed as Record<string, unknown>;
+  for (const key of ["merchant", "version", "signature"]) {
+    if (typeof d[key] !== "string" || d[key] === "") {
+      throw new Error(`VALENCE_DISCLOSURE is missing ${key}`);
+    }
+  }
+  if (!Array.isArray(d.items) || d.items.length === 0) {
+    throw new Error("VALENCE_DISCLOSURE needs at least one item");
+  }
+  return d as never;
+})();
+
+/**
  * A household nobody has offered anything to. Since 2026-09-09 exploration
  * is what a household has never been offered by this presenter (clause 26,
  * §5.1), so an offer marking every product as exploration is conforming only
