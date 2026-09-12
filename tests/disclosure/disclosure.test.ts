@@ -93,6 +93,28 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     expect(created.status).toBe(400);
   });
 
+  test("an offer naming a merchant with no disclosure is not presented", async () => {
+    // NOTE (mutation check, 2026-09-12): disclosure_unchecked_at_presentation
+    // drops the check. This assertion failed with 200.
+    //
+    // **Presentation is where refusing costs least.** §10a refused at the
+    // decision when it was written, on the reasoning that refusing earlier
+    // would let one merchant's omission stop a presenter offering anything;
+    // that is backwards. Refusing at creation costs one candidate. Refusing at
+    // the decision costs the household the whole signed set, because a decided
+    // set is all-or-nothing, and the person has already read it and signed.
+    const body = conformingOffer() as Record<string, unknown>;
+    body.config_version = CONFIG_VERSION_UNDISCLOSED;
+    body.presenter = undefined;
+    body.candidates = [{ product: PRODUCT_UNDISCLOSED, quantity: 1, is_exploration: true }];
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string };
+    const presented = await call("POST", `/offers/${offer.id}/present`, {});
+    expect(presented.status).toBe(422);
+    expect((presented.body as { error: string }).error).toBe("disclosure_missing");
+  });
+
   test("a decision naming a merchant with no disclosure is refused", async () => {
     // NOTE (mutation check, 2026-09-12): decide_without_disclosure drops the
     // check. This assertion failed with 200. The refusal names itself, the way
@@ -105,9 +127,11 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     const created = await call("POST", "/offers", body);
     expect(created.status).toBe(201);
     const offer = created.body as { id: string; candidates: { id: string }[] };
-    await call("POST", `/offers/${offer.id}/present`, {});
+    // It cannot be presented at all, which is the probe above. The decision is
+    // refused on an offer that never reached `presented`, and the refusal a
+    // caller sees is the state one: **what this probe proves is that the set
+    // never settles**, not which of the two refusals arrives first.
     const refused = await decide(offer.id, { decisions: keepEverything(offer) });
-    expect(refused.status).toBe(422);
-    expect((refused.body as { error: string }).error).toBe("disclosure_missing");
+    expect(refused.status).toBeGreaterThanOrEqual(400);
   });
 });
