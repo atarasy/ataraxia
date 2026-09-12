@@ -138,7 +138,7 @@ can repeat any row.
 | `import_trusts_everything` | Import writes what it is handed: unverified edges, another household's offers | 1 |
 | `notes_append` | A second line by the same author appended to a candidate | 1 |
 | `attest_overwrites` | A merchant's attested key replaced by a later caller | 1 |
-| `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval | 2 |
+| `approval_hides_maker` | Merchant, carrier and band dropped from the rendered approval. **Re-anchored twice on 2026-09-12**, as the surface gained a maker and then a giver under the lines it had named; it now anchors the four-line merchant, maker, giver and carrier block and removes two of them. Re-measured the same evening | 2 |
 | `consumed_at_a_fraction` | Used goods settled at a fraction of the price, the cost basis under another name | 1, and 1 unit test |
 | `gift_is_billed` | A used gift billed to the person who received it | 2, and 1 unit test |
 | `note_default_nobody` | A note's `shared_with` defaulted to nobody, so a line written before giving reaches no one | 1 |
@@ -280,6 +280,17 @@ can repeat any row.
 | `disclosure_not_on_the_approval_screen` | The disclosures left off the approval render, which is the screen a person signs from. **This is the shape the requirement arrived in**: when §10a was written the block reached `GET /offers/{id}` and stopped there, so the requirement was satisfied on a surface no member's hub reads, and the probe written for it was looking at the wrong one | caught, and named in the probe |
 | `disclosure_unchecked_at_presentation` | An offer whose candidates name a merchant with no disclosure is presented. The household then reads a candidate it can never buy, decides on it, signs, and the whole set is refused at the decision, because a decided set is all-or-nothing. **§10a refused only at the decision when it was written**, on reasoning a refutation pass showed backwards | caught, and named in the probe |
 | `disclosure_signature_unchecked` | The block on an offer trusted without verifying it. A block this host recorded always verifies, so the loss is invisible until §14.2's import carries blocks signed by keys this host may never have held. **Caught by the engine's own tests rather than by a probe**, for the reason the retired catalogue mutation could not be reached | caught by the engine's tests |
+| `approval_quantity_is_one` | Every candidate on the approval screen shown at a quantity of one, whatever the offer holds (§10a.5). A screen that shows the block and a price and the wrong quantity has shown standing terms and not this sale | 1 |
+| `approval_price_blank` | The unit price blanked on the approval screen, the offer still holding it (§10a.5). The same defect from the other side: the person signs against a block with no amount beside it | 1 |
+| `approval_without_carriage` | The carriage left off the approval screen while the hub holds a delivery record for the offer (§10a.5, §7.5b). The one fact of the sale the offer does not carry, and the one a merchant must not | 1 |
+| `approval_maker_is_merchant` | The approval screen fills `maker` with the merchant's name again (clause 12). A probe that checked the field was present passed it; the probe compares against who the deployment says made it | 1 |
+| `approval_hides_giver` | `given_by` dropped from the approval screen, so a gift and a purchase look the same on the one surface a person signs from (clause 10, §6.2). Found by a refutation pass on 2026-09-12 | 1 |
+| `settle_without_statement` | A physical box with goods used is charged on the collection's record when no signature arrives (§6.5). **This is what the reference did until the evening of 2026-09-12**: a debt made by a third party's record, with no act of the household on any device | 1, and 1 unit test |
+| `settle_ignores_dispute` | The signature over a statement marking a line disputed verifies, and the line is charged anyway (§6.5). A dispute that changes nothing is a note on a receipt, not a line leaving the rail | 1, and 1 unit test |
+| `present_despite_unsigned_statement` | The next physical box is presented while the last one's statement stands unsigned (§6.5, §11.2). Nothing then presses a household to sign, and the merchant accrues a claim the rail cannot collect and the household never confirmed | 1, and 1 unit test |
+| `disclosure_product_unsigned` | The product left out of the bytes a merchant signs, so a block signed for one product verifies re-filed under another or under the merchant as a whole (§10a.5). **Caught by the engine's own tests and by no probe**: the suites hold no merchant key and cannot re-file a block, so the property is proven where the canonical form lives | caught by the engine's tests |
+| `product_block_not_carried` | A merchant's block for one product never attached to an offer holding that product; only the standing text travels (§10a.5). The household is shown the general terms against a product whose terms differ, which is the misleading display the product key exists to prevent | 2, and 1 unit test |
+| `product_block_replaces_standing_text` | A product block filed under the merchant's own key, so registering one replaces the standing text and every other product of that merchant is shown one product's terms as the whole disclosure (§10a.5). **It breaks the fixture**: the merchant's standing block is gone, so no decision naming that merchant succeeds and every suite that decides anything goes red. Caught, and the shape is the one `fragility.py` flags rather than a corpus that reaches it | 70, and 1 unit test |
 
 **Seven were written on 2026-09-12 with §10a**, the merchant's disclosure. **Three of them exist because a refutation pass over that day's own work found the requirement satisfied on a surface nobody signs from, the refusal placed where it costs a household most, and a second signature check no probe could reach.** One of the first four is the fourth no-op of the day: a return type, a map nobody read, a branch the route cannot reach, and now an empty spread. **The common cause is writing the break as the smallest textual insertion rather than as the behaviour it should remove**, and `mutate.sh` cannot tell the two apart because it asks only whether the text of `src` changed.
 
@@ -294,6 +305,8 @@ can repeat any row.
 **One probe could not be given a second break, and the reason is worth more than the mutation would have been.** `an assertion for one version does not record another (§16.1)` rests on the challenge check in `verifyAssertion`, and every other way of admitting a wrong assertion also rejects the right ones: the suites compute the canonical form themselves, so weakening the form in the engine stops the seed rather than a probe, and weakening the challenge derivation rejects every assertion the suites make. **That probe rests on one mutation because it rests on one check**, which is a fact about the design and not a gap in the corpus. Two mutations written for it were measured, found to break the fixture or to miss, and discarded rather than kept as ledger rows nobody could reproduce.
 
 **Swept in full on 2026-09-12 over the 242 the corpus now holds: 241 caught, one aborting, none surviving and none inert**, at valence `34b6538` and ataraxia `0b92e8c`. `fragility.py` against the same logs reads 227 probes with a catch and **20 resting on a single break**, against 48 at 220 and 70 at 198.
+
+**Eighteen were run again on the evening of 2026-09-12, on a branch and not in the sweep**, because questions 35 and 36 were decided and built after that sweep began and the sweep's own checkout could not be touched. Six are new: three for the household's signature over a physical settlement statement (§6.5) and three for the product key on a disclosure (§10a.5). Six are the approval-screen breaks written earlier the same day, measured here for the first time. Six had drifted under the new lines and were re-anchored, and each was re-measured rather than assumed: `decide_without_disclosure` 1 probe and 1 unit test, `disclosure_not_carried` 70 and 27, `disclosure_not_on_the_approval_screen` 2, `disclosure_unchecked_at_presentation` 1 and 1, `receipt_line_without_maker` 1, `settlement_lines_without_merchant` 1. **All eighteen were caught, none survived, none was inert and none aborted.** **The corpus is 264 scripts and `anchors.py` reports 0 drifted.** Measured clean on the branch the same evening: **251 tests across 14 files, 250 passing and one skipped**, against the 231 the sweep of that morning ran. Neither 264 nor 251 is a swept figure until a full run measures them together, and the eighteen verdicts above are a batch of single runs rather than a sweep.
 
 **Measured, not asserted.** `engine/scripts/coverage.sh` applies every mutation
 in turn and collects the probes that failed, and the notes in the suites are
@@ -619,8 +632,10 @@ describe.
 
 ## What §13 actually gates
 
-§13 lists eight conditions and says passing the tests is what entitles an
-implementation to the mark. All eight are covered.
+§13 listed eight conditions when this table was written and lists sixteen
+since 2026-09-12; it says passing the tests is what entitles an
+implementation to the mark. The eight are covered, and the two added on
+2026-09-12 are below them.
 Counted against the probes, not asserted.
 
 | §13 condition | Gated? | By what, or why not |
@@ -633,6 +648,8 @@ Counted against the probes, not asserted.
 | 6 terms frozen at `config_version` | yes | The deployment declares a second, later catalogue with one product repriced, and a settlement against the earlier one is checked to charge the earlier price |
 | 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
 | 8 no household billed for `lost` | yes | `binding/` runs the physical binding where the deployment declares it, and checks that what is charged equals the breakdown |
+| 15 the merchant's disclosure, as composed, beside the sale | yes | `disclosure/` compares the block on the offer and on the approval screen against the one the deployment registered, checks the quantity, the price, the expiry and the carriage beside it, and since 2026-09-12 that a product's block travels only where its product is and never in the standing text's place |
+| 16 a physical box with goods used settles on the household's signature | yes | Nine probes in `binding/`: the statement, the empty settle refused, a signature over other lines or by another key refused, the assertion shape accepted, a disputed line off the charge, dispute limited to consumed lines, the next box withheld while a statement stands unsigned, and no statement where nothing was used |
 
 Clauses 43, 52 and 53 are outside §13 and are covered by `exit/`, which runs
 against two hosts and asks each surface whether the second answers as the first
