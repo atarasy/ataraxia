@@ -5,8 +5,10 @@ import {
   createConformingOffer,
   decide,
   DISCLOSURE,
+  DISCLOSURE_PRODUCT,
   PRICES,
   PRODUCT_UNDISCLOSED,
+  PRODUCTS,
   CONFIG_VERSION_UNDISCLOSED,
 } from "../lib/probe.js";
 
@@ -185,5 +187,83 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     // never settles**, not which of the two refusals arrives first.
     const refused = await decide(offer.id, { decisions: keepEverything(offer) });
     expect(refused.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("disclosure: a block for one product (§10a.5, question 35)", () => {
+  /**
+   * A term that differs between one merchant's products, a return policy
+   * being the case that raised it, cannot live in a block keyed on the
+   * merchant alone: shown against every product, it is a misleading display
+   * for the ones with better terms, and the household loses a statutory
+   * right on it. So the key admits an optional product. The product block
+   * carries only what differs, travels beside the standing text and never
+   * in its place, and the hub renders it beside that product's line.
+   */
+  const withProduct = () =>
+    conformingOffer({
+      candidates: [
+        { product: DISCLOSURE_PRODUCT.product, quantity: 1, predicted_conversion: 0.05, is_exploration: true },
+        ...PRODUCTS.filter((p) => p !== DISCLOSURE_PRODUCT.product)
+          .slice(0, 2)
+          .map((product) => ({ product, quantity: 1, predicted_conversion: 0.05, is_exploration: true })),
+      ],
+    });
+  const withoutProduct = () =>
+    conformingOffer({
+      candidates: PRODUCTS.filter((p) => p !== DISCLOSURE_PRODUCT.product)
+        .slice(0, 3)
+        .map((product) => ({ product, quantity: 1, predicted_conversion: 0.05, is_exploration: true })),
+    });
+  type Block = { merchant: string; product: string | null; version: string; items: { label: string; value: string }[]; signature: string };
+
+  test("an offer holding the product carries the product block beside the standing text", async () => {
+    // NOTE (mutation check, 2026-09-12): product_block_not_carried attaches
+    // the standing text alone. This assertion failed on the product block.
+    // NOTE (mutation check, 2026-09-12): product_block_replaces_standing_text
+    // files the product block under the merchant's own key. This assertion
+    // failed on the standing text, which was gone.
+    const created = await call("POST", "/offers", withProduct());
+    expect(created.status).toBe(201);
+    const blocks = (created.body as { disclosures: Block[] }).disclosures;
+    const standing = blocks.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null);
+    expect(standing).toBeDefined();
+    expect(standing!.items).toEqual(DISCLOSURE.items);
+    const mine = blocks.find((b) => b.merchant === DISCLOSURE_PRODUCT.merchant && b.product === DISCLOSURE_PRODUCT.product);
+    expect(mine).toBeDefined();
+    expect(mine!.items).toEqual(DISCLOSURE_PRODUCT.items);
+    expect(mine!.version).toBe(DISCLOSURE_PRODUCT.version);
+    expect(mine!.signature).toBe(DISCLOSURE_PRODUCT.signature);
+  });
+
+  test("an offer without the product does not carry its block", async () => {
+    // Shown against a product it is not about, a product's terms are as
+    // misleading as the standing text was against the product.
+    const created = await call("POST", "/offers", withoutProduct());
+    expect(created.status).toBe(201);
+    const blocks = (created.body as { disclosures: Block[] }).disclosures;
+    expect(blocks.some((b) => b.product === DISCLOSURE_PRODUCT.product)).toBe(false);
+    expect(blocks.some((b) => b.merchant === DISCLOSURE.merchant && b.product === null)).toBe(true);
+  });
+
+  test("the screen a person signs from carries it, keyed to its product", async () => {
+    const created = await call("POST", "/offers", withProduct());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["the same tea in a smaller tin"], argument_against: "you have two of these already" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const blocks = (approval.body as { disclosures: Block[] }).disclosures;
+    const mine = blocks.find((b) => b.product === DISCLOSURE_PRODUCT.product);
+    expect(mine).toBeDefined();
+    expect(mine!.items).toEqual(DISCLOSURE_PRODUCT.items);
+    expect(blocks.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null)).toBeDefined();
   });
 });

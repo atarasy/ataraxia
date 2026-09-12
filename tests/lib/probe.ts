@@ -89,6 +89,42 @@ export const DISCLOSURE: {
 })();
 
 /**
+ * §10a.5. A block the same merchant composed for one of `VALENCE_PRODUCTS`
+ * alone, carrying only the items that differ for that product. The probes
+ * check it travels with an offer holding that product, beside the standing
+ * text and never in its place, and not with one that does not. Question 35,
+ * taken 2026-09-12.
+ */
+export const DISCLOSURE_PRODUCT: {
+  merchant: string;
+  product: string;
+  version: string;
+  items: { label: string; value: string }[];
+  signature: string;
+} = (() => {
+  const raw = required("VALENCE_DISCLOSURE_PRODUCT");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("VALENCE_DISCLOSURE_PRODUCT is not valid JSON");
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("VALENCE_DISCLOSURE_PRODUCT must be a JSON object");
+  }
+  const d = parsed as Record<string, unknown>;
+  for (const key of ["merchant", "product", "version", "signature"]) {
+    if (typeof d[key] !== "string" || d[key] === "") {
+      throw new Error(`VALENCE_DISCLOSURE_PRODUCT is missing ${key}`);
+    }
+  }
+  if (!Array.isArray(d.items) || d.items.length === 0) {
+    throw new Error("VALENCE_DISCLOSURE_PRODUCT needs at least one item");
+  }
+  return d as never;
+})();
+
+/**
  * A household nobody has offered anything to. Since 2026-09-09 exploration
  * is what a household has never been offered by this presenter (clause 26,
  * §5.1), so an offer marking every product as exploration is conforming only
@@ -319,6 +355,76 @@ export function assertDecisions(
 
 export function coSignDecisions(offerId: string, decisions: DecisionSpec[]): string {
   return sign(null, canonicalDecisions(offerId, decisions), CO_SIGNER_KEY).toString("base64");
+}
+
+/**
+ * Specification §6.5. The settlement statement a household signs before a
+ * physical box with goods used is charged: the offer id, then one line per
+ * kept, defaulted or consumed candidate in ascending candidate id, each
+ * `candidate:valence:amount:disputed` with `disputed` for a consumed line
+ * the household does not confirm and empty otherwise. Question 36.
+ */
+export type StatementLineSpec = {
+  candidate: string;
+  valence: string;
+  amount: number;
+  disputed: boolean;
+};
+
+export function canonicalStatement(offerId: string, lines: StatementLineSpec[]): Buffer {
+  const body = [...lines]
+    .sort((a, b) => (a.candidate < b.candidate ? -1 : a.candidate > b.candidate ? 1 : 0))
+    .map((l) => `${l.candidate}:${l.valence}:${l.amount}:${l.disputed ? "disputed" : ""}`);
+  return Buffer.from([offerId, ...body].join("\n"), "utf8");
+}
+
+export function signStatement(offerId: string, lines: StatementLineSpec[], key: KeyObject = MANDATE_KEY): string {
+  return sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", canonicalStatement(offerId, lines), key).toString("base64");
+}
+
+/** §10.5's assertion shape over the same bytes, built as `assertDecisions` builds its own. */
+export function assertStatement(offerId: string, lines: StatementLineSpec[], options: { key?: KeyObject; relyingParty?: string } = {}) {
+  const { key = MANDATE_KEY, relyingParty = RP_ID } = options;
+  const challenge = createHash("sha256").update(canonicalStatement(offerId, lines)).digest("base64url");
+  const authenticatorData = Buffer.concat([
+    createHash("sha256").update(relyingParty).digest(),
+    Buffer.from([0x05]),
+    Buffer.from([0, 0, 0, 1]),
+  ]);
+  const clientDataJson = Buffer.from(
+    JSON.stringify({ type: "webauthn.get", challenge, origin: `https://${relyingParty}` }),
+    "utf8"
+  );
+  const signed = Buffer.concat([authenticatorData, createHash("sha256").update(clientDataJson).digest()]);
+  return {
+    authenticator_data: authenticatorData.toString("base64"),
+    client_data_json: clientDataJson.toString("base64"),
+    signature: sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", signed, key).toString("base64"),
+  };
+}
+
+/**
+ * Reads the statement the implementation proposes, marks `disputed`, signs
+ * it as the mandate and settles. What a member's hub does for a physical box
+ * the collection found goods used in; the probes that are not about the
+ * signature call this so that they settle the way a household does.
+ */
+export async function settleSigned(
+  offerId: string,
+  disputed: string[] = [],
+  headers: Record<string, string> = {}
+): Promise<Probe> {
+  const statement = await call("GET", `/offers/${offerId}/statement`);
+  if (statement.status !== 200) {
+    throw new Error(`setup failed: GET /offers/${offerId}/statement returned ${statement.status} ${statement.text}`);
+  }
+  const lines = ((statement.body as { lines: StatementLineSpec[] }).lines ?? []).map((l) => ({
+    candidate: l.candidate,
+    valence: l.valence,
+    amount: l.amount,
+    disputed: l.valence === "consumed" && disputed.includes(l.candidate),
+  }));
+  return call("POST", `/offers/${offerId}/settle`, { signature: signStatement(offerId, lines), disputed }, headers);
 }
 
 /**
