@@ -359,10 +359,19 @@ export function coSignDecisions(offerId: string, decisions: DecisionSpec[]): str
 
 /**
  * Specification §6.5. The settlement statement a household signs before a
- * physical box with goods used is charged: a domain tag, the offer id, then
- * one line per kept, defaulted or consumed candidate in ascending candidate
- * id, each `candidate:valence:amount:disputed` with `disputed` for a consumed
- * line the household does not confirm and empty otherwise. Question 36.
+ * physical box with goods used is charged: a domain tag, the offer id, **the
+ * carriage**, then one line per kept, defaulted or consumed candidate in
+ * ascending candidate id, each `candidate:valence:amount:disputed` with
+ * `disputed` for a consumed line the household does not confirm and empty
+ * otherwise. Question 36.
+ *
+ * **The carriage joined the bytes on 2026-09-13 and this comment did not**,
+ * which is the defect the form itself exists against: it is the one item
+ * 法11条1号 puts on this screen beside the price, and a household reading
+ * 「Carriage: ¥500」 and signing had no record anywhere that it had. Question 40.
+ * It is a whole number here and never null: §6.5 refuses to settle a statement
+ * with no delivery recorded, so by the time these bytes exist there is a
+ * figure, and a merchant whose price includes carriage signs `0` as `0`.
  *
  * **The tag is the first line and it is load-bearing.** A decided set is
  * signed as the offer id then `candidate:valence:kept_as:lineage`, the same
