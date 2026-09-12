@@ -482,10 +482,12 @@ describe("approval: a passkey confirms by challenge (§10.5)", () => {
 
 describe("approval: a refused set writes nothing (§10.5)", () => {
   test("a set with one bad line leaves every candidate as it was", async () => {
-    // NOTE (mutation check, 2026-09-09): decide_writes_on_refusal wrote each
-    // line as it was checked, so a set refused on its second line left its
-    // first line kept. This assertion failed: the offer read back with one
-    // candidate decided under a signature that covered a different set.
+    // NOTE (original 299 run reviewed 2026-09-13):
+    // decide_writes_as_it_validates leaves the first candidate kept when the
+    // second line is refused; the unchanged-valence assertion below fails.
+    // decide_writes_on_refusal writes before the already_decided guard and
+    // rejects the first line with 409. It fails the earlier refusal-status
+    // assertion, so that run does not prove this check of state after refusal.
     const offer = await createConformingOffer();
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, second, ...rest] = offer.candidates;

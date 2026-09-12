@@ -231,15 +231,12 @@ describe("roles: the registry belongs to neither (clause 1, §17)", () => {
 
 describe("roles: a key belongs to neither (clause 2, §13.2)", () => {
   test("both roles register one", async () => {
-    // NOTE (no measurable mutation, 2026-09-11): identities_need_both_roles
-    // gives the route to the engine, and it aborts rather than being caught.
-    // The reference's own seed reads the role table, so under the mutation it
-    // posts every key to the engine alone, and its first lineage edge to the
-    // hub is then refused as unattested before any probe runs. A hub that
-    // cannot hold a key cannot be seeded, so against this deployment the
-    // requirement is enforced by the fixture; the probe is here because
-    // another implementation's harness may seed differently. It is named
-    // among the unproven in MUTATIONS.md rather than counted.
+    // NOTE (history reviewed 2026-09-13): identities_need_both_roles gives
+    // the route to the engine. The original 2026-09-11 seed aborted before
+    // probes when the hub could not take keys. The role-split seed failure
+    // is now non-fatal. MUTATIONS.md records this probe as proven after that
+    // change, at valence 125b5bc and ataraxia a3952e3; its earlier unproven
+    // entry is historical. This note adds no new measurement.
     //
     // Both roles verify signatures, so both hold keys, and clause 2 puts the
     // root of identity outside either. A hub that could not take a key could

@@ -81,9 +81,11 @@ describe("permissions: asked at the moment of use (clause 37)", () => {
 
   test("a permission with no expiry cannot be expressed", async () => {
     // NOTE (mutation check, 2026-09-09): permission_never_expires accepted an
-    // expires_at in the past and treated it as unlimited. This assertion
-    // failed. Clause 37 requires time limits, and a null that means "never" is
-    // how they come back.
+    // expires_at in the past, failing the grant-refusal assertion. The old
+    // note also claimed unlimited use. A disposable engine reproduction
+    // against valence 22a6784 on 2026-09-13 retained expires_at 0 and returned
+    // false from allows(). This probe checks grant validation, not whether an
+    // expired permission can be used.
     const action = await liveAction();
     for (const expires of [0, Date.now() - 1000]) {
       const refused = await grant(HOUSEHOLD, {
@@ -722,8 +724,8 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
 
 
   test("a confirmation taken back cannot be sent again (§10.5)", async () => {
-    // NOTE (mutation check, 2026-09-11): confirmation_reusable stops recording
-    // what has confirmed this offer. This assertion failed with 200 and the
+    // NOTE (mutation check, 2026-09-11): confirmation_reusable disables the refusal
+    // of a confirmation already used for this offer. This assertion failed with 200 and the
     // offer read `decided` again, after the person had taken it back.
     //
     // The canonical form binds a decided set to an offer and to nothing else,

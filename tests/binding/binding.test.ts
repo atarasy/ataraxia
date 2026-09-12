@@ -1032,9 +1032,11 @@ describe.if(HAS_PHYSICAL)("binding: a ceremonial offer is digital (§12, §6.5)"
 
 describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there is one to carry (§6.5, 法11条1号)", () => {
   test("a box with goods used and no delivery recorded does not settle", async () => {
-    // NOTE (mutation check, 2026-09-12): settle_without_a_delivery drops the
-    // check. This assertion failed with 200, and the statement it settled on
-    // showed `carriage: null`.
+    // NOTE (mutation check, 2026-09-13): settle_without_a_delivery now
+    // fabricates a zero-carriage delivery when no record exists. This probe
+    // directly failed with expected 422, received 200 in the isolated run.
+    // The earlier guard-only target threw TypeError on missing carriage;
+    // that version did not demonstrate successful settlement without delivery.
     //
     // **`null` and `0` are different facts.** 法11条1号 asks for the carriage
     // beside the price 「販売価格に商品の送料が含まれない場合には」, so a

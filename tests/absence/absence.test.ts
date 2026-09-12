@@ -719,11 +719,12 @@ describe("presence: what must not be hidden (clause 12)", () => {
   });
 
   test("every candidate names who made it and who ships it", async () => {
-    // NOTE (mutation check, 2026-09-09): hide_merchant_on_candidate dropped
-    // `merchant` and `ships` from the candidate serialisation. This assertion
-    // failed. The probe above reads the presenter, which is the curator; the
-    // maker was invisible on every candidate until this probe asked, and in
-    // a gift flow the maker is the party clause 12 is about.
+    // NOTE (reviewed 2026-09-13): the 2026-09-09 mutation note described
+    // dropping merchant and ships. The current hide_merchant_on_candidate
+    // replacement removes merchant only and leaves maker and ships intact.
+    // A failure of the merchant assertion does not separately prove the
+    // later carrier assertion. The presenter above is the curator; this
+    // check names the merchant of record, which may differ from the maker.
     const offer = await createConformingOffer();
     const read = await call("GET", `/offers/${offer.id}`);
     const candidates = (read.body as { candidates: { merchant?: unknown; ships?: unknown }[] }).candidates;
