@@ -22,6 +22,7 @@ can repeat any row.
 | `route_discounts` | Registered `POST /discounts`, returning 201 | 1 |
 | `route_get_segments` | Registered `GET /segments`, returning 200 | 1 |
 | `strict_drops_unknown` | The body check discards unknown fields instead of refusing them | 6 |
+| `unknown_field_refusal_renamed` | Kept status 400 but renamed the section 3.3 error to unknown_field | 1; isolated HTTP-handler run on 2026-09-13, not a full sweep |
 | `accepts_unit_price` | `unit_price` accepted from the request and stored on the candidate | 1 |
 | `leak_field_offer_view` | Added `rating: 4` to the candidate serialisation | 2 |
 | `leak_field_settlement` | Added `tracking_id` to the settlement record | 1 |
