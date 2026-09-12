@@ -274,6 +274,10 @@ describe("approval: a confirmation is the person's signature (clause 35)", () =>
     }));
     const unsigned = await call("POST", `/offers/${offer.id}/decisions`, { decisions: set, signature: "" });
     expect([400, 422]).toContain(unsigned.status);
+    // §16.6, extended 2026-09-13 to every refusal the specification names:
+    // a probe that checks only the status certifies that something was
+    // refused and not that the person can tell which rule refused it.
+    expect(["unsigned", "malformed"]).toContain((unsigned.body as { error: string }).error);
 
     const other = set.map((d) => ({ ...d, valence: "returned" as const, kept_as: undefined }));
     const wrongSet = await call("POST", `/offers/${offer.id}/decisions`, {
@@ -592,6 +596,25 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     for (const c of rest) {
       expect(screen.find((s) => s.id === c.id)!.valence).toBe("offered");
     }
+  });
+
+  test("a line already decided is refused, by name (§16.6)", async () => {
+    // **`already_decided` was named in the specification and asserted by
+    // nothing** until §16.6's discipline was extended on 2026-09-13 to every
+    // refusal the specification names. It is the refusal a hub meets when it
+    // asks about a line a collection has already resolved, and §10 step 3c
+    // exists so that it never has to.
+    const { offer } = await deliberated();
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const first = offer.candidates[0]!;
+    expect((await decide(offer.id, { decisions: [{ candidate: first.id, valence: "kept", kept_as: "self" }] })).status).toBe(200);
+    // **A second set naming the same line, signed afresh.** Re-sending the
+    // identical set is refused earlier and for another reason entirely,
+    // `confirmation_reused`, so a probe written that way never reaches this
+    // refusal at all: the valence has to differ so the bytes differ.
+    const again = await decide(offer.id, { decisions: [{ candidate: first.id, valence: "returned" }] });
+    expect(again.status).toBe(409);
+    expect((again.body as { error: string }).error).toBe("already_decided");
   });
 
   test("a ceremonial screen carries the band the giver chose", async () => {

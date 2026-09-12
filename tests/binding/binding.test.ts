@@ -881,6 +881,10 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
       consumed: ["not-a-candidate-of-this-offer"],
     });
     expect([400, 422]).toContain(refused.status);
+    // §16.6, extended 2026-09-13 to every refusal the specification names:
+    // a probe that checks only the status certifies that something was
+    // refused and not that the person can tell which rule refused it.
+    expect((refused.body as { error: string }).error).toBe("unknown_candidate");
   });
 
   test("the block is this presenter's, and another presenter's box is not stopped (clause 8)", async () => {
@@ -1109,6 +1113,10 @@ describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there
     expect(moved.status).toBe(201);
     const changed = await call("POST", `/offers/${offer.id}/delivery`, { carriage: 800, code, status: "delivered" });
     expect(changed.status).toBe(422);
+    // §16.6, extended 2026-09-13 to every refusal the specification names:
+    // a probe that checks only the status certifies that something was
+    // refused and not that the person can tell which rule refused it.
+    expect((changed.body as { error: string }).error).toBe("carriage_fixed");
     const read = await call("GET", `/offers/${offer.id}/delivery`);
     expect((read.body as { carriage: number }).carriage).toBe(500);
   });

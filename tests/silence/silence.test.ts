@@ -187,6 +187,10 @@ describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
     const tooNarrow = { min: band.min, max: band.min };
     const created = await call("POST", "/offers", conformingOffer({ purpose: "ceremonial", price_band: tooNarrow }));
     expect(created.status).toBe(422);
+    // §16.6, extended 2026-09-13 to every refusal the specification names:
+    // a probe that checks only the status certifies that something was
+    // refused and not that the person can tell which rule refused it.
+    expect((created.body as { error: string }).error).toBe("outside_band");
   });
 
   test("the giver pays a ceremonial offer, never the recipient (clause 25)", async () => {
