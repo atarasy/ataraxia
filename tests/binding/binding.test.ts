@@ -597,7 +597,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
    * application. The household confirms the statement or disputes consumed
    * lines of it; it still cannot choose the verdict.
    */
-  async function collected() {
+  async function collected(carriage = 550) {
     const created = await call("POST", "/offers", physicalOffer());
     expect(created.status).toBe(201);
     const offer = created.body as {
@@ -607,7 +607,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, second, ...rest] = offer.candidates;
-    await delivered(offer.id);
+    await delivered(offer.id, carriage);
     const collectedBy = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [first!.id, second!.id],
@@ -620,8 +620,12 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     // What the household signs is a sale and not a total: every line it will
     // be charged for, at the price the offer froze, with the merchant's own
     // block beside it and the carriage from the delivery record.
-    const { offer, used } = await collected();
-    await call("POST", `/offers/${offer.id}/delivery`, { carriage: 320, code: "dc-probe-65", status: "placed" });
+    // The carriage is recorded once, with the delivery, and is the figure the
+    // statement renders. It used to be re-recorded here at a different amount
+    // to prove the statement read the register rather than a constant; the
+    // register refuses that since 2026-09-12, because a figure a household
+    // signed under must not move afterwards (§7.5b).
+    const { offer, used } = await collected(320);
     const statement = await call("GET", `/offers/${offer.id}/statement`);
     expect(statement.status).toBe(200);
     const shown = statement.body as {
@@ -1042,5 +1046,67 @@ describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there
       consumed: [],
     });
     expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
+  });
+
+  test("a delivery update moves the status and may not move the carriage", async () => {
+    // NOTE (mutation check, 2026-09-12): delivery_carriage_overwritten drops
+    // the check. The last assertion failed, reading 800.
+    //
+    // The carriage is a figure the approval and the statement put in front of
+    // the household before it signed. A despatch update carrying a different
+    // one rewrites what a person read after they read it, and the register
+    // took a plain overwrite until a refutation pass over the reference hub
+    // asked what a household that signed under a carriage has as a record.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string };
+    const code = `dc-fix-${offer.id.slice(0, 8)}`;
+    expect((await call("POST", `/offers/${offer.id}/delivery`, { carriage: 500, code, status: "placed" })).status).toBe(201);
+    const moved = await call("POST", `/offers/${offer.id}/delivery`, { carriage: 500, code, status: "delivered" });
+    expect(moved.status).toBe(201);
+    const changed = await call("POST", `/offers/${offer.id}/delivery`, { carriage: 800, code, status: "delivered" });
+    expect(changed.status).toBe(422);
+    const read = await call("GET", `/offers/${offer.id}/delivery`);
+    expect((read.body as { carriage: number }).carriage).toBe(500);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: a signature is an application, and applying twice is not asking twice (§6.5)", () => {
+  test("a signature over a box that already settled is refused, not answered with the first settlement", async () => {
+    // NOTE (mutation check, 2026-09-12): settle_answers_a_second_signature
+    // returns the recorded settlement to a signed second attempt. The status
+    // assertion failed with 200, and the settlement that came back carried
+    // `disputed_amount: 0` while the household had just disputed a line.
+    //
+    // Two tabs of one statement. The first confirms everything and settles.
+    // The second disputes a line and signs after it, and was handed the first
+    // settlement with a 200: the screen read as signed, named a charge that
+    // included the disputed line, and the dispute was recorded nowhere.
+    // **Settling is idempotent for a caller that only asks for it**, which a
+    // presenter retrying after a timeout is, and a household sending a
+    // signature is not asking but applying. Found by a refutation pass over
+    // the reference hub.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [used, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [used!.id],
+    });
+    const first = await settleSigned(offer.id);
+    expect(first.status).toBe(200);
+    expect((first.body as { disputed_amount: number }).disputed_amount).toBe(0);
+
+    const second = await settleSigned(offer.id, [used!.id]);
+    expect(second.status).toBe(409);
+    expect((second.body as { error: string }).error).toBe("already_settled");
+    // And the settlement that stands is the first one, untouched.
+    const read = await call("GET", `/offers/${offer.id}/settlement`);
+    expect((read.body as { disputed_amount: number }).disputed_amount).toBe(0);
+    // A caller that only asks still gets what stands.
+    const asked = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(asked.status).toBe(200);
+    expect((asked.body as { receipt: string }).receipt).toBe((first.body as { receipt: string }).receipt);
   });
 });

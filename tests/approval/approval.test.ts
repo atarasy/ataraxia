@@ -560,6 +560,40 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     }
   });
 
+  test("the screen says which lines are still the household's to decide (§10 step 3c)", async () => {
+    // NOTE (mutation check, 2026-09-12): approval_hides_the_valence drops the
+    // field. The first assertion failed, reading undefined.
+    //
+    // A physical box is collected line by line and the offer stays
+    // `presented`, so an approval routinely carries a line the collection
+    // already resolved beside one still waiting on the household. With
+    // nothing to tell them apart, a hub that asks for a choice on each can
+    // never confirm the lines that are still the person's: the engine
+    // refuses the set with `already_decided` naming a candidate id, and that
+    // screen has no way forward. Found by a refutation pass over the
+    // reference hub. The same shape reaches every binding, because a decided
+    // set may be partial.
+    const { offer } = await deliberated();
+    const before = await call("GET", `/offers/${offer.id}/approval`);
+    expect(before.status).toBe(200);
+    for (const c of (before.body as { candidates: { valence?: unknown }[] }).candidates) {
+      expect(c.valence).toBe("offered");
+    }
+    const [first, ...rest] = offer.candidates;
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const decided = await decide(offer.id, {
+      decisions: [{ candidate: first!.id, valence: "kept", kept_as: "self" }],
+    });
+    expect(decided.status).toBe(200);
+    const after = await call("GET", `/offers/${offer.id}/approval`);
+    expect(after.status).toBe(200);
+    const screen = (after.body as { candidates: { id: string; valence: string }[] }).candidates;
+    expect(screen.find((c) => c.id === first!.id)!.valence).toBe("kept");
+    for (const c of rest) {
+      expect(screen.find((s) => s.id === c.id)!.valence).toBe("offered");
+    }
+  });
+
   test("a ceremonial screen carries the band the giver chose", async () => {
     const prices = Object.values(PRICES);
     const band = { min: Math.min(...prices), max: Math.max(...prices) };
