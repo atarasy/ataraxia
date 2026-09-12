@@ -470,7 +470,10 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect(created.status).toBe(201);
     const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
     expect(presented.status).toBe(422);
-    expect(presented.text).toContain("over_ceiling");
+    // §16.6 names this refusal, and the engine answered to `over_ceiling` until
+    // 2026-09-13 while this probe asserted that name: the suite was certifying
+    // a word the specification never chose.
+    expect(presented.text).toContain("mandate_ceiling_out_of_network");
   });
 
   test("a lapsed mandate carries no offer", async () => {
@@ -497,7 +500,13 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     await sleep(2500);
     const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
     expect(presented.status).toBe(422);
-    expect(presented.text).toContain("lapsed");
+    // §16.6. **The refusal names itself**, and this asserted the substring
+    // "lapsed", which an implementation answering `expired_mandate` or
+    // `has_lapsed` passes. The section's whole subject is that a person can
+    // tell one `422` from another, so the name is the thing to check.
+    // Measured 2026-09-13 by `scripts/refusals.py`, which reported this one of
+    // §16.6's four names as asserted by nothing.
+    expect((presented.body as { error: string }).error).toBe("mandate_lapsed");
   });
 
   test("a version that is not the next one is refused", async () => {
@@ -613,6 +622,37 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect((settled.body as { charged: number }).charged).toBeGreaterThan(0);
   });
 
+  test("the refusals of §16.5 name themselves (§16.6)", async () => {
+    // **`cooling_over` and `no_cooling` were asserted by nothing.** The first
+    // lost its only assertion on 2026-09-13, when the probe carrying it was
+    // rewritten for question 43, and the second never had one. Neither was
+    // named in the specification either, so no check could ask for them;
+    // §16.5 names all three since the same day. A refusal a person cannot
+    // tell from another is what §16.6 exists against, and `scripts/refusals.py`
+    // in the reference's repository is what found these two.
+    //
+    // With no window, taking a decided set back is refused for that reason.
+    const offer = await presented();
+    expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+    const none = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+    expect(none.status).toBe(422);
+    expect((none.body as { error: string }).error).toBe("no_cooling");
+
+    // With one, it is refused once the window has closed.
+    const set = await put({ cooling_seconds: 1 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const second = await presented();
+      expect((await decide(second.id, { decisions: keepEverything(second) })).status).toBe(200);
+      await sleep(1_500);
+      const late = await call("DELETE", `/offers/${second.id}/decisions`, undefined);
+      expect(late.status).toBe(422);
+      expect((late.body as { error: string }).error).toBe("cooling_over");
+    } finally {
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
   test.if(HAS_PHYSICAL)("a cooling window does not bar a statement the household signs", async () => {
     // NOTE (mutation check, 2026-09-13): cooling_bars_a_statement restores the
     // window over a statement settlement. The settle assertion failed with
@@ -668,6 +708,9 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
       // §16.5. Taking it back is the person's alone and needs no co-signer.
       const withdrawn = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
       expect(withdrawn.status).toBe(200);
+      // A second take-back has nothing to take: the offer is `presented`.
+      const again = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+      expect((again.body as { error: string }).error).toBe("bad_state");
       expect((withdrawn.body as { state: string }).state).toBe("presented");
       const back = (withdrawn.body as { candidates: { valence: string }[] }).candidates;
       expect(back.every((c) => c.valence === "offered")).toBe(true);
