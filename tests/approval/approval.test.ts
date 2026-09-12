@@ -6,6 +6,7 @@ import {
   createConformingOffer,
   decide,
   findKey,
+  MAKERS,
   meansAnyOf,
   PRICES,
   signDecisions,
@@ -505,13 +506,24 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     // merchant and ships from the rendered candidate and blanked the band.
     // This assertion failed. The refutation pass found clause 12 probed on
     // the offer view while the screen a person signs from named neither.
+    //
+    // **This probe's title said maker for three days while its assertions
+    // read `merchant`**, written when the two were one party. Question 32
+    // put a `maker` on the candidate, the receipt line and the lineage edge
+    // on 2026-09-12 and not on this screen, and the probe went on passing a
+    // surface that named no maker at all. Clause 12 says "on the screen a
+    // person signs from as much as in the record", so the screen is compared
+    // against what the deployment declared, the way the offer view is.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
     expect(approval.status).toBe(200);
-    const body = approval.body as { candidates: { merchant?: unknown; ships?: unknown }[] };
+    const body = approval.body as {
+      candidates: { product: string; merchant?: unknown; maker?: unknown; ships?: unknown }[];
+    };
     for (const c of body.candidates) {
       expect(typeof c.merchant).toBe("string");
       expect(c.merchant).not.toBe("");
+      expect(c.maker).toBe(MAKERS[c.product]);
       expect(typeof c.ships).toBe("string");
       expect(c.ships).not.toBe("");
     }
