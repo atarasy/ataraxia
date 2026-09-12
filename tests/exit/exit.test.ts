@@ -5,7 +5,10 @@ import {
   createConformingOffer,
   decide,
   freshHousehold,
+  HAS_PHYSICAL,
   LINEAGE_EDGE,
+  PRODUCTS,
+  conformingOffer,
   presenter,
   signDecisions,
 } from "../lib/probe.js";
@@ -491,5 +494,59 @@ describe("exit: recovery is not reading (clause 53)", () => {
     );
     const node = exported.body as { recoveries: unknown[] };
     expect(node.recoveries.length).toBeGreaterThan(0);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (§6.5, §14.2)", () => {
+  test("the export carries the collection, and the second host holds the block", async () => {
+    // NOTE (mutation check, 2026-09-12): export_drops_collections leaves the
+    // rows out. The first assertion failed, and the last one failed too: the
+    // receiving host presented the next box freely.
+    //
+    // **The export carried clause 53's account-recovery log and not this.**
+    // A refutation pass asked what a move does to §6.5's block and the answer
+    // was that it lifted: the offers arrived with their `consumed` valences
+    // and no record that any collection had happened, so the new host
+    // delivered again while the old one held a block over a household that
+    // had left. The merchant's export carried the rows all along, so the shop
+    // kept what the person lost.
+    const house = encodeURIComponent(household());
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const created = await call("POST", "/offers", conformingOffer({
+      binding: "physical",
+      household: household(),
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [used, ...others] = offer.candidates;
+    expect((await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: others.map((c) => c.id),
+      consumed: [used!.id],
+    })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const node = exported.body as { collections?: { offer: string; consumed: string[] }[] };
+    const row = (node.collections ?? []).find((c) => c.offer === offer.id);
+    expect(row).toBeDefined();
+    expect(row!.consumed).toContain(used!.id);
+
+    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
+
+    // The receiving host now knows a statement is waiting, so this
+    // presenter's next box is refused there as it is here.
+    const next = await callSecond("POST", "/offers", conformingOffer({
+      binding: "physical",
+      household: household(),
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    expect(next.status).toBe(201);
+    const second = next.body as { id: string };
+    const refused = await callSecond("POST", `/offers/${second.id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
   });
 });
