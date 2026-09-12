@@ -170,10 +170,10 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
   });
 
   test("a decision naming a merchant with no disclosure is refused", async () => {
-    // NOTE (mutation check, 2026-09-12): decide_without_disclosure drops the
-    // check. This assertion failed with 200. The refusal names itself, the way
-    // §16.6's do, because a `422` with no name is one no person and no probe
-    // can tell from another.
+    // This probe reaches the state refusal before disclosure validation.
+    // The old decide_without_disclosure mutation changed presentation instead
+    // of decision. Re-targeted on 2026-09-13, it survives conformance; the
+    // imported presented-offer path is checked in engine/test/imported-disclosure.test.ts.
     const body = conformingOffer() as Record<string, unknown>;
     body.config_version = CONFIG_VERSION_UNDISCLOSED;
     body.presenter = undefined;
