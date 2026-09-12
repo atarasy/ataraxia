@@ -6,6 +6,7 @@ import {
   createConformingOffer,
   decide,
   findKey,
+  MAKERS,
   meansAnyOf,
   PRICES,
   signDecisions,
@@ -505,15 +506,57 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     // merchant and ships from the rendered candidate and blanked the band.
     // This assertion failed. The refutation pass found clause 12 probed on
     // the offer view while the screen a person signs from named neither.
+    //
+    // **This probe's title said maker for three days while its assertions
+    // read `merchant`**, written when the two were one party. Question 32
+    // put a `maker` on the candidate, the receipt line and the lineage edge
+    // on 2026-09-12 and not on this screen, and the probe went on passing a
+    // surface that named no maker at all. Clause 12 says "on the screen a
+    // person signs from as much as in the record", so the screen is compared
+    // against what the deployment declared, the way the offer view is.
     const { offer } = await deliberated();
     const approval = await call("GET", `/offers/${offer.id}/approval`);
     expect(approval.status).toBe(200);
-    const body = approval.body as { candidates: { merchant?: unknown; ships?: unknown }[] };
+    const body = approval.body as {
+      candidates: { product: string; merchant?: unknown; maker?: unknown; ships?: unknown }[];
+    };
     for (const c of body.candidates) {
       expect(typeof c.merchant).toBe("string");
       expect(c.merchant).not.toBe("");
+      expect(c.maker).toBe(MAKERS[c.product]);
       expect(typeof c.ships).toBe("string");
       expect(c.ships).not.toBe("");
+    }
+  });
+
+  test("the screen says which lines are gifts, by naming the giver (clause 10)", async () => {
+    // A gift arrives at its price and is never billed (§6.2), so a screen
+    // that shows a unit price beside every line and no giver asks a person to
+    // sign without telling them which lines cost money. The offer view named
+    // the giver and the settlement billed the gift at zero while the screen a
+    // person signs from carried nothing, until a refutation pass on
+    // 2026-09-12 read the renderer's type against clause 10.
+    const body = conformingOffer() as Record<string, unknown>;
+    (body.candidates as { given_by?: string }[])[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["a smaller tin"], argument_against: "you have two already" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const screen = approval.body as { candidates: { id: string; given_by: string | null }[] };
+    const [gift, ...rest] = offer.candidates;
+    expect(screen.candidates.find((c) => c.id === gift!.id)!.given_by).toBe("maker-a");
+    for (const c of rest) {
+      expect(screen.candidates.find((s) => s.id === c.id)!.given_by).toBeNull();
     }
   });
 

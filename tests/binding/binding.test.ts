@@ -7,7 +7,11 @@ import {
   HAS_PHYSICAL,
   PRICES,
   PRODUCTS,
+  DISCLOSURE,
   RECOVERY_GRACE_DAYS,
+  settleSigned,
+  signStatement,
+  assertStatement,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -140,7 +144,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     });
     expect(collected.status).toBe(200);
 
-    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    const settled = await settleSigned(offer.id);
     const settlement = settled.body as {
       kept_amount: number;
       consumed_amount: number;
@@ -172,7 +176,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
       returned: rest.map((c) => c.id),
       consumed: [gift!.id],
     });
-    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    const settled = await settleSigned(offer.id);
     const settlement = settled.body as { consumed_amount: number; charged: number };
     expect(settlement.consumed_amount).toBe(0);
     expect(settlement.charged).toBe(0);
@@ -191,7 +195,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
       returned: rest.map((c) => c.id),
       consumed: [first!.id],
     });
-    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    const settled = await settleSigned(offer.id);
     for (const read of [await call("GET", `/offers/${offer.id}`), settled]) {
       const text = read.text.toLowerCase();
       for (const word of ['"cost"', '"unit_cost"', '"margin"', '"cost_basis"', '"wholesale"']) {
@@ -296,7 +300,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
       returned: others.map((c) => c.id),
       consumed: [tried!.id],
     });
-    const trial = await call("POST", `/offers/${one.id}/settle`, {});
+    const trial = await settleSigned(one.id);
     const trialCharge = (trial.body as { charged: number }).charged;
     expect(trialCharge).toBeGreaterThan(0);
 
@@ -368,7 +372,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
       returned: others.map((c) => c.id),
       consumed: [tried!.id],
     });
-    await call("POST", `/offers/${one.id}/settle`, {});
+    await settleSigned(one.id);
 
     const created = await call("POST", "/offers", physicalOffer({
       household,
@@ -519,5 +523,338 @@ describe.if(HAS_PHYSICAL)("binding: eligibility for placement (§11.1)", () => {
     (body.candidates as Record<string, unknown>[])[0]!.product = "not-in-the-catalogue";
     const created = await call("POST", "/offers", body);
     expect([404, 422]).toContain(created.status);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's signature (§6.5, question 36)", () => {
+  /**
+   * The collection records what was used, and the household may not name
+   * that verdict itself (§11.2). Until 2026-09-12 the reference then charged
+   * those lines on the collection's record alone, with no act of the
+   * household on any device: a debt made by a third party's record, which
+   * clause 35 forbids and which the concept's legal reading says loses the
+   * case for distance selling. So the collection's record is a proposal, and
+   * the household's signature over the settlement statement is the
+   * application. The household confirms the statement or disputes consumed
+   * lines of it; it still cannot choose the verdict.
+   */
+  async function collected() {
+    const created = await call("POST", "/offers", physicalOffer());
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      household: string;
+      candidates: { id: string; product: string; unit_price: number }[];
+    };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, second, ...rest] = offer.candidates;
+    const collectedBy = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [first!.id, second!.id],
+    });
+    expect(collectedBy.status).toBe(200);
+    return { offer, used: [first!, second!] };
+  }
+
+  test("the statement shows each used line at its price, with the blocks beside it", async () => {
+    // What the household signs is a sale and not a total: every line it will
+    // be charged for, at the price the offer froze, with the merchant's own
+    // block beside it and the carriage from the delivery record.
+    const { offer, used } = await collected();
+    await call("POST", `/offers/${offer.id}/delivery`, { carriage: 320, code: "dc-probe-65", status: "placed" });
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    expect(statement.status).toBe(200);
+    const shown = statement.body as {
+      lines: { candidate: string; valence: string; amount: number; unit_price: number; product: string }[];
+      disclosures: { merchant: string }[];
+      carriage: number | null;
+    };
+    expect(shown.lines.map((l) => l.candidate).sort()).toEqual(used.map((c) => c.id).sort());
+    for (const line of shown.lines) {
+      expect(line.valence).toBe("consumed");
+      expect(line.unit_price).toBe(PRICES[line.product]);
+      expect(line.amount).toBe(PRICES[line.product]);
+    }
+    expect(shown.disclosures.length).toBeGreaterThan(0);
+    expect(shown.carriage).toBe(320);
+  });
+
+  test("an empty settle is refused and names itself; nothing is charged", async () => {
+    // NOTE (mutation check, 2026-09-12): settle_without_statement charges on
+    // the collection's record when no signature arrives. This assertion
+    // failed with 200.
+    const { offer } = await collected();
+    const refused = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
+    const read = await call("GET", `/offers/${offer.id}/settlement`);
+    expect(read.status).toBe(404);
+  });
+
+  test("a signature over other lines, or by another key, is refused", async () => {
+    const { offer, used } = await collected();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const lines = (statement.body as { lines: { candidate: string; valence: string; amount: number }[] }).lines
+      .map((l) => ({ ...l, disputed: false }));
+    // The statement with a line quietly removed, signed by the right key.
+    const fewer = lines.filter((l) => l.candidate !== used[0]!.id);
+    const short = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, fewer) });
+    expect(short.status).toBe(422);
+    expect((short.body as { error: string }).error).toBe("bad_signature");
+    // A stranger's key over the right lines.
+    const { generateKeyPairSync } = await import("node:crypto");
+    const stranger = generateKeyPairSync("ed25519").privateKey;
+    const forged = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, lines, stranger) });
+    expect(forged.status).toBe(422);
+  });
+
+  test("the signed statement settles, and the settlement records the confirmation", async () => {
+    const { offer, used } = await collected();
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as { consumed_amount: number; charged: number; disputed_amount: number; confirmation: string | null };
+    const total = used.reduce((sum, c) => sum + c.unit_price, 0);
+    expect(settlement.consumed_amount).toBe(total);
+    expect(settlement.charged).toBe(total);
+    expect(settlement.disputed_amount).toBe(0);
+    expect(typeof settlement.confirmation).toBe("string");
+  });
+
+  test("a passkey's assertion over the statement is accepted too (§10.5)", async () => {
+    const { offer } = await collected();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const lines = (statement.body as { lines: { candidate: string; valence: string; amount: number }[] }).lines
+      .map((l) => ({ ...l, disputed: false }));
+    const settled = await call("POST", `/offers/${offer.id}/settle`, { assertion: assertStatement(offer.id, lines) });
+    expect(settled.status).toBe(200);
+  });
+
+  test("a disputed line leaves the rail: not charged, shown as disputed", async () => {
+    // NOTE (mutation check, 2026-09-12): settle_ignores_dispute verified the
+    // signature over a statement marking the line disputed and charged it
+    // anyway. This assertion failed on `charged`.
+    const { offer, used } = await collected();
+    const [disputedOne, confirmedOne] = used;
+    const settled = await settleSigned(offer.id, [disputedOne!.id]);
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as {
+      consumed_amount: number;
+      charged: number;
+      disputed_amount: number;
+      lines: { candidate: string; amount: number; disputed: boolean }[];
+    };
+    expect(settlement.charged).toBe(confirmedOne!.unit_price);
+    expect(settlement.consumed_amount).toBe(confirmedOne!.unit_price);
+    expect(settlement.disputed_amount).toBe(disputedOne!.unit_price);
+    const line = settlement.lines.find((l) => l.candidate === disputedOne!.id)!;
+    expect(line.disputed).toBe(true);
+    expect(settlement.lines.find((l) => l.candidate === confirmedOne!.id)!.disputed).toBe(false);
+  });
+
+  test("only a consumed line can be disputed", async () => {
+    // A kept line is one the household signed itself at the decision, and a
+    // returned line charges nothing. The dispute is of the collection's
+    // verdict and of nothing else.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, second, ...rest] = offer.candidates;
+    await decide(offer.id, {
+      decisions: [
+        { candidate: first!.id, valence: "kept", kept_as: "self" },
+        ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
+      ],
+    });
+    await call("POST", `/offers/${offer.id}/recovery`, { returned: [], consumed: [second!.id] });
+    const refused = await settleSigned(offer.id, [first!.id]);
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("not_disputable");
+  });
+
+  test("the next box does not come while a statement stands unsigned", async () => {
+    // NOTE (mutation check, 2026-09-12): present_despite_unsigned_statement
+    // presents the second box regardless. This assertion failed with 200.
+    // The weekly swap is the only pressure this specification puts on a
+    // household to sign; nothing accrues on the rail, and what is owed is
+    // the merchant's to pursue.
+    const household = freshHousehold();
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    expect(first.status).toBe(201);
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [used, ...others] = one.candidates;
+    await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
+
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    expect(second.status).toBe(201);
+    const two = second.body as { id: string };
+    const refused = await call("POST", `/offers/${two.id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
+
+    expect((await settleSigned(one.id)).status).toBe(200);
+    const presented = await call("POST", `/offers/${two.id}/present`, {});
+    expect(presented.status).toBe(200);
+  });
+
+  test("a box that came back with nothing used needs no statement", async () => {
+    // The kept lines were signed at the decision and the returned ones
+    // charge nothing, so there is nothing in the statement the household has
+    // not already signed for.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/recovery`, { returned: offer.candidates.map((c) => c.id), consumed: [] });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect((settled.body as { confirmation: string | null }).confirmation).toBeNull();
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a)", () => {
+  async function collectedBox() {
+    const created = await call("POST", "/offers", physicalOffer());
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      expires_at: number;
+      candidates: { id: string; product: string; unit_price: number }[];
+    };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [first!.id],
+    });
+    return offer;
+  }
+
+  test("it carries the offer's expiry, as the approval does", async () => {
+    // NOTE (mutation check, 2026-09-12): statement_without_expiry drops the
+    // field. This assertion failed. §10a.5 lists the expiry among the facts of
+    // the sale, and a merchant's stated application period is measured against
+    // it. It was missing until a refutation pass asked.
+    const offer = await collectedBox();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    expect(statement.status).toBe(200);
+    expect((statement.body as { expires_at: number }).expires_at).toBe(offer.expires_at);
+  });
+
+  test("it carries the merchant's block as composed, not merely a block", async () => {
+    // NOTE (mutation check, 2026-09-12): disclosure_items_reordered sorts the
+    // items by label. This assertion failed.
+    // **The first version of this suite asserted only that the array was not
+    // empty**, which is the same defect §10a.2 exists against: an
+    // implementation that reordered, summarised or translated the seller's
+    // statements passed. Found by a refutation pass the same night.
+    const offer = await collectedBox();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const blocks = (statement.body as { disclosures: { merchant: string; product: string | null; items: { label: string; value: string }[]; version: string; signature: string }[] }).disclosures;
+    const mine = blocks.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null);
+    expect(mine).toBeDefined();
+    expect(mine!.items).toEqual(DISCLOSURE.items);
+    expect(mine!.version).toBe(DISCLOSURE.version);
+    expect(mine!.signature).toBe(DISCLOSURE.signature);
+  });
+
+  test("a collection cannot name a candidate that is not the offer's", async () => {
+    // NOTE (mutation check, 2026-09-12): collect_accepts_strangers drops the
+    // check. This assertion failed with 200. An id belonging to no candidate
+    // resolves nothing and still makes the offer read as collected with goods
+    // used, so §6.5's block holds over that household with nothing to sign.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [],
+      consumed: ["not-a-candidate-of-this-offer"],
+    });
+    expect([400, 422]).toContain(refused.status);
+  });
+
+  test("the refusal names no other offer (clause 8)", async () => {
+    // NOTE (mutation check, 2026-09-12): refusal_names_the_offer puts the
+    // waiting offer's id back in the message. This assertion failed.
+    // The caller is a presenter and the waiting box is another presenter's.
+    // Naming it told one merchant another's offer id, which `GET /offers/{id}`
+    // then served to anyone: products, prices, and which lines were used.
+    const household = freshHousehold();
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [used, ...others] = one.candidates;
+    await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const two = second.body as { id: string };
+    const refused = await call("POST", `/offers/${two.id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect(refused.text).not.toContain(one.id);
+    expect((await settleSigned(one.id)).status).toBe(200);
+  });
+
+  test("a box nobody can settle does not block the next one", async () => {
+    // NOTE (mutation check, 2026-09-12): block_counts_unsettleable drops the
+    // state check. This assertion failed with 422. A presenter that collects
+    // part of a box and withdraws it leaves an offer that can never settle;
+    // counting it made that household unofferable by anyone, for good, with
+    // no act available to it that would lift the block.
+    const household = freshHousehold();
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    // A partial collection: one used, the rest unnamed, so the offer stays
+    // presented and cannot be settled.
+    await call("POST", `/offers/${one.id}/recovery`, { returned: [], consumed: [one.candidates[0]!.id] });
+    expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(200);
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const two = second.body as { id: string };
+    expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
+  });
+
+  test("a gift is proposed at nothing on the statement, as it settles", async () => {
+    // NOTE (mutation check, 2026-09-12): statement_bills_a_gift proposes the
+    // gift at its catalogue price. This assertion failed. Clause 10: a gift
+    // arrives at its price and is never billed, and a statement that asked a
+    // household to sign for one would be signed against a receipt that
+    // charges nothing for it.
+    const body = physicalOffer();
+    (body.candidates as Record<string, unknown>[])[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    const offer = created.body as { id: string; candidates: { id: string; given_by: string | null }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [gift, second, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [gift!.id, second!.id],
+    });
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const line = (statement.body as { lines: { candidate: string; amount: number; given_by: string | null }[] })
+      .lines.find((l) => l.candidate === gift!.id)!;
+    expect(line.given_by).toBe("maker-a");
+    expect(line.amount).toBe(0);
   });
 });

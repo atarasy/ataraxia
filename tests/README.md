@@ -51,7 +51,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twenty-three environment variables:
+as twenty-four environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -67,6 +67,7 @@ as twenty-three environment variables:
 | `VALENCE_UNATTESTED_EDGE` | a well-formed, signed edge whose giver's key no identity root endorsed (§7.1) |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
 | `VALENCE_DISCLOSURE` | the block that merchant composed, as JSON, exactly as it was registered. The probes compare what an offer carries against this, because the requirement is that it comes back **as composed**: a probe that checked only for the field's presence would pass an implementation that reordered, summarised or translated the items |
+| `VALENCE_DISCLOSURE_PRODUCT` | a block the same merchant composed for one of `VALENCE_PRODUCTS` alone, as JSON, carrying `product` and only the items that differ for it (§10a.5). The probes check it travels with an offer holding that product, beside the standing text and never in its place, and not with one that does not |
 | `VALENCE_CONFIG_VERSION_UNDISCLOSED` and `VALENCE_PRODUCT_UNDISCLOSED` | a catalogue with one product whose merchant registered no disclosure, so the refusal can be reached. **It is its own catalogue under another presenter**, because a product nobody has been offered is one the exploration floor counts across every catalogue its presenter registered, and putting it anywhere else took a floor probe red |
 | `VALENCE_MAKERS` | who made each of those products, as JSON. Clause 12 asks a candidate to name who made it, and a probe that checks only for a non-empty string passes an implementation that fills the field with the merchant's own name. Where a merchant makes what it sells, the two are the same name and this says so |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
