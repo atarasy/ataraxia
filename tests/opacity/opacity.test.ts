@@ -3,9 +3,11 @@ import {
   call,
   createConformingOffer,
   findKey,
+  HOUSEHOLD,
   LINEAGE_EDGE,
   LINEAGE_RECIPIENT,
   meansAnyOf,
+  PRODUCTS,
   sleep,
 } from "../lib/probe.js";
 
@@ -374,4 +376,69 @@ describe("opacity: timing", () => {
     const ratio = Math.max(withActs, without) / Math.max(1, Math.min(withActs, without));
     expect(ratio).toBeLessThan(20);
   }, 30_000);
+});
+
+describe("opacity: a note is the writer's, and nothing here helps buy one (§7.6b)", () => {
+  /**
+   * 令和5年内閣府告示第19号 makes a seller's own display that a consumer cannot
+   * tell is the seller's an unfair display, and its 運用基準 asks whether the
+   * content was 「第三者の自主的な意思による」. A seller that gives goods in
+   * order to be written about, or that lets a household infer that writing
+   * brings 「経済上の利益」, has made the writing its own; the guideline's own
+   * note says such consideration is not only money but 「対価性を有する一切の
+   * もの」, and the next gift is one of those.
+   *
+   * **What this specification can do is not carry the levers**, and these are
+   * the three. What it cannot do is written in §7.6b rather than implied here:
+   * a merchant reads the lines a writer chose to share with it, so whether it
+   * gives again to those households is its own conduct and its own liability.
+   */
+  test("no route carries a gift eligibility for a household", async () => {
+    // `valence.gift_eligible` is a field of a merchant's feed and a property
+    // of a product. An eligibility a maker could set per household is one it
+    // could set for writing.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    const hits = findKey(read.body, meansAnyOf(["giftEligible", "gift_eligible", "eligibleForGifts", "giftable"]));
+    expect(hits).toEqual([]);
+    for (const path of [`/households/${encodeURIComponent(HOUSEHOLD)}/offers`, `/offers/${offer.id}/approval`]) {
+      const response = await call("GET", path);
+      expect(findKey(response.body, meansAnyOf(["giftEligible", "gift_eligible", "eligibleForGifts", "giftable"]))).toEqual([]);
+    }
+  });
+
+  test("an agent cannot exclude a candidate for what a household wrote", async () => {
+    // NOTE (mutation check, 2026-09-09): the closed list is already guarded by
+    // `exclusion_rule_is_free_text`; this assertion names the reason the list
+    // is closed, which is that a rule about writing would put the inference
+    // the 告示 forbids into the protocol itself.
+    const offer = await createConformingOffer();
+    for (const reason of ["no_note", "wrote_no_review", "silent"]) {
+      const recorded = await call("POST", `/offers/${offer.id}/deliberation`, {
+        per_candidate: Object.fromEntries(
+          offer.candidates.map((c) => [c.id, { alternatives: ["another tin"], argument_against: "you have two" }])
+        ),
+        excluded: [{ product: PRODUCTS[0], reason }],
+        mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+      });
+      expect([400, 422]).toContain(recorded.status);
+    }
+  });
+
+  test("a note takes nothing from a merchant", async () => {
+    // A candidate carries no brief and the note route takes the writer's own
+    // author, text and audience and nothing else. The refusal is §3.3's
+    // strictness; the probe names what must never be added to it.
+    const offer = await createConformingOffer();
+    const candidate = offer.candidates[0]!.id;
+    for (const extra of [{ brief: "mention the packaging" }, { requested_by: "maker-a" }, { sponsored: true }]) {
+      const written = await call("POST", `/candidates/${candidate}/note`, {
+        author: HOUSEHOLD,
+        text: "the tea was good",
+        shared_with: ["merchant"],
+        ...extra,
+      });
+      expect(written.status).toBe(400);
+    }
+  });
 });

@@ -603,6 +603,20 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     }
     expect(shown.disclosures.length).toBeGreaterThan(0);
     expect(shown.carriage).toBe(320);
+    // NOTE (mutation check, 2026-09-12): statement_line_without_its_block
+    // drops the field. This assertion failed. One screen holds several
+    // merchants' blocks, and which governs which line is a property of the
+    // contract rather than an instruction about layout (§10a.5).
+    for (const line of shown.lines as unknown as { merchant: string; disclosure?: { merchant: string; product: string | null } }[]) {
+      expect(line.disclosure).toBeDefined();
+      expect(line.disclosure!.merchant).toBe(line.merchant);
+      expect(
+        shown.disclosures.some(
+          (d) => (d as { merchant: string; product: string | null }).merchant === line.disclosure!.merchant &&
+            (d as { merchant: string; product: string | null }).product === line.disclosure!.product
+        )
+      ).toBe(true);
+    }
   });
 
   test("an empty settle is refused and names itself; nothing is charged", async () => {
