@@ -34,6 +34,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`roles/`](roles/) | 1, 8, 43, and spec §13.1, §13.2 | An implementation answers for the surface it presents, and the answer has something behind it: an engine alone does not answer for the household's surface, a hub alone does not answer for the presenter's, delivery is the hub's and deciding is the engine's, the registry is answered by either, and a settlement made on one party reaches the person's own copy on the other | yes |
 | [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
+| [`disclosure/`](disclosure/) | spec §10a, and conformance condition 15 | The block a merchant composed travels on the offer as composed, no request field writes one, and a decision naming a merchant without one is refused by name. **No probe here asks whether a disclosure is complete, true, or in the right language**: what a seller must say is the seller's law, and an implementation carrying an empty signed block passes every probe in the suite | yes |
 | [`merchant-exit/`](merchant-exit/) | 5, 43, and spec §14.1 | A shop leaves with its ledgers: the catalogue, its own offers, how each settled, its recovery rows, no other presenter's offers, no private line and no delivery | yes |
 
 Every probe in the three written suites carries a note recording the mutation
@@ -50,7 +51,7 @@ what each mutation changed and what it found.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twenty-one environment variables:
+as twenty-three environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -65,6 +66,8 @@ as twenty-one environment variables:
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
 | `VALENCE_UNATTESTED_EDGE` | a well-formed, signed edge whose giver's key no identity root endorsed (§7.1) |
 | `VALENCE_PRICES` | the merchant's own price for each of those products, as JSON |
+| `VALENCE_DISCLOSURE` | the block that merchant composed, as JSON, exactly as it was registered. The probes compare what an offer carries against this, because the requirement is that it comes back **as composed**: a probe that checked only for the field's presence would pass an implementation that reordered, summarised or translated the items |
+| `VALENCE_CONFIG_VERSION_UNDISCLOSED` and `VALENCE_PRODUCT_UNDISCLOSED` | a catalogue with one product whose merchant registered no disclosure, so the refusal can be reached. **It is its own catalogue under another presenter**, because a product nobody has been offered is one the exploration floor counts across every catalogue its presenter registered, and putting it anywhere else took a floor probe red |
 | `VALENCE_MAKERS` | who made each of those products, as JSON. Clause 12 asks a candidate to name who made it, and a probe that checks only for a non-empty string passes an implementation that fills the field with the merchant's own name. Where a merchant makes what it sells, the two are the same name and this says so |
 | `VALENCE_CONFIG_VERSION_LATER` | a catalogue version registered after the first, with at least one product repriced |
 | `VALENCE_CONFIG_VERSION_NARROW` | a catalogue version under the same presenter naming only a subset of the products (§5: the floor counts what the presenter still has across every catalogue) |
@@ -108,7 +111,7 @@ gate that overstates itself is worse than one that does not exist.
 
 ## Status
 
-September 2026. All thirteen suites are written and pass against the reference
+September 2026. All fourteen suites are written and pass against the reference
 engine. **Last measured in full on 2026-09-12, over the 242 breaks the corpus
 now holds: 241 were caught, one aborted before a probe ran, none survived and
 none was inert.** The one that aborts is `require_registered_merchant`, which

@@ -46,6 +46,14 @@ export const HOUSEHOLD = required("VALENCE_HOUSEHOLD");
 export const PRODUCT_UNDISCLOSED = required("VALENCE_PRODUCT_UNDISCLOSED");
 
 /**
+ * The catalogue version that product is in. **It is its own version rather
+ * than a row in the main catalogue**, because a product nobody has been
+ * offered is one the exploration floor counts, and putting it in the main
+ * catalogue silently made "this household has seen everything" untrue.
+ */
+export const CONFIG_VERSION_UNDISCLOSED = required("VALENCE_CONFIG_VERSION_UNDISCLOSED");
+
+/**
  * §10a. The block the merchant of `VALENCE_PRODUCTS` composed, as it was
  * registered. The probes compare what an offer carries against this, because
  * the requirement is that it is returned **as composed**: a probe that only

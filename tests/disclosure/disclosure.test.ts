@@ -6,6 +6,7 @@ import {
   decide,
   DISCLOSURE,
   PRODUCT_UNDISCLOSED,
+  CONFIG_VERSION_UNDISCLOSED,
 } from "../lib/probe.js";
 
 /**
@@ -65,7 +66,9 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     // §16.6's do, because a `422` with no name is one no person and no probe
     // can tell from another.
     const body = conformingOffer() as Record<string, unknown>;
-    (body.candidates as Record<string, unknown>[])[0]!.product = PRODUCT_UNDISCLOSED;
+    body.config_version = CONFIG_VERSION_UNDISCLOSED;
+    body.presenter = undefined;
+    body.candidates = [{ product: PRODUCT_UNDISCLOSED, quantity: 1, is_exploration: true }];
     const created = await call("POST", "/offers", body);
     expect(created.status).toBe(201);
     const offer = created.body as { id: string; candidates: { id: string }[] };
