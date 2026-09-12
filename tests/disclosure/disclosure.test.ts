@@ -5,6 +5,7 @@ import {
   createConformingOffer,
   decide,
   DISCLOSURE,
+  PRICES,
   PRODUCT_UNDISCLOSED,
   CONFIG_VERSION_UNDISCLOSED,
 } from "../lib/probe.js";
@@ -80,6 +81,57 @@ describe("disclosure: the block is the merchant's (§10a)", () => {
     const mine = blocks!.find((b) => b.merchant === DISCLOSURE.merchant);
     expect(mine).toBeDefined();
     expect(mine!.items).toEqual(DISCLOSURE.items);
+  });
+
+  test("the screen carries the sale beside the block, not the block alone (§10a.5)", async () => {
+    // A block is keyed on the merchant and registered before any offer
+    // exists, so it carries only what the merchant knows in advance. The
+    // quantity, the unit price and the expiry come from the offer, and the
+    // carriage from the delivery the hub recorded; the screen shows them
+    // beside the block, and a screen showing the block alone has shown the
+    // merchant's terms and not this sale. The quantity is two on purpose: on
+    // an offer of ones, a screen that shows every line at one is not a break.
+    const body = conformingOffer() as Record<string, unknown>;
+    (body.candidates as { quantity: number }[])[0].quantity = 2;
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      expires_at: number;
+      candidates: { id: string; product: string; quantity: number; unit_price: number }[];
+    };
+    await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 550,
+      code: "dc-probe-10a",
+      status: "placed",
+    });
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = {
+        alternatives: ["the same tea in a smaller tin"],
+        argument_against: "you have two of these already",
+      };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const screen = approval.body as {
+      expires_at: number;
+      carriage: number | null;
+      candidates: { id: string; quantity: number; unit_price: number }[];
+    };
+    expect(screen.expires_at).toBe(offer.expires_at);
+    expect(screen.carriage).toBe(550);
+    for (const c of offer.candidates) {
+      const shown = screen.candidates.find((s) => s.id === c.id);
+      expect(shown).toBeDefined();
+      expect(shown!.quantity).toBe(c.quantity);
+      expect(shown!.unit_price).toBe(PRICES[c.product]);
+    }
   });
 
   test("no request field writes one", async () => {
