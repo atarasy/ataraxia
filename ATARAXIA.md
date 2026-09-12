@@ -104,7 +104,7 @@ Nine clauses were withdrawn on 2026-09-09 and the list was renumbered: four of t
 44. The hub, like the infrastructure (clause 1), has no search and no ranking. What a person sees is what was drafted for that person (clause 15) or what they asked for by name.
 45. It is an agent, not a reseller. It never holds title to goods, not for an instant.
 46. A mandate carries a ceiling on what may be paid to a merchant outside the network. The ceiling is the person's: they sign it, they may lower it, and no layer holds a key that could raise it.
-47. Mandate thresholds and family co-signature are set while the person has capacity. A loosening is a change to the mandate signed by both the person and the named family member, and nothing else changes it.
+47. Mandate thresholds and family co-signature are set while the person has capacity. A loosening is a change to the mandate signed by the person and by every family member the mandate names, and nothing else changes it. Where it names none, the person's own signature is the whole of it.
 48. The agent does not execute an order where it detects auto-renewing subscriptions, obstructed cancellation, or manufactured scarcity. It shows the person why.
 49. No identity and no payment credential reaches the merchant. Nothing sent to a merchant on a person's behalf can be used to charge that person again, and nothing sent identifies them. Where a merchant takes a payment on its own account at a payment provider, the record that payment leaves there is the merchant's own and is no surface defined here. An offer, a receipt and a delivery carry a key, a token and a delivery code, and no field for a name, an address, a card or a contact.
 
