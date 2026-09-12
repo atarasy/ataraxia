@@ -53,6 +53,8 @@ can repeat any row.
 | `no_reserve_ceiling` | The in-memory ledger accepts a commit above the reserved amount | 1 unit test |
 | `adapter_trusts_the_ledger` | The Meter adapter delegates the reserve ceiling to Meter | 1 unit test |
 | `sent_list_on_giver_surface` | The giver's own gifts added to the acts stream | 1, and 1 unit test |
+| `giver_surface_names_the_offer` | Each act on `/lineage/acts` names the offer it came from (§7.2, question 41). The schema of these surfaces was already clean, and what kept a giver off `GET /offers/{id}/statement` and `/approval` was that nothing handed a giver an offer id, which was assumed rather than written until 2026-09-13 | 1 |
+| `giver_circle_names_the_offer` | The same on `/lineage/circle`. Second break beside the row above, written because the probe asserts over two surfaces and only one had been shown to fail: a circle edge carries the merchant and the product already, so an offer id beside them is the whole reference | 1 |
 | `period_on_acts` | A `from` and `to` window framing the acts response | 1 |
 | `nudge_route` | `POST /lineage/nudge` registered | 1 |
 | `receipt_ref_resolves` | The edge id put back on the receipt, and a route that resolves it | 1 |
