@@ -37,6 +37,22 @@ const GRACE_MS = RECOVERY_GRACE_DAYS * 86_400_000;
 const physicalOffer = (overrides: Record<string, unknown> = {}) =>
   conformingOffer({ binding: "physical", ...overrides });
 
+/**
+ * §6.5, 法11条1号. A physical box that was delivered and collected has a
+ * delivery record, and the statement renders the carriage from it. A merchant
+ * whose price includes carriage records `0`; `null` means an implementation
+ * that never recorded what it did, and `settle` refuses that for a box with
+ * goods used. The probes record one wherever they collect.
+ */
+async function delivered(offerId: string, carriage = 550) {
+  const recorded = await call("POST", `/offers/${offerId}/delivery`, {
+    carriage,
+    code: `dc-${offerId.slice(0, 8)}`,
+    status: "delivered",
+  });
+  expect(recorded.status).toBe(201);
+}
+
 describe("binding: what the deployment implements", () => {
   test("the declared bindings are what the endpoint accepts", async () => {
     // NOTE (mutation check, 2026-09-09): refuse_the_physical_binding
@@ -140,6 +156,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
 
     // §11. Consumed is what the collection found, not a verdict.
     const [first, ...rest] = offer.candidates;
+    await delivered(offer.id);
     const collected = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [first!.id],
@@ -174,6 +191,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     expect(offer.candidates[0]!.given_by).toBe("maker-a");
     await call("POST", `/offers/${offer.id}/present`, {});
     const [gift, ...rest] = offer.candidates;
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [gift!.id],
@@ -193,6 +211,7 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, ...rest] = offer.candidates;
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [first!.id],
@@ -298,6 +317,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     await call("POST", `/offers/${one.id}/present`, {});
     const [tried, ...others] = one.candidates;
     // The trial: the collection finds one used and the rest unopened.
+    await delivered(one.id);
     await call("POST", `/offers/${one.id}/recovery`, {
       returned: others.map((c) => c.id),
       consumed: [tried!.id],
@@ -370,6 +390,7 @@ describe.if(HAS_PHYSICAL)("binding: a trial creates no balance (§6.1)", () => {
     await call("POST", `/offers/${one.id}/present`, {});
     const [tried, ...others] = one.candidates;
     // The trial: the collection finds one used and the rest unopened.
+    await delivered(one.id);
     await call("POST", `/offers/${one.id}/recovery`, {
       returned: others.map((c) => c.id),
       consumed: [tried!.id],
@@ -442,6 +463,7 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     // makes trying free and removes the middle term §6.2 exists for.
     const offer = await placed();
     const [first, second, ...rest] = offer.candidates;
+    await delivered(offer.id);
     const collected = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: [second!.id, ...rest.map((c) => c.id)],
       consumed: [first!.id],
@@ -460,6 +482,7 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     // cannot have come back unopened and also been used, and a collection
     // that says so is reporting two worlds.
     const offer = await placed();
+    await delivered(offer.id);
     const both = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: [offer.candidates[0]!.id],
       consumed: [offer.candidates[0]!.id],
@@ -550,6 +573,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, second, ...rest] = offer.candidates;
+    await delivered(offer.id);
     const collectedBy = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [first!.id, second!.id],
@@ -667,6 +691,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
         ...rest.map((c) => ({ candidate: c.id, valence: "returned" })),
       ],
     });
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, { returned: [], consumed: [second!.id] });
     const refused = await settleSigned(offer.id, [first!.id]);
     expect(refused.status).toBe(422);
@@ -690,6 +715,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
     const [used, ...others] = one.candidates;
+    await delivered(one.id);
     await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
 
     const second = await call("POST", "/offers", physicalOffer({
@@ -714,6 +740,7 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     const created = await call("POST", "/offers", physicalOffer());
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, { returned: offer.candidates.map((c) => c.id), consumed: [] });
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
@@ -732,6 +759,7 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [first, ...rest] = offer.candidates;
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [first!.id],
@@ -775,6 +803,7 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     const created = await call("POST", "/offers", physicalOffer());
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
+    await delivered(offer.id);
     const refused = await call("POST", `/offers/${offer.id}/recovery`, {
       returned: [],
       consumed: ["not-a-candidate-of-this-offer"],
@@ -809,6 +838,7 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
     const [used, ...others] = one.candidates;
+    await delivered(one.id);
     await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
 
     // The same presenter is stopped, and its refusal carries no offer id.
@@ -852,6 +882,7 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     await call("POST", `/offers/${one.id}/present`, {});
     // A partial collection: one used, the rest unnamed, so the offer stays
     // presented and cannot be settled.
+    await delivered(one.id);
     await call("POST", `/offers/${one.id}/recovery`, { returned: [], consumed: [one.candidates[0]!.id] });
     expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(200);
     const second = await call("POST", "/offers", physicalOffer({
@@ -874,6 +905,7 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     const offer = created.body as { id: string; candidates: { id: string; given_by: string | null }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     const [gift, second, ...rest] = offer.candidates;
+    await delivered(offer.id);
     await call("POST", `/offers/${offer.id}/recovery`, {
       returned: rest.map((c) => c.id),
       consumed: [gift!.id, second!.id],
@@ -883,5 +915,84 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
       .lines.find((l) => l.candidate === gift!.id)!;
     expect(line.given_by).toBe("maker-a");
     expect(line.amount).toBe(0);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: a ceremonial offer is digital (§12, §6.5)", () => {
+  test("a physical ceremonial offer is refused at creation", async () => {
+    // NOTE (mutation check, 2026-09-12): ceremonial_may_be_physical drops the
+    // refusal. This assertion failed with 201.
+    //
+    // **The payer and the signer are different people.** Clause 25 makes the
+    // giver the party charged and §6.5 makes the household's signature over
+    // the settlement statement the application for a consumed line, so a
+    // physical ceremonial box would charge a party that took no act while the
+    // party that acted paid nothing. Giving the statement to the giver instead
+    // is shut: it lists what the recipient used, which is the candidates
+    // clause 24 keeps from the giver and the signal clause 16 forbids.
+    const created = await call("POST", "/offers", physicalOffer({
+      purpose: "ceremonial",
+      price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) },
+      giver: `${freshHousehold()}-giver`,
+    }));
+    expect(created.status).toBe(422);
+    expect((created.body as { error: string }).error).toBe("ceremonial_is_digital");
+  });
+
+  test("the same ceremonial offer is accepted in the digital binding", async () => {
+    // The refusal is about the binding and not about the purpose, and a probe
+    // that only checked the refusal would pass an implementation that had
+    // stopped accepting ceremonial offers at all.
+    const created = await call("POST", "/offers", conformingOffer({
+      purpose: "ceremonial",
+      price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) },
+      giver: `${freshHousehold()}-giver`,
+    }));
+    expect(created.status).toBe(201);
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there is one to carry (§6.5, 法11条1号)", () => {
+  test("a box with goods used and no delivery recorded does not settle", async () => {
+    // NOTE (mutation check, 2026-09-12): settle_without_a_delivery drops the
+    // check. This assertion failed with 200, and the statement it settled on
+    // showed `carriage: null`.
+    //
+    // **`null` and `0` are different facts.** 法11条1号 asks for the carriage
+    // beside the price 「販売価格に商品の送料が含まれない場合には」, so a
+    // merchant whose price includes it owes no separate figure and records
+    // `0`; `null` is an implementation that never recorded what it did. For a
+    // statement the goods have by definition been delivered and collected.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [used, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [used!.id],
+    });
+    const refused = await settleSigned(offer.id);
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("delivery_missing");
+
+    // Recorded, it settles, and a price that includes carriage records zero.
+    await delivered(offer.id, 0);
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(200);
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    expect((statement.body as { carriage: number | null }).carriage).toBe(0);
+  });
+
+  test("a box with nothing used settles without one", async () => {
+    // Nothing is charged, so no application is made at settlement and no
+    // screen owes the statute anything.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: offer.candidates.map((c) => c.id),
+      consumed: [],
+    });
+    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
   });
 });

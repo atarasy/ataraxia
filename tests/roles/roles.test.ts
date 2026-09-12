@@ -260,3 +260,83 @@ describe("roles: a key belongs to neither (clause 2, §13.2)", () => {
     }
   });
 });
+
+describe("roles: the carriage crosses the split (§13.1, §7.5b, §6.5)", () => {
+  /**
+   * The delivery register is the hub's and the two screens that render the
+   * carriage are answered under an offer's path, which is the engine's. So on
+   * a split deployment the engine has no register to read, and both screens
+   * showed `carriage: null` while the hub held a delivery. **A screen with no
+   * carriage is either a merchant whose price includes it or an
+   * implementation that never looked**, and those are the same picture with
+   * different facts. The engine asks the hub, exactly as it asks for a
+   * mandate (§16.2) and for the day's total (§16.3).
+   */
+  const json = async (base: string, path: string, method: string, body?: unknown) => {
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const text = await response.text();
+    let parsed: unknown;
+    try {
+      parsed = text === "" ? undefined : JSON.parse(text);
+    } catch {
+      parsed = undefined;
+    }
+    return { status: response.status, body: parsed, text };
+  };
+
+  test("the engine renders a carriage the hub holds", async () => {
+    // NOTE (mutation check, 2026-09-12): engine_reads_its_own_deliveries points
+    // the engine at its own empty register instead of the hub. This assertion
+    // failed: the approval carried `carriage: null` while the hub held 480.
+    const household = freshHousehold();
+    const created = await json(ENGINE_ONLY, "/offers", "POST", {
+      binding: "digital",
+      household,
+      purpose: "replenish",
+      config_version: CONFIG_VERSION,
+      expires_at: soon(120_000),
+      mandate: MANDATE,
+      candidates: PRODUCTS.slice(0, 3).map((product) => ({
+        product,
+        quantity: 1,
+        predicted_conversion: 0.05,
+        is_exploration: true,
+      })),
+    });
+    if (created.status !== 201) {
+      // The role-split pair could not be seeded on this deployment, which the
+      // suite's first probes already report. Nothing here to add.
+      expect([201, 404, 422]).toContain(created.status);
+      return;
+    }
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+
+    // The delivery goes to the hub, which is the only party that answers for it.
+    const recorded = await json(HUB_ONLY, `/offers/${offer.id}/delivery`, "POST", {
+      carriage: 480,
+      code: "dc-roles-probe",
+      status: "delivered",
+    });
+    expect(recorded.status).toBe(201);
+
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = {
+        alternatives: ["the same tea in a smaller tin"],
+        argument_against: "you have two of these already",
+      };
+    }
+    await json(ENGINE_ONLY, `/offers/${offer.id}/deliberation`, "POST", {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await json(ENGINE_ONLY, `/offers/${offer.id}/approval`, "GET");
+    expect(approval.status).toBe(200);
+    expect((approval.body as { carriage: number | null }).carriage).toBe(480);
+  });
+});
