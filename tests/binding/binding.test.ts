@@ -7,6 +7,7 @@ import {
   HAS_PHYSICAL,
   PRICES,
   PRODUCTS,
+  DISCLOSURE,
   RECOVERY_GRACE_DAYS,
   settleSigned,
   signStatement,
@@ -715,5 +716,145 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     const settled = await call("POST", `/offers/${offer.id}/settle`, {});
     expect(settled.status).toBe(200);
     expect((settled.body as { confirmation: string | null }).confirmation).toBeNull();
+  });
+});
+
+describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a)", () => {
+  async function collectedBox() {
+    const created = await call("POST", "/offers", physicalOffer());
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      expires_at: number;
+      candidates: { id: string; product: string; unit_price: number }[];
+    };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [first, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [first!.id],
+    });
+    return offer;
+  }
+
+  test("it carries the offer's expiry, as the approval does", async () => {
+    // NOTE (mutation check, 2026-09-12): statement_without_expiry drops the
+    // field. This assertion failed. §10a.5 lists the expiry among the facts of
+    // the sale, and a merchant's stated application period is measured against
+    // it. It was missing until a refutation pass asked.
+    const offer = await collectedBox();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    expect(statement.status).toBe(200);
+    expect((statement.body as { expires_at: number }).expires_at).toBe(offer.expires_at);
+  });
+
+  test("it carries the merchant's block as composed, not merely a block", async () => {
+    // NOTE (mutation check, 2026-09-12): disclosure_items_reordered sorts the
+    // items by label. This assertion failed.
+    // **The first version of this suite asserted only that the array was not
+    // empty**, which is the same defect §10a.2 exists against: an
+    // implementation that reordered, summarised or translated the seller's
+    // statements passed. Found by a refutation pass the same night.
+    const offer = await collectedBox();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const blocks = (statement.body as { disclosures: { merchant: string; product: string | null; items: { label: string; value: string }[]; version: string; signature: string }[] }).disclosures;
+    const mine = blocks.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null);
+    expect(mine).toBeDefined();
+    expect(mine!.items).toEqual(DISCLOSURE.items);
+    expect(mine!.version).toBe(DISCLOSURE.version);
+    expect(mine!.signature).toBe(DISCLOSURE.signature);
+  });
+
+  test("a collection cannot name a candidate that is not the offer's", async () => {
+    // NOTE (mutation check, 2026-09-12): collect_accepts_strangers drops the
+    // check. This assertion failed with 200. An id belonging to no candidate
+    // resolves nothing and still makes the offer read as collected with goods
+    // used, so §6.5's block holds over that household with nothing to sign.
+    const created = await call("POST", "/offers", physicalOffer());
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [],
+      consumed: ["not-a-candidate-of-this-offer"],
+    });
+    expect([400, 422]).toContain(refused.status);
+  });
+
+  test("the refusal names no other offer (clause 8)", async () => {
+    // NOTE (mutation check, 2026-09-12): refusal_names_the_offer puts the
+    // waiting offer's id back in the message. This assertion failed.
+    // The caller is a presenter and the waiting box is another presenter's.
+    // Naming it told one merchant another's offer id, which `GET /offers/{id}`
+    // then served to anyone: products, prices, and which lines were used.
+    const household = freshHousehold();
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [used, ...others] = one.candidates;
+    await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] });
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const two = second.body as { id: string };
+    const refused = await call("POST", `/offers/${two.id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect(refused.text).not.toContain(one.id);
+    expect((await settleSigned(one.id)).status).toBe(200);
+  });
+
+  test("a box nobody can settle does not block the next one", async () => {
+    // NOTE (mutation check, 2026-09-12): block_counts_unsettleable drops the
+    // state check. This assertion failed with 422. A presenter that collects
+    // part of a box and withdraws it leaves an offer that can never settle;
+    // counting it made that household unofferable by anyone, for good, with
+    // no act available to it that would lift the block.
+    const household = freshHousehold();
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    // A partial collection: one used, the rest unnamed, so the offer stays
+    // presented and cannot be settled.
+    await call("POST", `/offers/${one.id}/recovery`, { returned: [], consumed: [one.candidates[0]!.id] });
+    expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(200);
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const two = second.body as { id: string };
+    expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
+  });
+
+  test("a gift is proposed at nothing on the statement, as it settles", async () => {
+    // NOTE (mutation check, 2026-09-12): statement_bills_a_gift proposes the
+    // gift at its catalogue price. This assertion failed. Clause 10: a gift
+    // arrives at its price and is never billed, and a statement that asked a
+    // household to sign for one would be signed against a receipt that
+    // charges nothing for it.
+    const body = physicalOffer();
+    (body.candidates as Record<string, unknown>[])[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    const offer = created.body as { id: string; candidates: { id: string; given_by: string | null }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [gift, second, ...rest] = offer.candidates;
+    await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [gift!.id, second!.id],
+    });
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const line = (statement.body as { lines: { candidate: string; amount: number; given_by: string | null }[] })
+      .lines.find((l) => l.candidate === gift!.id)!;
+    expect(line.given_by).toBe("maker-a");
+    expect(line.amount).toBe(0);
   });
 });

@@ -359,11 +359,18 @@ export function coSignDecisions(offerId: string, decisions: DecisionSpec[]): str
 
 /**
  * Specification §6.5. The settlement statement a household signs before a
- * physical box with goods used is charged: the offer id, then one line per
- * kept, defaulted or consumed candidate in ascending candidate id, each
- * `candidate:valence:amount:disputed` with `disputed` for a consumed line
- * the household does not confirm and empty otherwise. Question 36.
+ * physical box with goods used is charged: a domain tag, the offer id, then
+ * one line per kept, defaulted or consumed candidate in ascending candidate
+ * id, each `candidate:valence:amount:disputed` with `disputed` for a consumed
+ * line the household does not confirm and empty otherwise. Question 36.
+ *
+ * **The tag is the first line and it is load-bearing.** A decided set is
+ * signed as the offer id then `candidate:valence:kept_as:lineage`, the same
+ * prefix and the same four-field shape, and the two are told apart today only
+ * by the type of the third field. A suite that computed the bytes without the
+ * tag would pass an implementation that accepted a decision's signature here.
  */
+export const STATEMENT_DOMAIN = "valence.statement.1";
 export type StatementLineSpec = {
   candidate: string;
   valence: string;
@@ -375,7 +382,7 @@ export function canonicalStatement(offerId: string, lines: StatementLineSpec[]):
   const body = [...lines]
     .sort((a, b) => (a.candidate < b.candidate ? -1 : a.candidate > b.candidate ? 1 : 0))
     .map((l) => `${l.candidate}:${l.valence}:${l.amount}:${l.disputed ? "disputed" : ""}`);
-  return Buffer.from([offerId, ...body].join("\n"), "utf8");
+  return Buffer.from([STATEMENT_DOMAIN, offerId, ...body].join("\n"), "utf8");
 }
 
 export function signStatement(offerId: string, lines: StatementLineSpec[], key: KeyObject = MANDATE_KEY): string {
