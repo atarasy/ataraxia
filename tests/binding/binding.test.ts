@@ -174,6 +174,40 @@ describe.if(HAS_PHYSICAL)("binding: lost is not billed to the household (§3.2)"
     expect(settlement.charged).toBe(first!.unit_price);
   });
 
+  test("a gift the household kept is never billed either", async () => {
+    // NOTE (mutation check, 2026-09-12): kept_gift_is_billed charges a kept
+    // gift at its price. This assertion failed with the gift's price added.
+    //
+    // **Measured, not reasoned.** The engine's `kept` branch asked nothing
+    // about `given_by` while the `consumed` branch had asked since
+    // 2026-09-09, so a gift a household kept was charged and one it used was
+    // free. Every probe in this file had consumed the gift and none had kept
+    // one, which is why a rule with prose, a probe and a mutation went
+    // untested on the branch that mattered. Clause 10: what a maker, a
+    // merchant or a friend gave is never billed to the recipient.
+    const body = physicalOffer();
+    const list = body.candidates as Record<string, unknown>[];
+    list[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as {
+      id: string;
+      candidates: { id: string; product: string; given_by: string | null; unit_price: number }[];
+    };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [gift, ...rest] = offer.candidates;
+    await decide(offer.id, {
+      decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "kept", kept_as: "self" })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as { kept_amount: number; charged: number; lines: { candidate: string; amount: number }[] };
+    const others = rest.reduce((sum, c) => sum + c.unit_price, 0);
+    expect(settlement.kept_amount).toBe(others);
+    expect(settlement.charged).toBe(others);
+    expect(settlement.lines.find((l) => l.candidate === gift!.id)!.amount).toBe(0);
+  });
+
   test("a gift is never billed to the person who received it", async () => {
     // NOTE (mutation check, 2026-09-09): gift_is_billed settled a used gift
     // at the merchant's price. This assertion failed. What a maker, a
