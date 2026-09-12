@@ -267,3 +267,63 @@ describe("disclosure: a block for one product (§10a.5, question 35)", () => {
     expect(blocks.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null)).toBeDefined();
   });
 });
+
+describe("disclosure: which block governs which line (§10a.5)", () => {
+  /**
+   * One screen carries several merchants' blocks, and a merchant's own terms
+   * for one product beside its standing text. **Which block governs which
+   * line was a rendering instruction in prose** until 2026-09-12: no probe
+   * could reach it, so a hub could pair any block with any line and pass
+   * everything here. The line names its block now, which makes the join a
+   * property of the contract. The visual adjacency is still the hub's, and
+   * condition 15 already admits that half.
+   */
+  const withProduct = () =>
+    conformingOffer({
+      candidates: [
+        { product: DISCLOSURE_PRODUCT.product, quantity: 1, predicted_conversion: 0.05, is_exploration: true },
+        ...PRODUCTS.filter((p) => p !== DISCLOSURE_PRODUCT.product)
+          .slice(0, 2)
+          .map((product) => ({ product, quantity: 1, predicted_conversion: 0.05, is_exploration: true })),
+      ],
+    });
+
+  test("a line whose product has a block names it, and the others name the standing text", async () => {
+    // NOTE (mutation check, 2026-09-12): line_names_the_wrong_block points
+    // every line at the standing text. The first assertion failed: a household
+    // reading the product's line was pointed at the merchant's general terms,
+    // which is the misleading display the product key exists to prevent.
+    const created = await call("POST", "/offers", withProduct());
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string; product: string }[] };
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["the same tea in a smaller tin"], argument_against: "you have two of these already" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const screen = approval.body as {
+      candidates: { product: string; merchant: string; disclosure: { merchant: string; product: string | null } }[];
+      disclosures: { merchant: string; product: string | null }[];
+    };
+    for (const line of screen.candidates) {
+      // Every line names a block the screen actually carries.
+      expect(
+        screen.disclosures.some(
+          (d) => d.merchant === line.disclosure.merchant && d.product === line.disclosure.product
+        )
+      ).toBe(true);
+      expect(line.disclosure.merchant).toBe(line.merchant);
+      if (line.product === DISCLOSURE_PRODUCT.product) {
+        expect(line.disclosure.product).toBe(DISCLOSURE_PRODUCT.product);
+      } else {
+        expect(line.disclosure.product).toBeNull();
+      }
+    }
+  });
+});
