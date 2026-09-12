@@ -529,6 +529,37 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     }
   });
 
+  test("the screen says which lines are gifts, by naming the giver (clause 10)", async () => {
+    // A gift arrives at its price and is never billed (§6.2), so a screen
+    // that shows a unit price beside every line and no giver asks a person to
+    // sign without telling them which lines cost money. The offer view named
+    // the giver and the settlement billed the gift at zero while the screen a
+    // person signs from carried nothing, until a refutation pass on
+    // 2026-09-12 read the renderer's type against clause 10.
+    const body = conformingOffer() as Record<string, unknown>;
+    (body.candidates as { given_by?: string }[])[0]!.given_by = "maker-a";
+    const created = await call("POST", "/offers", body);
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["a smaller tin"], argument_against: "you have two already" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const screen = approval.body as { candidates: { id: string; given_by: string | null }[] };
+    const [gift, ...rest] = offer.candidates;
+    expect(screen.candidates.find((c) => c.id === gift!.id)!.given_by).toBe("maker-a");
+    for (const c of rest) {
+      expect(screen.candidates.find((s) => s.id === c.id)!.given_by).toBeNull();
+    }
+  });
+
   test("a ceremonial screen carries the band the giver chose", async () => {
     const prices = Object.values(PRICES);
     const band = { min: Math.min(...prices), max: Math.max(...prices) };
