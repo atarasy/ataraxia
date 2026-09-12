@@ -87,6 +87,30 @@ const PROMPT_KEYS = [
 const giver = () => LINEAGE_EDGE.from as string;
 
 describe("opacity: the giver's surface reports no inaction (§7.2)", () => {
+  test("no giver-facing surface carries an offer reference (§7.2)", async () => {
+    // NOTE (mutation check, 2026-09-13): giver_surface_names_the_offer puts the
+    // offer on each act. This assertion failed, and the scenario it opens is
+    // the whole of clause 16: with an offer id a giver reads
+    // `GET /offers/{id}/statement`, which lists the lines a collection found
+    // used, and `GET /offers/{id}/approval`, which names every candidate.
+    //
+    // **The schema of these surfaces was already clean, and what kept a giver
+    // off those reads was that nothing hands a giver an offer id.** That was
+    // assumed rather than written until §7.2 said it on 2026-09-13. §12 had
+    // already shut the one route that would have handed one over.
+    const offer = await createConformingOffer();
+    const acts = await call("GET", `/lineage/acts?giver=${encodeURIComponent(giver())}`);
+    expect(acts.status).toBe(200);
+    expect(acts.text).not.toContain(offer.id);
+    const circle = await call("GET", `/lineage/circle?viewer=${encodeURIComponent(giver())}`);
+    expect(circle.status).toBe(200);
+    expect(circle.text).not.toContain(offer.id);
+    // And no field is named for one, whatever its value.
+    for (const body of [acts.text, circle.text]) {
+      expect(body).not.toMatch(/"offer(_id)?"\s*:/);
+    }
+  });
+
   test("a gift creates nothing on the giver's surface to be answered", async () => {
     // NOTE (mutation check, 2026-09-08): sent_list_on_giver_surface added the
     // giver's own outgoing gifts to /lineage/acts. This assertion failed: a
