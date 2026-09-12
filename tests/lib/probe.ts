@@ -378,21 +378,21 @@ export type StatementLineSpec = {
   disputed: boolean;
 };
 
-export function canonicalStatement(offerId: string, lines: StatementLineSpec[]): Buffer {
+export function canonicalStatement(offerId: string, carriage: number, lines: StatementLineSpec[]): Buffer {
   const body = [...lines]
     .sort((a, b) => (a.candidate < b.candidate ? -1 : a.candidate > b.candidate ? 1 : 0))
     .map((l) => `${l.candidate}:${l.valence}:${l.amount}:${l.disputed ? "disputed" : ""}`);
-  return Buffer.from([STATEMENT_DOMAIN, offerId, ...body].join("\n"), "utf8");
+  return Buffer.from([STATEMENT_DOMAIN, offerId, String(carriage), ...body].join("\n"), "utf8");
 }
 
-export function signStatement(offerId: string, lines: StatementLineSpec[], key: KeyObject = MANDATE_KEY): string {
-  return sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", canonicalStatement(offerId, lines), key).toString("base64");
+export function signStatement(offerId: string, carriage: number, lines: StatementLineSpec[], key: KeyObject = MANDATE_KEY): string {
+  return sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", canonicalStatement(offerId, carriage, lines), key).toString("base64");
 }
 
 /** §10.5's assertion shape over the same bytes, built as `assertDecisions` builds its own. */
-export function assertStatement(offerId: string, lines: StatementLineSpec[], options: { key?: KeyObject; relyingParty?: string } = {}) {
+export function assertStatement(offerId: string, carriage: number, lines: StatementLineSpec[], options: { key?: KeyObject; relyingParty?: string } = {}) {
   const { key = MANDATE_KEY, relyingParty = RP_ID } = options;
-  const challenge = createHash("sha256").update(canonicalStatement(offerId, lines)).digest("base64url");
+  const challenge = createHash("sha256").update(canonicalStatement(offerId, carriage, lines)).digest("base64url");
   const authenticatorData = Buffer.concat([
     createHash("sha256").update(relyingParty).digest(),
     Buffer.from([0x05]),
@@ -431,7 +431,11 @@ export async function settleSigned(
     amount: l.amount,
     disputed: l.valence === "consumed" && disputed.includes(l.candidate),
   }));
-  return call("POST", `/offers/${offerId}/settle`, { signature: signStatement(offerId, lines), disputed }, headers);
+  // §6.5, question 40. The statement carries the carriage the screen shows, so
+  // the signature covers the figure the household would have read. No probe
+  // that calls this needs to know the number.
+  const carriage = (statement.body as { carriage: number | null }).carriage ?? 0;
+  return call("POST", `/offers/${offerId}/settle`, { signature: signStatement(offerId, carriage, lines), disputed }, headers);
 }
 
 /**

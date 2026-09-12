@@ -676,13 +676,13 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
       .map((l) => ({ ...l, disputed: false }));
     // The statement with a line quietly removed, signed by the right key.
     const fewer = lines.filter((l) => l.candidate !== used[0]!.id);
-    const short = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, fewer) });
+    const short = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, 550, fewer) });
     expect(short.status).toBe(422);
     expect((short.body as { error: string }).error).toBe("bad_signature");
     // A stranger's key over the right lines.
     const { generateKeyPairSync } = await import("node:crypto");
     const stranger = generateKeyPairSync("ed25519").privateKey;
-    const forged = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, lines, stranger) });
+    const forged = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, 550, lines, stranger) });
     expect(forged.status).toBe(422);
   });
 
@@ -698,12 +698,32 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
     expect(typeof settlement.confirmation).toBe("string");
   });
 
+  test("a signature against one carriage does not settle a box recorded at another", async () => {
+    // NOTE (mutation check, 2026-09-13): statement_without_the_carriage drops
+    // the figure from the form. The first assertion failed with 200: a
+    // signature over a screen showing no carriage settled a box delivered at
+    // 550.
+    //
+    // §6.5, question 40. 法11条1号 puts the carriage on this screen beside the
+    // price, and until 2026-09-13 the signature covered the lines and not it,
+    // so a household read a figure, signed, and had no record that it had.
+    const { offer } = await collected(320);
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    const lines = (statement.body as { lines: { candidate: string; valence: string; amount: number }[] }).lines
+      .map((l) => ({ ...l, disputed: false }));
+    const wrong = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, 0, lines) });
+    expect(wrong.status).toBe(422);
+    expect((wrong.body as { error: string }).error).toBe("bad_signature");
+    const right = await call("POST", `/offers/${offer.id}/settle`, { signature: signStatement(offer.id, 320, lines) });
+    expect(right.status).toBe(200);
+  });
+
   test("a passkey's assertion over the statement is accepted too (§10.5)", async () => {
     const { offer } = await collected();
     const statement = await call("GET", `/offers/${offer.id}/statement`);
     const lines = (statement.body as { lines: { candidate: string; valence: string; amount: number }[] }).lines
       .map((l) => ({ ...l, disputed: false }));
-    const settled = await call("POST", `/offers/${offer.id}/settle`, { assertion: assertStatement(offer.id, lines) });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, { assertion: assertStatement(offer.id, 550, lines) });
     expect(settled.status).toBe(200);
   });
 
