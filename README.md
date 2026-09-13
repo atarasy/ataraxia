@@ -34,7 +34,7 @@ One further asymmetry is worth naming rather than hiding. This repository curren
 
 Conformance tests live in [`tests/`](tests/) and are runnable by anyone, against anyone's implementation, including ours. A build or host that passes them may use the mark. A build that fails loses it.
 
-All eleven suites are written, and `tests/README.md` says what each covers. There were five when this directory was scoped; the ones added since came from reading the clause list inward rather than outward from the probes, which is the direction that finds what nothing checks. What they check is a specific subset of the constitution: **capabilities that must be absent, and behaviours that must be refused.** Most of the constitution is not mechanically checkable, and the tests do not pretend otherwise.
+The conformance suites are written, and `tests/README.md` says what each covers. There were five when this directory was scoped; the ones added since came from reading the clause list inward rather than outward from the probes, which is the direction that finds what nothing checks. What they check is a specific subset of the constitution: **capabilities that must be absent, and behaviours that must be refused.** Most of the constitution is not mechanically checkable, and the tests do not pretend otherwise.
 
 **A withdrawn clause keeps its number.** Clause 50 was withdrawn on 2026-09-10 and its slot stands empty with the reason in it, so there are sixty rules under sixty-one numbers. A number is a citation, and renumbering to close a gap would silently repoint every citation that already exists.
 

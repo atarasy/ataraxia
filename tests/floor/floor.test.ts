@@ -224,10 +224,11 @@ describe("floor: what counts as novelty cannot be manufactured (§5)", () => {
   });
 
   test("a narrower catalogue does not shrink what the presenter still has to offer", async () => {
-    // NOTE (mutation check, 2026-09-09): novelty_from_this_catalogue counted
-    // what the presenter still has over the catalogue the offer named, so a
-    // presenter that registered a two-product version after showing those
-    // two owed no exploration. This assertion failed with 201.
+    // NOTE (reviewed 2026-09-13): an earlier 2026-09-09 note reported 201.
+    // The current novelty_from_this_catalogue changes which products count
+    // as unseen, not the rate-based floor. An exhausted narrow catalogue
+    // triggers nothing_new while another catalogue still holds novelty;
+    // the later 2026-09-09 measurement below distinguishes the two refusals.
     const household = freshHousehold();
     const [a, b] = PRODUCTS;
     const first = await call("POST", "/offers", offerBody(

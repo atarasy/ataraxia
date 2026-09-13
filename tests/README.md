@@ -103,9 +103,9 @@ suites, and `MUTATIONS.md` records how it was found.
 
 ## What passing does and does not mean
 
-Read [`MUTATIONS.md`](MUTATIONS.md) before quoting a pass. It counts the eight
-conformance conditions in the specification's §13 against the probes that exist:
-all eight are gated. What no probe reaches is named in the ledger and in each
+Read [`MUTATIONS.md`](MUTATIONS.md) before quoting a pass. It maps the
+conformance conditions in the specification's §13 to the probes that exist;
+consult the current condition list rather than a fixed count here. What no probe reaches is named in the ledger and in each
 suite's README rather than left to be discovered, because §13 sends the reader
 to these tests as the thing that entitles an implementation to the mark, and a
 gate that overstates itself is worse than one that does not exist.
@@ -113,8 +113,7 @@ gate that overstates itself is worse than one that does not exist.
 ## Status
 
 September 2026. All fourteen suites are written and pass against the reference
-engine. **Last measured in full on 2026-09-12, over the 242 breaks the corpus
-now holds: 241 were caught, one aborted before a probe ran, none survived and
+engine. **Historical measurement on 2026-09-12, over a corpus of 242 breaks: 241 were caught, one aborted before a probe ran, none survived and
 none was inert.** The one that aborts is `require_registered_merchant`, which
 is the one that always has.
 
@@ -129,7 +128,7 @@ the reference engine's repository.
 no "x of y" is quoted against it. The sweep's own list of what was shown to fail
 holds 268 entries, and that number mixes conformance probes with the reference
 engine's unit tests, which the sweep runs beside them; the 227 above comes from
-`fragility.py`, which separates them. At runtime the suites are **231 tests
+`fragility.py`, which separates them. In that run the suites were **231 tests
 across 13 files with one skipped**, and the engine's own tests are 78.
 
 **Twenty-five of those 242 were written on the evening of 2026-09-11, and ten of them survived the first time they were run, and not

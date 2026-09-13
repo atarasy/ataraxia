@@ -699,10 +699,12 @@ describe.if(HAS_PHYSICAL)("binding: goods used are charged on the household's si
   });
 
   test("a signature against one carriage does not settle a box recorded at another", async () => {
-    // NOTE (mutation check, 2026-09-13): statement_without_the_carriage drops
-    // the figure from the form. The first assertion failed with 200: a
-    // signature over a screen showing no carriage settled a box delivered at
-    // 550.
+    // NOTE (mutation check, 2026-09-13): canonical_form_without_carriage
+    // drops the figure from the engine's form. In the 299-mutation run this
+    // probe failed on the final valid signature (422 instead of 200): the
+    // independent probe library still signs the specified form. The engine
+    // unit test, whose signer uses the mutated form, catches the other half:
+    // its wrong-carriage signature is accepted. Do not conflate those runs.
     //
     // §6.5, question 40. 法11条1号 puts the carriage on this screen beside the
     // price, and until 2026-09-13 the signature covered the lines and not it,
@@ -1030,9 +1032,11 @@ describe.if(HAS_PHYSICAL)("binding: a ceremonial offer is digital (§12, §6.5)"
 
 describe.if(HAS_PHYSICAL)("binding: the statement carries the carriage, so there is one to carry (§6.5, 法11条1号)", () => {
   test("a box with goods used and no delivery recorded does not settle", async () => {
-    // NOTE (mutation check, 2026-09-12): settle_without_a_delivery drops the
-    // check. This assertion failed with 200, and the statement it settled on
-    // showed `carriage: null`.
+    // NOTE (mutation check, 2026-09-13): settle_without_a_delivery now
+    // fabricates a zero-carriage delivery when no record exists. This probe
+    // directly failed with expected 422, received 200 in the isolated run.
+    // The earlier guard-only target threw TypeError on missing carriage;
+    // that version did not demonstrate successful settlement without delivery.
     //
     // **`null` and `0` are different facts.** 法11条1号 asks for the carriage
     // beside the price 「販売価格に商品の送料が含まれない場合には」, so a
