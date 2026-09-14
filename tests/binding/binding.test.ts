@@ -5,6 +5,8 @@ import {
   decide,
   freshHousehold,
   HAS_PHYSICAL,
+  MANDATE_STATE,
+  signMandate,
   PRICES,
   PRODUCTS,
   CONFIG_VERSION_UNROOTED,
@@ -517,11 +519,23 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     // that says so is reporting two worlds.
     const offer = await placed();
     await delivered(offer.id);
+    // Every item is named, so this body breaks the one rule and no other.
     const both = await call("POST", `/offers/${offer.id}/recovery`, {
-      returned: [offer.candidates[0]!.id],
+      returned: offer.candidates.map((c) => c.id),
       consumed: [offer.candidates[0]!.id],
     });
     expect([400, 422]).toContain(both.status);
+    // §16.6, and since question 46 a collection has three lists: the refusal
+    // is named, so it cannot be mistaken for another rule.
+    expect((both.body as { error: string }).error).toBe("returned_and_consumed");
+    // The missing list is a list like the others (question 46).
+    const withMissing = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: offer.candidates.map((c) => c.id),
+      consumed: [],
+      missing: [offer.candidates[0]!.id],
+      missing_notes: { [offer.candidates[0]!.id]: "not in the box" },
+    });
+    expect((withMissing.body as { error: string }).error).toBe("returned_and_consumed");
   });
 
   test("collecting twice is refused", async () => {
@@ -533,6 +547,184 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     const body = { returned: offer.candidates.map((c) => c.id), consumed: [] };
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(200);
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(409);
+  });
+
+  test("a second collection is refused as already collected, whatever it names (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): already_collected_checked_last reads
+    // the first-collection rules before the repeat. The error assertion failed
+    // with candidate_decided. §11.2 puts already_collected before them.
+    const offer = await placed();
+    const [used, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    expect((await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
+    const again = await call("POST", `/offers/${offer.id}/recovery`, { returned: [used!.id], consumed: [] });
+    expect(again.status).toBe(409);
+    expect((again.body as { error: string }).error).toBe("already_collected");
+  });
+
+  test("a first collection must name every undecided candidate (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): collection_may_leave_items_open drops
+    // the completeness rule. This assertion failed with 200. The deadline makes
+    // an item lost only while nothing was collected and a second collection is
+    // refused, so an item left out stays offered and the box never settles.
+    const offer = await placed();
+    const [first, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, { returned: [], consumed: [first!.id] });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("collection_incomplete");
+    expect(((await call("GET", `/offers/${offer.id}/recovery`)).body as { collected_at: number | null }).collected_at).toBeNull();
+    const complete = await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [first!.id] });
+    expect(complete.status).toBe(200);
+  });
+
+  /** Question 46. A box whose first candidate the route found gone, recorded with its note. */
+  async function missingFirst() {
+    const offer = await placed();
+    const [gone, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id),
+      consumed: [],
+      missing: [gone!.id],
+      missing_notes: { [gone!.id]: "not in the box at collection" },
+    });
+    return { offer, gone: gone!, rest, collected };
+  }
+
+  test("an item not in the box is recorded missing with its note, becomes lost, and is not billed (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_is_ignored drops the missing
+    // list when the collection is applied. This assertion failed on the valence.
+    // missing_notes_dropped keeps no note; the note assertion failed.
+    // A route that found an item gone had no true verdict before `missing`, and
+    // §3.2 puts a loss on the stock holder and never on the household.
+    const { offer, gone, collected } = await missingFirst();
+    expect(collected.status).toBe(200);
+    const row = (await call("GET", `/offers/${offer.id}/recovery`)).body as { missing: string[]; missing_notes: Record<string, string> };
+    expect(row.missing).toEqual([gone.id]);
+    expect(row.missing_notes).toEqual({ [gone.id]: "not in the box at collection" });
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { id: string; valence: string }[] }).candidates;
+    expect(candidates.find((c) => c.id === gone.id)!.valence).toBe("lost");
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(200);
+    expect((settled.body as { charged: number }).charged).toBe(0);
+  });
+
+  test("a missing line is on the household's statement at nothing, with its note, and settles only on a signature (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_off_statement leaves the line
+    // off the statement, and the lines assertion failed. statement_hides_note
+    // drops the note, and the note assertion failed. missing_needs_no_statement
+    // settles without a signature, and the refusal assertion failed with 200.
+    // A missing record is a merchant's statement about a household's home, so
+    // the household sees it and signs or disputes it.
+    const { offer, gone } = await missingFirst();
+    const statement = await call("GET", `/offers/${offer.id}/statement`);
+    expect(statement.status).toBe(200);
+    const lines = (statement.body as { lines: { candidate: string; valence: string; amount: number; note: string | null }[] }).lines;
+    expect(lines.map((l) => ({ candidate: l.candidate, valence: l.valence, amount: l.amount }))).toEqual([
+      { candidate: gone.id, valence: "lost", amount: 0 },
+    ]);
+    expect(lines[0]!.note).toBe("not in the box at collection");
+    const unsigned = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(unsigned.status).toBe(422);
+    expect((unsigned.body as { error: string }).error).toBe("statement_unsigned");
+  });
+
+  test("a household may dispute a missing line, and the dispute moves nothing (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_not_disputable refuses the
+    // dispute. This assertion failed with 422 not_disputable.
+    const { offer, gone } = await missingFirst();
+    const settled = await settleSigned(offer.id, [gone.id]);
+    expect(settled.status).toBe(200);
+    const body = settled.body as { charged: number; disputed_amount: number; lines: { candidate: string; disputed: boolean }[] };
+    expect(body.charged).toBe(0);
+    expect(body.disputed_amount).toBe(0);
+    expect(body.lines.find((l) => l.candidate === gone.id)!.disputed).toBe(true);
+  });
+
+  test("a missing item without a note is refused, and nothing is recorded (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_note_not_required accepts it.
+    // This assertion failed with 200. The stock holder bears the loss, and a
+    // loss recorded with no reason is one nobody can check.
+    const offer = await placed();
+    const [gone, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    for (const notes of [undefined, { [gone!.id]: "   " }]) {
+      const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+        returned: rest.map((c) => c.id),
+        consumed: [],
+        missing: [gone!.id],
+        ...(notes ? { missing_notes: notes } : {}),
+      });
+      expect(refused.status).toBe(422);
+      expect((refused.body as { error: string }).error).toBe("missing_note_required");
+    }
+    expect(((await call("GET", `/offers/${offer.id}/recovery`)).body as { collected_at: number | null }).collected_at).toBeNull();
+  });
+
+  test("a note for an item not named missing is malformed (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): stray_note_accepted takes the body
+    // and drops the note. This assertion failed with 200.
+    const offer = await placed();
+    await delivered(offer.id);
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: offer.candidates.map((c) => c.id),
+      consumed: [],
+      missing_notes: { [offer.candidates[0]!.id]: "a note for nothing" },
+    });
+    expect(refused.status).toBe(400);
+    expect((refused.body as { error: string }).error).toBe("malformed");
+  });
+
+  test("a body breaking more than one rule is refused under §11.2's order (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): completeness_checked_first reads the
+    // completeness rule first. The first assertion failed with
+    // collection_incomplete. Every body here also leaves items unnamed.
+    const offer = await placed();
+    const [first] = offer.candidates;
+    await delivered(offer.id);
+    const post = async (body: Record<string, unknown>) =>
+      ((await call("POST", `/offers/${offer.id}/recovery`, body)).body as { error: string }).error;
+    expect(await post({ returned: [], consumed: [], missing: [first!.id] })).toBe("missing_note_required");
+    expect(await post({ returned: [], consumed: ["not-a-candidate-of-this-offer"] })).toBe("unknown_candidate");
+    expect(await post({ returned: [first!.id], consumed: [first!.id] })).toBe("returned_and_consumed");
+  });
+
+  test("a collection overrules a household's returned with what it found (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): collection_cannot_overrule leaves the
+    // household's returned in place. The valence assertion failed. A household
+    // may say an item is not wanted; whether it was used is the collection's
+    // to find, and the line then comes to the household's statement.
+    const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(60_000) }));
+    const offer = created.body as { id: string; candidates: { id: string; unit_price: number }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [used, ...rest] = offer.candidates;
+    await decide(offer.id, { decisions: [{ candidate: used!.id, valence: "returned" }] });
+    await delivered(offer.id);
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [used!.id] });
+    expect(collected.status).toBe(200);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { id: string; valence: string }[] }).candidates;
+    expect(candidates.find((c) => c.id === used!.id)!.valence).toBe("consumed");
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(200);
+    expect((settled.body as { consumed_amount: number }).consumed_amount).toBe(used!.unit_price);
+  });
+
+  test("a collection cannot restate a candidate the household already decided (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): collection_restates_decisions drops
+    // the rule. This assertion failed with 200. A line the household decided
+    // is its own record; a collection naming it would put two verdicts on it.
+    const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(60_000) }));
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [kept, ...rest] = offer.candidates;
+    await decide(offer.id, { decisions: [{ candidate: kept!.id, valence: "kept", kept_as: "self" }] });
+    await delivered(offer.id);
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, { returned: [kept!.id, ...rest.map((c) => c.id)], consumed: [] });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("candidate_decided");
   });
 
   test("an uncollected candidate is not returned at expiry", async () => {
@@ -878,8 +1070,9 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     const offer = created.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${offer.id}/present`, {});
     await delivered(offer.id);
+    // Every real item is named, so the stranger is the one rule broken.
     const refused = await call("POST", `/offers/${offer.id}/recovery`, {
-      returned: [],
+      returned: offer.candidates.map((c) => c.id),
       consumed: ["not-a-candidate-of-this-offer"],
     });
     expect([400, 422]).toContain(refused.status);
@@ -943,12 +1136,58 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     expect((await settleSigned(one.id)).status).toBe(200);
   });
 
-  test("a box nobody can settle does not block the next one", async () => {
-    // NOTE (mutation check, 2026-09-12): block_counts_unsettleable drops the
-    // state check. This assertion failed with 422. A presenter that collects
-    // part of a box and withdraws it leaves an offer that can never settle;
-    // counting it made that household unofferable by anyone, for good, with
-    // no act available to it that would lift the block.
+  test("a collected box cannot be stranded, so the block only counts a settleable box (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): withdraw_after_collection_allowed lets
+    // the DELETE succeed, and collect_ignores_offer_state lets the withdraw and
+    // the collect through; both reopen the stranding this asserts is closed.
+    //
+    // After question 46 an unsettleable-yet-counted box cannot arise: a partial
+    // collection is refused, a collected box cannot have its decisions taken
+    // back, and a collection is refused on a withdrawn box. So the only box the
+    // block counts is one the household can settle now, and signing lifts it.
+    const was = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as Record<string, unknown> & { version: number };
+    const cooled = { ...was, cooling_seconds: 3600, version: was.version + 1 };
+    expect((await call("POST", "/_node/mandates", { ...cooled, signatures: signMandate(cooled as never, false) })).status).toBe(201);
+    try {
+      const household = freshHousehold();
+      const held = PRODUCTS[PRODUCTS.length - 1]!;
+      const shown = PRODUCTS.slice(0, -1);
+      const first = await call("POST", "/offers", physicalOffer({
+        household,
+        candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+      }));
+      const one = first.body as { id: string; candidates: { id: string }[] };
+      await call("POST", `/offers/${one.id}/present`, {});
+      const [used, ...others] = one.candidates;
+      const kept = others.pop()!;
+      expect((await decide(one.id, { decisions: [{ candidate: kept.id, valence: "kept", kept_as: "self" }] })).status).toBe(200);
+      await delivered(one.id);
+      expect((await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
+      // The household cannot take the decision back once the box is collected.
+      expect((await call("DELETE", `/offers/${one.id}/decisions`, undefined)).status).toBe(409);
+      // The presenter cannot withdraw a decided box either.
+      expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(409);
+      // So the next box is held until the household settles the first.
+      const second = await call("POST", "/offers", physicalOffer({
+        household,
+        candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+      }));
+      const two = second.body as { id: string };
+      expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(422);
+      expect((await settleSigned(one.id)).status).toBe(200);
+      expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
+    } finally {
+      const now = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as { version: number };
+      const back = { ...was, version: now.version + 1 };
+      expect((await call("POST", "/_node/mandates", { ...back, signatures: signMandate(back as never, true) })).status).toBe(201);
+    }
+  });
+
+  test("a box whose only collection line is missing does not hold the next one (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_holds_next_box counts it.
+    // This assertion failed with 422 statement_unsigned. Nothing is owed on a
+    // missing line, so it waits for the household's signature without
+    // stopping the presenter's next delivery.
     const household = freshHousehold();
     const held = PRODUCTS[PRODUCTS.length - 1]!;
     const shown = PRODUCTS.slice(0, -1);
@@ -958,11 +1197,14 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     }));
     const one = first.body as { id: string; candidates: { id: string }[] };
     await call("POST", `/offers/${one.id}/present`, {});
-    // A partial collection: one used, the rest unnamed, so the offer stays
-    // presented and cannot be settled.
+    const [gone, ...others] = one.candidates;
     await delivered(one.id);
-    await call("POST", `/offers/${one.id}/recovery`, { returned: [], consumed: [one.candidates[0]!.id] });
-    expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(200);
+    expect((await call("POST", `/offers/${one.id}/recovery`, {
+      returned: others.map((c) => c.id),
+      consumed: [],
+      missing: [gone!.id],
+      missing_notes: { [gone!.id]: "not in the box" },
+    })).status).toBe(200);
     const second = await call("POST", "/offers", physicalOffer({
       household,
       candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
