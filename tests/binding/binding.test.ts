@@ -1478,3 +1478,73 @@ describe.if(HAS_PHYSICAL)("binding: a signature is an application, and applying 
     expect((asked.body as { receipt: string }).receipt).toBe((first.body as { receipt: string }).receipt);
   });
 });
+
+describe.if(HAS_PHYSICAL)("binding: what a collection named each line travels beside it (§3, §11.1)", () => {
+  test("a candidate carries collected_as on the offer, the household's list and the approval", async () => {
+    // Question 48, decided 2026-09-15. A `lost` line is either not in the box,
+    // which the household sees on its statement, or never collected by the
+    // deadline, which is on no statement, and the valence alone cannot say
+    // which. A hub drew one sentence covering both.
+    const created = await call("POST", "/offers", physicalOffer({ expires_at: soon(60_000) }));
+    const offer = created.body as { id: string; household: string; presenter: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["the same thing in a smaller tin"], argument_against: "you have one already" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const [used, gone, ...back] = offer.candidates;
+    const before = await call("GET", `/offers/${offer.id}`);
+    expect((before.body as { candidates: { collected_as: unknown }[] }).candidates.every((c) => c.collected_as === null)).toBe(true);
+
+    await delivered(offer.id);
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: back.map((c) => c.id),
+      consumed: [used!.id],
+      missing: [gone!.id],
+      missing_notes: { [gone!.id]: "not in the tray at collection" },
+    });
+    expect(collected.status).toBe(200);
+    const expected: Record<string, string> = { [used!.id]: "consumed", [gone!.id]: "missing" };
+    for (const c of back) expected[c.id] = "returned";
+    const named = (body: unknown) =>
+      Object.fromEntries((body as { candidates: { id: string; collected_as: string | null }[] }).candidates.map((c) => [c.id, c.collected_as]));
+
+    expect(named((await call("GET", `/offers/${offer.id}`)).body)).toEqual(expected);
+    const listed = await call("GET", `/offers?household=${encodeURIComponent(offer.household)}&presenter=${encodeURIComponent(offer.presenter)}`);
+    const row = (listed.body as { offers: { id: string }[] }).offers.find((o) => o.id === offer.id);
+    expect(named(row)).toEqual(expected);
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    expect(named(approval.body)).toEqual(expected);
+  });
+
+  test("a line the deadline made lost names no collection", async () => {
+    // NOTE: the other half of question 48. A `lost` with `collected_as` null is
+    // a line nobody collected, and never one the collection found missing.
+    const created = await call("POST", "/offers", physicalOffer({ expires_at: soon(EXPIRY_MS) }));
+    const offer = created.body as { id: string };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await sleep(EXPIRY_MS + GRACE_MS + 500);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { valence: string; collected_as: string | null }[] }).candidates;
+    expect(candidates.every((c) => c.valence === "lost" && c.collected_as === null)).toBe(true);
+  });
+
+  test("a physical line carrying more than one is refused, and a digital one is not", async () => {
+    // Question 49, decided 2026-09-15. A collection gives a line one verdict,
+    // so two of a thing with one used was `consumed` and charged for both.
+    const body = physicalOffer({ expires_at: soon(60_000) }) as { candidates: { quantity: number }[] };
+    body.candidates[0]!.quantity = 2;
+    const refused = await call("POST", "/offers", body);
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("physical_quantity");
+    const digital = conformingOffer({ expires_at: soon(60_000) }) as { candidates: { quantity: number }[] };
+    digital.candidates[0]!.quantity = 2;
+    expect((await call("POST", "/offers", digital)).status).toBe(201);
+  });
+});
