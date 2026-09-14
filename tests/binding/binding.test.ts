@@ -691,6 +691,42 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     expect(await post({ returned: [first!.id], consumed: [first!.id] })).toBe("returned_and_consumed");
   });
 
+  test("a stranger is named before a repeated verdict (§11.2's order, question 46)", async () => {
+    // NOTE (mutation check, 2026-09-15): repeat_checked_before_stranger reads
+    // the repeated-verdict rule before the stranger rule. The error assertion
+    // failed with returned_and_consumed. §11.2 names unknown_candidate first.
+    const offer = await placed();
+    const [first] = offer.candidates;
+    await delivered(offer.id);
+    // The body names an id of no candidate and names one candidate twice, so
+    // it breaks the first two rules of §11.2's order and no rule between them.
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [first!.id],
+      consumed: [first!.id, "not-a-candidate-of-this-offer"],
+    });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("unknown_candidate");
+  });
+
+  test("a repeated verdict is named before a missing note (§11.2's order, question 46)", async () => {
+    // NOTE (mutation check, 2026-09-15): missing_note_checked_before_repeat
+    // reads the missing-note rule before the repeated-verdict rule. The error
+    // assertion failed with missing_note_required. §11.2 names
+    // returned_and_consumed first.
+    const offer = await placed();
+    const [first] = offer.candidates;
+    await delivered(offer.id);
+    // The same candidate is returned and missing, and the missing line has no
+    // note, so the body breaks the second and third rules and no rule between.
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: [first!.id],
+      consumed: [],
+      missing: [first!.id],
+    });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("returned_and_consumed");
+  });
+
   test("a collection overrules a household's returned with what it found (question 46)", async () => {
     // NOTE (mutation check, 2026-09-14): collection_cannot_overrule leaves the
     // household's returned in place. The valence assertion failed. A household
