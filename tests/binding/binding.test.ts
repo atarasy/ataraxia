@@ -549,6 +549,19 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(409);
   });
 
+  test("a second collection is refused as already collected, whatever it names (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): already_collected_checked_last reads
+    // the first-collection rules before the repeat. The error assertion failed
+    // with candidate_decided. §11.2 puts already_collected before them.
+    const offer = await placed();
+    const [used, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    expect((await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
+    const again = await call("POST", `/offers/${offer.id}/recovery`, { returned: [used!.id], consumed: [] });
+    expect(again.status).toBe(409);
+    expect((again.body as { error: string }).error).toBe("already_collected");
+  });
+
   test("a first collection must name every undecided candidate (question 46)", async () => {
     // NOTE (mutation check, 2026-09-14): collection_may_leave_items_open drops
     // the completeness rule. This assertion failed with 200. The deadline makes

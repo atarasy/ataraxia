@@ -498,6 +498,32 @@ describe("exit: recovery is not reading (clause 53)", () => {
 });
 
 describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (§6.5, §14.2)", () => {
+  test("the export carries a missing item with its note (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): export_strips_missing_notes empties
+    // the notes on the way out. The note assertion failed. The note is how the
+    // stock holder learns why it bears a loss, and a move that dropped it
+    // would arrive with the loss and without the reason.
+    const house = encodeURIComponent(household());
+    const created = await call("POST", "/offers", conformingOffer({ binding: "physical", household: household() }));
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [gone, ...others] = offer.candidates;
+    expect((await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: others.map((c) => c.id),
+      consumed: [],
+      missing: [gone!.id],
+      missing_notes: { [gone!.id]: "not in the box at collection" },
+    })).status).toBe(200);
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    expect((exported.body as { format: string }).format).toBe("valence-node/5");
+    const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
+    const row = (node.collections ?? []).find((c) => c.offer === offer.id);
+    expect(row?.missing).toEqual([gone!.id]);
+    expect(row?.missing_notes).toEqual({ [gone!.id]: "not in the box at collection" });
+  });
+
   test("the export carries the collection, and the second host holds the block", async () => {
     // NOTE (mutation check, 2026-09-12): export_drops_collections leaves the
     // rows out. The first assertion failed, and the last one failed too: the
