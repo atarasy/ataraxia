@@ -438,7 +438,9 @@ export async function settleSigned(
     candidate: l.candidate,
     valence: l.valence,
     amount: l.amount,
-    disputed: l.valence === "consumed" && disputed.includes(l.candidate),
+    // A household disputes the collection's lines: consumed, and since
+    // question 46 a line the collection recorded missing, which reads `lost`.
+    disputed: (l.valence === "consumed" || l.valence === "lost") && disputed.includes(l.candidate),
   }));
   // §6.5, question 40. The statement carries the carriage the screen shows, so
   // the signature covers the figure the household would have read. No probe
