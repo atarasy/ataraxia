@@ -91,12 +91,15 @@ can repeat any row.
 | `revoke_revokes_everything` | Revoking one permission stamps them all | 1 |
 | `global_permissions_route` | `GET /permissions` registered, listing them to anyone | 1 |
 | `no_recovery_on_present` | Presenting a physical offer opens no recovery | 11, and 2 unit tests |
-| `collect_ignores_consumed` | The consumed list dropped and the returned/consumed overlap guard removed. In the original 299 run, 3 conformance assertions directly check the collection or exported list; 19 other conformance failures and 14 unit failures lose a prerequisite of their separate properties | 22 conformance failure names and 14 unit failure names; reviewed separately from direct catches |
+| `collect_ignores_consumed` | The consumed list dropped and the overlap guard in `collect` removed. In the original 299 run, 3 conformance assertions directly check the collection or exported list; 19 other conformance failures and 14 unit failures lose a prerequisite of their separate properties. **Re-anchored 2026-09-14**: question 46 rewrote the overlap guard for three lists and the second replacement had silently stopped matching; `anchors.py` named it | Isolated rerun 2026-09-14: 21 conformance failure names and 15 unit failure names; reviewed separately from direct catches |
 | `physical_expiry_returns` | The digital expiry rule applied to the physical binding. Re-targeted on 2026-09-13: the previous first match was identical to no_recovery_on_present | Isolated corrected mutation: 4 conformance failures and 1 unit failure |
 | `never_lost` | The loss deadline removed, so uncollected candidates stay undecided | 3, and 1 unit test |
 | `place_anything` | The eligibility check removed, and an unknown product given a price | 2 |
 | `collect_twice` | A second collection accepted for one offer | 1 |
-| `returned_and_consumed_ok` | A candidate accepted as both returned and consumed | 1 |
+| `returned_and_consumed_ok` | A candidate accepted in two lists of one collection. **Since 2026-09-14 it removes both the route's check and `collect`'s**: question 46 put a check on the route ahead of completeness, and removing only the second would have left the refusal in place and read as a survivor | Isolated rerun 2026-09-14: 1 |
+| `collection_may_leave_items_open` | Question 46. The completeness rule removed, so a first collection may leave an undecided item unnamed and the box can never settle | Isolated run 2026-09-14: 1 |
+| `collection_restates_decisions` | Question 46. A collection accepted naming an item the household already decided | Isolated run 2026-09-14: 1 |
+| `missing_is_ignored` | Question 46. The `missing` list not applied, so an item the route found gone stays undecided instead of becoming `lost` | Isolated run 2026-09-14: 1 |
 | `search_route` | `GET /search` registered, returning a ranked list | 1 |
 | `registry_by_registration` | The registry listed in registration order rather than key order | 1 |
 | `registry_featured` | A `featured` flag added to marked entries | 1 |

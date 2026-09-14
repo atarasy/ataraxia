@@ -522,6 +522,9 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
       consumed: [offer.candidates[0]!.id],
     });
     expect([400, 422]).toContain(both.status);
+    // §16.6, and since question 46 a collection has three lists: the refusal
+    // is named, so it cannot be mistaken for the completeness rule it precedes.
+    expect((both.body as { error: string }).error).toBe("returned_and_consumed");
   });
 
   test("collecting twice is refused", async () => {
@@ -533,6 +536,55 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     const body = { returned: offer.candidates.map((c) => c.id), consumed: [] };
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(200);
     expect((await call("POST", `/offers/${offer.id}/recovery`, body)).status).toBe(409);
+  });
+
+  test("a first collection must name every undecided candidate (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): collection_may_leave_items_open drops
+    // the completeness rule. This assertion failed with 200. The deadline makes
+    // an item lost only while nothing was collected and a second collection is
+    // refused, so an item left out stays offered and the box never settles.
+    const offer = await placed();
+    const [first, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, { returned: [], consumed: [first!.id] });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("collection_incomplete");
+    expect(((await call("GET", `/offers/${offer.id}/recovery`)).body as { collected_at: number | null }).collected_at).toBeNull();
+    const complete = await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [first!.id] });
+    expect(complete.status).toBe(200);
+  });
+
+  test("an item not in the box is recorded missing, becomes lost, and is not billed (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): missing_is_ignored drops the missing
+    // list when the collection is applied. This assertion failed on the valence.
+    // A route that found an item gone had no true verdict before `missing`, and
+    // §3.2 puts a loss on the stock holder and never on the household.
+    const offer = await placed();
+    const [gone, ...rest] = offer.candidates;
+    await delivered(offer.id);
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [], missing: [gone!.id] });
+    expect(collected.status).toBe(200);
+    const read = await call("GET", `/offers/${offer.id}`);
+    const candidates = (read.body as { candidates: { id: string; valence: string }[] }).candidates;
+    expect(candidates.find((c) => c.id === gone!.id)!.valence).toBe("lost");
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    expect((settled.body as { charged: number }).charged).toBe(0);
+  });
+
+  test("a collection cannot restate a candidate the household already decided (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): collection_restates_decisions drops
+    // the rule. This assertion failed with 200. A line the household decided
+    // is its own record; a collection naming it would put two verdicts on it.
+    const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(60_000) }));
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const [kept, ...rest] = offer.candidates;
+    await decide(offer.id, { decisions: [{ candidate: kept!.id, valence: "kept", kept_as: "self" }] });
+    await delivered(offer.id);
+    const refused = await call("POST", `/offers/${offer.id}/recovery`, { returned: [kept!.id, ...rest.map((c) => c.id)], consumed: [] });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("candidate_decided");
   });
 
   test("an uncollected candidate is not returned at expiry", async () => {
