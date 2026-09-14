@@ -1136,19 +1136,15 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     expect((await settleSigned(one.id)).status).toBe(200);
   });
 
-  test("a box nobody can settle does not block the next one", async () => {
-    // NOTE (mutation check, 2026-09-12): block_counts_unsettleable drops the
-    // state check. This assertion failed with 422. A presenter that withdraws
-    // a collected box leaves an offer that can never settle; counting it made
-    // that household unofferable by anyone, for good, with no act available
-    // to it that would lift the block.
+  test("a collected box cannot be stranded, so the block only counts a settleable box (question 46)", async () => {
+    // NOTE (mutation check, 2026-09-14): withdraw_after_collection_allowed lets
+    // the DELETE succeed, and collect_ignores_offer_state lets the withdraw and
+    // the collect through; both reopen the stranding this asserts is closed.
     //
-    // Rewritten 2026-09-14. Question 46 requires a first collection to name
-    // every open item, so the partial collection this probe used is refused
-    // and the probe had become vacuous. The one way left to reopen a
-    // collected box is the household's cooling window: it keeps a line, the
-    // route resolves the rest, it takes its line back, and the presenter then
-    // withdraws the box.
+    // After question 46 an unsettleable-yet-counted box cannot arise: a partial
+    // collection is refused, a collected box cannot have its decisions taken
+    // back, and a collection is refused on a withdrawn box. So the only box the
+    // block counts is one the household can settle now, and signing lifts it.
     const was = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as Record<string, unknown> & { version: number };
     const cooled = { ...was, cooling_seconds: 3600, version: was.version + 1 };
     expect((await call("POST", "/_node/mandates", { ...cooled, signatures: signMandate(cooled as never, false) })).status).toBe(201);
@@ -1167,13 +1163,18 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
       expect((await decide(one.id, { decisions: [{ candidate: kept.id, valence: "kept", kept_as: "self" }] })).status).toBe(200);
       await delivered(one.id);
       expect((await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
-      expect((await call("DELETE", `/offers/${one.id}/decisions`, undefined)).status).toBe(200);
-      expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(200);
+      // The household cannot take the decision back once the box is collected.
+      expect((await call("DELETE", `/offers/${one.id}/decisions`, undefined)).status).toBe(409);
+      // The presenter cannot withdraw a decided box either.
+      expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(409);
+      // So the next box is held until the household settles the first.
       const second = await call("POST", "/offers", physicalOffer({
         household,
         candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
       }));
       const two = second.body as { id: string };
+      expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(422);
+      expect((await settleSigned(one.id)).status).toBe(200);
       expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
     } finally {
       const now = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as { version: number };
