@@ -977,6 +977,33 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     }
   });
 
+  test.if(HAS_PHYSICAL)("a signed set on a box past its expiry cannot be taken back (§16.5)", async () => {
+    // Question 47, decided 2026-09-15. A withdrawal returns the lines no
+    // collection named to `offered`, and on a box past its expiry the deadline
+    // then makes them `lost`, which is never billed: a household that signed
+    // `kept` and withdrew inside a long window kept the goods for nothing.
+    const set = await put({ cooling_seconds: 3600 }, false);
+    expect(set.response.status).toBe(201);
+    try {
+      const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(1500) }));
+      expect(created.status).toBe(201);
+      const offer = created.body as { id: string; candidates: { id: string }[] };
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+      expect(decided.status).toBe(200);
+      await sleep(2_000);
+
+      const late = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+      expect(late.status).toBe(409);
+      expect((late.body as { error: string }).error).toBe("not_withdrawable");
+      const read = await call("GET", `/offers/${offer.id}`);
+      expect((read.body as { state: string }).state).toBe("decided");
+      expect((read.body as { candidates: { valence: string }[] }).candidates.every((c) => c.valence === "kept")).toBe(true);
+    } finally {
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+    }
+  });
+
 });
 
 describe("permissions: a grant to a computation (clauses 9, 39, §7.5)", () => {
