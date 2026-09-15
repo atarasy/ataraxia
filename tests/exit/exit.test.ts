@@ -156,6 +156,109 @@ describe("exit: the move (clause 52)", () => {
     expect((moved.body as { state: string }).state).toBe("decided");
   });
 
+  test("an offer an import writes carries its register even when a later row is refused (§14.2)", async () => {
+    // NOTE (mutation check, 2026-09-15): import_register_after_edges takes the
+    // register in after the edges. This assertion failed: the offer stood on
+    // the second host with an empty register.
+    //
+    // Question 50. The reference import is not atomic, and a refutation pass
+    // measured an import refused at an edge leaving its offers written and
+    // their register not: a set moved without one, which a retry could not
+    // repair. If a host writes nothing on refusal, as §14.2 asks, there is
+    // nothing to check and the probe says so by reading the offer first.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    const node = exported.body as { lineage: unknown[]; confirmations: Record<string, string[]> };
+    expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
+    const refused = await callSecond("POST", `/households/${house}/import`, {
+      ...node,
+      lineage: [{ ...LINEAGE_EDGE, from: household(), signature: "not-a-signature" }],
+    });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("bad_signature");
+
+    const there = await callSecond("GET", `/offers/${offer.id}`);
+    if (there.status === 200) {
+      const second = await callSecond("GET", `/households/${house}/export`);
+      const register = (second.body as { confirmations?: Record<string, string[]> }).confirmations ?? {};
+      expect(register[offer.id]?.length).toBeGreaterThan(0);
+    } else {
+      expect(there.status).toBe(404);
+    }
+  });
+
+  test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
+    // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
+    // the refusal. This assertion failed with 422: the route went on to the
+    // mandate instead. The mutation had survived that day's sweep, because
+    // the question 46 guard now refuses the collected box the binding probe
+    // builds before this guard is reached, and nothing else reached it. This
+    // is the path that still does, and the digital binding has no other guard.
+    //
+    // §14 and §16.5, question 50, decided 2026-09-15. The export carries the
+    // register of what has confirmed each offer, and an offer it does not name
+    // arrives with no confirmation recorded. Withdrawing that set would let
+    // it be decided again with the confirmation it arrived without (§10.5),
+    // so the route refuses it and the household loses the window on it.
+    // Until question 50 §14 did not name the field, and this probe was held
+    // back rather than bind other implementations to it. §16.5 now decides
+    // `not_withdrawable` before the mandate, so the suite's mandate having no
+    // window does not change which refusal is owed.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    // A /5 export, which §14 lets carry no register: the shape a host built
+    // from the text before question 50 would have sent.
+    const node = exported.body as { format: string; confirmations?: Record<string, string[]> };
+    node.format = "valence-node/5";
+    delete node.confirmations;
+    expect((await callSecond("POST", `/households/${house}/import`, node)).status).toBe(201);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+
+    const taken = await callSecond("DELETE", `/offers/${offer.id}/decisions`);
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+
+    // NOTE (mutation check, 2026-09-15): import_confirmations_unscoped accepts
+    // the register below. This assertion failed with 201.
+    //
+    // §14.2. A second import carrying nothing but a register entry for the
+    // offer this host already holds. A refutation pass measured it unlocking
+    // the withdrawal above, after which the signature captured on the first
+    // host decided the set again.
+    const planted = await callSecond("POST", `/households/${house}/import`, {
+      format: "valence-node/6",
+      confirmations: { [offer.id]: ["planted"] },
+    });
+    expect(planted.status).toBe(422);
+    // NOTE (mutation check, 2026-09-15): import_register_shape_unchecked lets a
+    // register whose value is not a list through. This assertion failed with
+    // 422: the entry reached the scoping check instead of being refused as
+    // malformed, and an offer carried with it would have arrived unregistered.
+    const misshaped = await callSecond("POST", `/households/${house}/import`, {
+      format: "valence-node/6",
+      confirmations: { [offer.id]: "planted" },
+    });
+    expect(misshaped.status).toBe(400);
+    expect((await callSecond("DELETE", `/offers/${offer.id}/decisions`)).status).toBe(409);
+  });
+
 
   test("an import adds what this host does not hold, and changes nothing it does (§14.2)", async () => {
     // NOTE (mutation check, 2026-09-11): import_overwrites_an_offer lets it
@@ -517,7 +620,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/5");
+    expect((exported.body as { format: string }).format).toBe("valence-node/6");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
