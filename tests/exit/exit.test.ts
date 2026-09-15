@@ -156,6 +156,42 @@ describe("exit: the move (clause 52)", () => {
     expect((moved.body as { state: string }).state).toBe("decided");
   });
 
+  test("an offer an import writes carries its register even when a later row is refused (§14.2)", async () => {
+    // NOTE (mutation check, 2026-09-15): import_register_after_edges takes the
+    // register in after the edges. This assertion failed: the offer stood on
+    // the second host with an empty register.
+    //
+    // Question 50. The reference import is not atomic, and a refutation pass
+    // measured an import refused at an edge leaving its offers written and
+    // their register not: a set moved without one, which a retry could not
+    // repair. If a host writes nothing on refusal, as §14.2 asks, there is
+    // nothing to check and the probe says so by reading the offer first.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    const node = exported.body as { lineage: unknown[]; confirmations: Record<string, string[]> };
+    expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
+    const refused = await callSecond("POST", `/households/${house}/import`, {
+      ...node,
+      lineage: [{ ...LINEAGE_EDGE, from: household(), signature: "not-a-signature" }],
+    });
+    expect(refused.status).toBe(422);
+
+    const there = await callSecond("GET", `/offers/${offer.id}`);
+    if (there.status === 200) {
+      const second = await callSecond("GET", `/households/${house}/export`);
+      const register = (second.body as { confirmations?: Record<string, string[]> }).confirmations ?? {};
+      expect(register[offer.id]?.length).toBeGreaterThan(0);
+    } else {
+      expect(there.status).toBe(404);
+    }
+  });
+
   test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
     // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
     // the refusal. This assertion failed with 422: the route went on to the
