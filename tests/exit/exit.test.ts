@@ -170,7 +170,9 @@ describe("exit: the move (clause 52)", () => {
     // it be decided again with the confirmation it arrived without (§10.5),
     // so the route refuses it and the household loses the window on it.
     // Until question 50 §14 did not name the field, and this probe was held
-    // back rather than bind other implementations to it.
+    // back rather than bind other implementations to it. §16.5 now decides
+    // `not_withdrawable` before the mandate, so the suite's mandate having no
+    // window does not change which refusal is owed.
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
@@ -183,7 +185,10 @@ describe("exit: the move (clause 52)", () => {
 
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    const node = exported.body as { confirmations?: Record<string, string[]> };
+    // A /5 export, which §14 lets carry no register: the shape a host built
+    // from the text before question 50 would have sent.
+    const node = exported.body as { format: string; confirmations?: Record<string, string[]> };
+    node.format = "valence-node/5";
     delete node.confirmations;
     expect((await callSecond("POST", `/households/${house}/import`, node)).status).toBe(201);
     expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
@@ -555,7 +560,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/5");
+    expect((exported.body as { format: string }).format).toBe("valence-node/6");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
