@@ -180,7 +180,7 @@ describe("exit: the move (clause 52)", () => {
     expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
     const refused = await callSecond("POST", `/households/${house}/import`, {
       ...node,
-      lineage: [{ ...LINEAGE_EDGE, from: household(), signature: "not-a-signature" }],
+      lineage: [{ ...LINEAGE_EDGE, id: `edge-refused-${offer.id}`, from: household(), signature: "not-a-signature" }],
     });
     expect(refused.status).toBe(422);
     expect((refused.body as { error: string }).error).toBe("bad_signature");
