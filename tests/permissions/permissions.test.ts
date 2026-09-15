@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
   call,
@@ -9,9 +9,11 @@ import {
   createConformingOffer,
   decide,
   findKey,
+  freshHousehold,
   HOUSEHOLD,
   MANDATE_STATE,
   meansAnyOf,
+  ownMandate,
   PRODUCTS,
   assertDecisions,
   assertMandate,
@@ -453,22 +455,10 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     // signed bound nothing. Clause 46 is what a household sets against
     // merchants the registry does not list, and the reference deployment's
     // makers are not listed, so every candidate here counts toward it.
-    const own = `mandate-ceiling-${Math.random().toString(36).slice(2, 8)}`;
-    const tight = {
-      id: own,
-      household: MANDATE_STATE.household,
-      ceiling_out_of_network: 1,
-      co_signers: [],
-      lapses_at: soon(600_000),
-      version: 1,
-    };
-    const recorded = await call("POST", "/_node/mandates", {
-      ...tight,
-      signatures: signMandate(tight, false),
-    });
-    expect(recorded.status).toBe(201);
+    // §16, question 54. The mandate is the offer's own household's.
+    const own = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
 
-    const created = await call("POST", "/offers", conformingOffer({ mandate: own }));
+    const created = await call("POST", "/offers", conformingOffer({ mandate: own.mandate.id, household: own.household }));
     expect(created.status).toBe(201);
     const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
     expect(presented.status).toBe(422);
@@ -478,26 +468,36 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect(presented.text).toContain("mandate_ceiling_out_of_network");
   });
 
+  test("an offer reads only its own household's mandate (§16)", async () => {
+    // NOTE (mutation check, 2026-09-16): offer_reads_any_mandate reads the
+    // mandate an offer names whoever it belongs to. The first presentation
+    // answered 422 where 200 was expected: another household's ceiling of 1
+    // refused this household's offer.
+    //
+    // Question 54, decided 2026-09-16. An offer named a mandate id and read
+    // its ceilings, its cooling window and its co-signers through it, whoever
+    // they belonged to. A mandate of another household is unknown to this
+    // offer, which §16.2 leaves alone. The second offer is the owner's, and
+    // the same ceiling refuses it, so the first is not passing because the
+    // mandate was never read.
+    const theirs = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
+    const elsewhere = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id }));
+    expect(elsewhere.status).toBe(201);
+    expect((await call("POST", `/offers/${(elsewhere.body as { id: string }).id}/present`, {})).status).toBe(200);
+    const owned = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id, household: theirs.household }));
+    expect(owned.status).toBe(201);
+    const refused = await call("POST", `/offers/${(owned.body as { id: string }).id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+  });
+
   test("a lapsed mandate carries no offer", async () => {
     // NOTE (mutation check, 2026-09-09): lapsed_mandate_still_works skipped
     // the check. This assertion failed with 200. Clause 58: a standing
     // mandate lapses unless renewed, and lapsing has to stop something.
-    const own = `mandate-lapsing-${Math.random().toString(36).slice(2, 8)}`;
-    const brief = {
-      id: own,
-      household: MANDATE_STATE.household,
-      ceiling_out_of_network: 10_000_000,
-      co_signers: [],
-      lapses_at: soon(2000),
-      version: 1,
-    };
-    const recorded = await call("POST", "/_node/mandates", {
-      ...brief,
-      signatures: signMandate(brief, false),
-    });
-    expect(recorded.status).toBe(201);
+    const own = await ownMandate({ ceiling_out_of_network: 10_000_000, co_signers: [], lapses_at: soon(2000) });
 
-    const created = await call("POST", "/offers", conformingOffer({ mandate: own }));
+    const created = await call("POST", "/offers", conformingOffer({ mandate: own.mandate.id, household: own.household }));
     expect(created.status).toBe(201);
     await sleep(2500);
     const presented = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
@@ -532,9 +532,21 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
    * protection left on the shared fixture would fail every suite that settles
    * afterwards, which is the shape of a mutation that breaks the fixture
    * rather than one the corpus catches.
+   *
+   * §16, questions 54 and 55. Each test now has a household and a mandate of
+   * its own. An offer reads only its own household's mandate, so the shared
+   * fixture's mandate no longer reached the fresh household every offer was
+   * made for, and making every offer under the fixture's household instead
+   * ran that household out of products nobody had offered it.
    */
+  let own: Awaited<ReturnType<typeof ownMandate>>;
+  beforeEach(async () => {
+    own = await ownMandate();
+  });
+  const mine = () => ({ household: own.household, mandate: own.mandate.id });
+
   const current = async () => {
-    const read = await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`);
+    const read = await call("GET", `/_node/mandates/${encodeURIComponent(own.mandate.id)}`);
     expect(read.status).toBe(200);
     return read.body as {
       id: string;
@@ -584,7 +596,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
 
   /** An offer a person can decide on: created, then presented. */
   const presented = async () => {
-    const offer = await createConformingOffer();
+    const offer = await createConformingOffer(mine());
     const shown = await call("POST", `/offers/${offer.id}/present`, {});
     expect(shown.status).toBe(200);
     return shown.body as { id: string; candidates: { id: string; category: string | null }[] };
@@ -640,19 +652,16 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect(none.status).toBe(422);
     expect((none.body as { error: string }).error).toBe("no_cooling");
 
-    // With one, it is refused once the window has closed.
-    const set = await put({ cooling_seconds: 1 }, false);
-    expect(set.response.status).toBe(201);
-    try {
-      const second = await presented();
-      expect((await decide(second.id, { decisions: keepEverything(second) })).status).toBe(200);
-      await sleep(1_500);
-      const late = await call("DELETE", `/offers/${second.id}/decisions`, undefined);
-      expect(late.status).toBe(422);
-      expect((late.body as { error: string }).error).toBe("cooling_over");
-    } finally {
-      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
-    }
+    // With one, it is refused once the window has closed. A household of its
+    // own, because a second offer of the same products to the first household
+    // offers nothing it has not already been offered (§5.1).
+    own = await ownMandate({ cooling_seconds: 1 });
+    const second = await presented();
+    expect((await decide(second.id, { decisions: keepEverything(second) })).status).toBe(200);
+    await sleep(1_500);
+    const late = await call("DELETE", `/offers/${second.id}/decisions`, undefined);
+    expect(late.status).toBe(422);
+    expect((late.body as { error: string }).error).toBe("cooling_over");
   });
 
   test.if(HAS_PHYSICAL)("a cooling window does not bar a statement the household signs", async () => {
@@ -671,7 +680,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const set = await put({ cooling_seconds: 3600 }, false);
     expect(set.response.status).toBe(201);
     try {
-      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical" }));
       expect(created.status).toBe(201);
       const offer = created.body as { id: string; candidates: { id: string }[] };
       expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
@@ -922,7 +931,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const set = await put({ cooling_seconds: 1 }, false);
     expect(set.response.status).toBe(201);
     try {
-      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical" }));
       expect(created.status).toBe(201);
       const offer = created.body as { id: string; candidates: { id: string }[] };
       expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
@@ -953,7 +962,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const set = await put({ cooling_seconds: 1 }, false);
     expect(set.response.status).toBe(201);
     try {
-      const created = await call("POST", "/offers", conformingOffer({ binding: "physical" }));
+      const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical" }));
       expect(created.status).toBe(201);
       const offer = created.body as { id: string; candidates: { id: string }[] };
       expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
@@ -985,7 +994,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const set = await put({ cooling_seconds: 3600 }, false);
     expect(set.response.status).toBe(201);
     try {
-      const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(1500) }));
+      const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical", expires_at: soon(1500) }));
       expect(created.status).toBe(201);
       const offer = created.body as { id: string; candidates: { id: string }[] };
       expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
