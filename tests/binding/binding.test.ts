@@ -1410,6 +1410,9 @@ describe.if(HAS_PHYSICAL)("binding: a set nobody signed is not a set anyone can 
     // the check. The status assertion failed with 200, the box read
     // `presented` with its collection verdicts intact, and the next box from
     // the same presenter then presented where it had been refused.
+    // Since question 46 the guard on a collected box refuses this first, so
+    // the mutation survived the sweep of 2026-09-15 and was retired. The
+    // assertion still holds the property whichever guard answers.
     //
     // Question 43. Withdrawing removes a commitment, which is why this route
     // needs no signature; where the household signed nothing there is none to
