@@ -1,4 +1,4 @@
-import { createPrivateKey, sign, createHash, type KeyObject } from "node:crypto";
+import { createPrivateKey, createPublicKey, sign, createHash, type KeyObject } from "node:crypto";
 /**
  * The probes talk to an implementation over HTTP and nothing else. They know
  * no route that is not in the Valence specification, and they import nothing
@@ -173,6 +173,11 @@ export const MANDATE_STATE: {
   }
 })();
 
+/** The public half of the fixture's mandate key, for a household of a probe's own. */
+export const MANDATE_PUBLIC_KEY = createPublicKey(MANDATE_KEY)
+  .export({ type: "spki", format: "pem" })
+  .toString();
+
 export const CO_SIGNER_KEY = createPrivateKey(
   Buffer.from(MANDATE_STATE.co_signer_key, "base64").toString("utf8")
 );
@@ -209,6 +214,68 @@ export function canonicalMandate(m: {
     ].join("\n"),
     "utf8"
   );
+}
+
+/**
+ * §16, questions 54 and 55. A mandate of this household's own, recorded with a
+ * key registered for it.
+ *
+ * A mandate belongs to a household and an offer reads only its own
+ * household's, so a probe that sets a protection and then uses it needs both
+ * to name one household. The fixture's single mandate served while nothing
+ * bound the two; sharing one household for every such probe instead runs that
+ * household out of products nobody has offered it (§5.1).
+ */
+export async function ownMandate(
+  over: Record<string, unknown> = {}
+): Promise<{
+  household: string;
+  mandate: {
+    id: string;
+    household: string;
+    ceiling_out_of_network: number;
+    ceiling_daily: number | null;
+    cooling_seconds: number | null;
+    co_signers: string[];
+    lapses_at: number;
+    version: number;
+  };
+}> {
+  const household = freshHousehold();
+  const registered = await call("POST", "/_identities", {
+    key: household,
+    public_key: MANDATE_PUBLIC_KEY,
+    attested: false,
+  });
+  if (registered.status !== 201) {
+    throw new Error(`the probe could not register a key for ${household}: ${registered.status}`);
+  }
+  // A decision is verified with the key registered under the mandate the
+  // offer names (§10.5), so the mandate's id gets the fixture's key as well.
+  const id = `mandate-${household}`;
+  const keyed = await call("POST", "/_identities", { key: id, public_key: MANDATE_PUBLIC_KEY, attested: false });
+  if (keyed.status !== 201) {
+    throw new Error(`the probe could not register a key for ${id}: ${keyed.status}`);
+  }
+  const mandate = {
+    id,
+    household,
+    ceiling_out_of_network: MANDATE_STATE.ceiling_out_of_network,
+    ceiling_daily: null,
+    cooling_seconds: null,
+    co_signers: MANDATE_STATE.co_signers,
+    lapses_at: MANDATE_STATE.lapses_at,
+    version: 1,
+    ...over,
+  };
+  const recorded = await call("POST", "/_node/mandates", {
+    ...mandate,
+    signatures: signMandate(mandate, true),
+  });
+  if (recorded.status !== 201) {
+    throw new Error(`the probe could not record ${mandate.id}: ${recorded.status} ${recorded.text}`);
+  }
+  return { household, mandate };
 }
 
 /** Signed by the household, and by the co-signer when `withCoSigner`. */

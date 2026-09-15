@@ -5,7 +5,7 @@ import {
   decide,
   freshHousehold,
   HAS_PHYSICAL,
-  MANDATE_STATE,
+  ownMandate,
   signMandate,
   PRICES,
   PRODUCTS,
@@ -1181,42 +1181,44 @@ describe.if(HAS_PHYSICAL)("binding: what the statement screen owes (§6.5, §10a
     // collection is refused, a collected box cannot have its decisions taken
     // back, and a collection is refused on a withdrawn box. So the only box the
     // block counts is one the household can settle now, and signing lifts it.
-    const was = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as Record<string, unknown> & { version: number };
-    const cooled = { ...was, cooling_seconds: 3600, version: was.version + 1 };
-    expect((await call("POST", "/_node/mandates", { ...cooled, signatures: signMandate(cooled as never, false) })).status).toBe(201);
-    try {
-      const household = freshHousehold();
-      const held = PRODUCTS[PRODUCTS.length - 1]!;
-      const shown = PRODUCTS.slice(0, -1);
-      const first = await call("POST", "/offers", physicalOffer({
-        household,
-        candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
-      }));
-      const one = first.body as { id: string; candidates: { id: string }[] };
-      await call("POST", `/offers/${one.id}/present`, {});
-      const [used, ...others] = one.candidates;
-      const kept = others.pop()!;
-      expect((await decide(one.id, { decisions: [{ candidate: kept.id, valence: "kept", kept_as: "self" }] })).status).toBe(200);
-      await delivered(one.id);
-      expect((await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
-      // The household cannot take the decision back once the box is collected.
-      expect((await call("DELETE", `/offers/${one.id}/decisions`, undefined)).status).toBe(409);
-      // The presenter cannot withdraw a decided box either.
-      expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(409);
-      // So the next box is held until the household settles the first.
-      const second = await call("POST", "/offers", physicalOffer({
-        household,
-        candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
-      }));
-      const two = second.body as { id: string };
-      expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(422);
-      expect((await settleSigned(one.id)).status).toBe(200);
-      expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
-    } finally {
-      const now = (await call("GET", `/_node/mandates/${encodeURIComponent(MANDATE_STATE.id)}`)).body as { version: number };
-      const back = { ...was, version: now.version + 1 };
-      expect((await call("POST", "/_node/mandates", { ...back, signatures: signMandate(back as never, true) })).status).toBe(201);
-    }
+    // §16, question 54. A cooling window reaches only its own household's
+    // offers, so the probe records one for a household of its own. It set the
+    // shared fixture's window until 2026-09-16, which stopped reaching the
+    // fresh household the boxes were made for.
+    const own = await ownMandate({ cooling_seconds: 3600 });
+    const household = own.household;
+    const mandate = own.mandate.id;
+    const held = PRODUCTS[PRODUCTS.length - 1]!;
+    const shown = PRODUCTS.slice(0, -1);
+    const first = await call("POST", "/offers", physicalOffer({
+      household,
+      mandate,
+      candidates: shown.map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const one = first.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${one.id}/present`, {});
+    const [used, ...others] = one.candidates;
+    const kept = others.pop()!;
+    expect((await decide(one.id, { decisions: [{ candidate: kept.id, valence: "kept", kept_as: "self" }] })).status).toBe(200);
+    await delivered(one.id);
+    expect((await call("POST", `/offers/${one.id}/recovery`, { returned: others.map((c) => c.id), consumed: [used!.id] })).status).toBe(200);
+    // The household cannot take the decision back once the box is collected,
+    // although its window is still open.
+    const taken = await call("DELETE", `/offers/${one.id}/decisions`, undefined);
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
+    // The presenter cannot withdraw a decided box either.
+    expect((await call("POST", `/offers/${one.id}/withdraw`, {})).status).toBe(409);
+    // So the next box is held until the household settles the first.
+    const second = await call("POST", "/offers", physicalOffer({
+      household,
+      mandate,
+      candidates: [held, ...shown].map((product, i) => ({ product, quantity: 1, predicted_conversion: 0.5, is_exploration: i === 0 })),
+    }));
+    const two = second.body as { id: string };
+    expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(422);
+    expect((await settleSigned(one.id)).status).toBe(200);
+    expect((await call("POST", `/offers/${two.id}/present`, {})).status).toBe(200);
   });
 
   test("a box whose only collection line is missing does not hold the next one (question 46)", async () => {
