@@ -197,6 +197,20 @@ describe("exit: the move (clause 52)", () => {
     expect(taken.status).toBe(409);
     expect((taken.body as { error: string }).error).toBe("not_withdrawable");
     expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+
+    // NOTE (mutation check, 2026-09-15): import_confirmations_unscoped accepts
+    // the register below. This assertion failed with 201.
+    //
+    // §14.2. A second import carrying nothing but a register entry for the
+    // offer this host already holds. A refutation pass measured it unlocking
+    // the withdrawal above, after which the signature captured on the first
+    // host decided the set again.
+    const planted = await callSecond("POST", `/households/${house}/import`, {
+      format: "valence-node/6",
+      confirmations: { [offer.id]: ["planted"] },
+    });
+    expect(planted.status).toBe(422);
+    expect((await callSecond("DELETE", `/offers/${offer.id}/decisions`)).status).toBe(409);
   });
 
 
