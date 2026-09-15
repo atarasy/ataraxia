@@ -156,6 +156,44 @@ describe("exit: the move (clause 52)", () => {
     expect((moved.body as { state: string }).state).toBe("decided");
   });
 
+  test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
+    // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
+    // the refusal. This assertion failed with 422: the route went on to the
+    // mandate instead. The mutation had survived that day's sweep, because
+    // the question 46 guard now refuses the collected box the binding probe
+    // builds before this guard is reached, and nothing else reached it. This
+    // is the path that still does, and the digital binding has no other guard.
+    //
+    // §14 and §16.5, question 50, decided 2026-09-15. The export carries the
+    // register of what has confirmed each offer, and an offer it does not name
+    // arrives with no confirmation recorded. Withdrawing that set would let
+    // it be decided again with the confirmation it arrived without (§10.5),
+    // so the route refuses it and the household loses the window on it.
+    // Until question 50 §14 did not name the field, and this probe was held
+    // back rather than bind other implementations to it.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household() });
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const decisions = offer.candidates.map((c) => ({
+      candidate: c.id,
+      valence: "returned" as const,
+    }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const exported = await call("GET", `/households/${house}/export`);
+    expect(exported.status).toBe(200);
+    const node = exported.body as { confirmations?: Record<string, string[]> };
+    delete node.confirmations;
+    expect((await callSecond("POST", `/households/${house}/import`, node)).status).toBe(201);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+
+    const taken = await callSecond("DELETE", `/offers/${offer.id}/decisions`);
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+  });
+
 
   test("an import adds what this host does not hold, and changes nothing it does (§14.2)", async () => {
     // NOTE (mutation check, 2026-09-11): import_overwrites_an_offer lets it
