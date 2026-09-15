@@ -181,6 +181,7 @@ describe("exit: the move (clause 52)", () => {
       lineage: [{ ...LINEAGE_EDGE, from: household(), signature: "not-a-signature" }],
     });
     expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("bad_signature");
 
     const there = await callSecond("GET", `/offers/${offer.id}`);
     if (there.status === 200) {
@@ -246,6 +247,15 @@ describe("exit: the move (clause 52)", () => {
       confirmations: { [offer.id]: ["planted"] },
     });
     expect(planted.status).toBe(422);
+    // NOTE (mutation check, 2026-09-15): import_register_shape_unchecked lets a
+    // register whose value is not a list through. This assertion failed with
+    // 422: the entry reached the scoping check instead of being refused as
+    // malformed, and an offer carried with it would have arrived unregistered.
+    const misshaped = await callSecond("POST", `/households/${house}/import`, {
+      format: "valence-node/6",
+      confirmations: { [offer.id]: "planted" },
+    });
+    expect(misshaped.status).toBe(400);
     expect((await callSecond("DELETE", `/offers/${offer.id}/decisions`)).status).toBe(409);
   });
 
