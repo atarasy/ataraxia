@@ -156,16 +156,18 @@ describe("exit: the move (clause 52)", () => {
     expect((moved.body as { state: string }).state).toBe("decided");
   });
 
-  test("an offer an import writes carries its register even when a later row is refused (§14.2)", async () => {
-    // NOTE (mutation check, 2026-09-15): import_register_after_edges takes the
-    // register in after the edges. This assertion failed: the offer stood on
-    // the second host with an empty register.
+  test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
+    // NOTE (mutation check, 2026-09-15): import_writes_before_verifying drops
+    // the check of the whole body. The 404 assertion failed with 200: the offer
+    // stood on the second host after the import was refused.
     //
-    // Question 50. The reference import is not atomic, and a refutation pass
-    // measured an import refused at an edge leaving its offers written and
-    // their register not: a set moved without one, which a retry could not
-    // repair. If a host writes nothing on refusal, as §14.2 asks, there is
-    // nothing to check and the probe says so by reading the offer first.
+    // Question 51. The route wrote a body row by row and stopped at the first
+    // refusal, so a move refused at an edge kept the offers written before it,
+    // lost the collections and mandates after it, and could not be retried,
+    // because the retry met those offers as already held. An edge whose
+    // giver's key the receiving host has not attested is enough to refuse, so
+    // that happened with nobody at fault. §14.2 says the whole import is
+    // refused; this probe holds the reference to that sentence.
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
@@ -178,19 +180,22 @@ describe("exit: the move (clause 52)", () => {
     expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
     const refused = await callSecond("POST", `/households/${house}/import`, {
       ...node,
-      lineage: [{ ...LINEAGE_EDGE, from: household(), signature: "not-a-signature" }],
+      lineage: [{ ...LINEAGE_EDGE, id: `edge-refused-${offer.id}`, from: household(), signature: "not-a-signature" }],
     });
     expect(refused.status).toBe(422);
     expect((refused.body as { error: string }).error).toBe("bad_signature");
 
-    const there = await callSecond("GET", `/offers/${offer.id}`);
-    if (there.status === 200) {
-      const second = await callSecond("GET", `/households/${house}/export`);
-      const register = (second.body as { confirmations?: Record<string, string[]> }).confirmations ?? {};
-      expect(register[offer.id]?.length).toBeGreaterThan(0);
-    } else {
-      expect(there.status).toBe(404);
+    expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
+    const nothing = (await callSecond("GET", `/households/${house}/export`)).body as Record<string, unknown>;
+    for (const field of ["offers", "settlements", "lineage", "collections", "mandates", "deliveries"]) {
+      expect(((nothing[field] as unknown[] | undefined) ?? []).length).toBe(0);
     }
+
+    const retried = await callSecond("POST", `/households/${house}/import`, node);
+    expect(retried.status).toBe(201);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+    const arrived = (await callSecond("GET", `/households/${house}/export`)).body as { confirmations?: Record<string, string[]> };
+    expect(arrived.confirmations?.[offer.id]?.length).toBeGreaterThan(0);
   });
 
   test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
