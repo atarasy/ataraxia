@@ -178,6 +178,22 @@ describe("registry: no entry names a platform (clause 6)", () => {
     expect(list.status).toBe(200);
     expect(findKey(list.body, meansAnyOf(PLATFORM_KEYS))).toEqual([]);
   });
+
+  test("resolving an entry by key names no platform either", async () => {
+    // NOTE (mutation check, 2026-09-15): registry_resolver_names_platform put
+    // `platform` on single-entry resolution and left the list untouched. It
+    // survived the sweep of that day, because the probe above reads only the
+    // list. This assertion failed, naming `platform`. An agent that resolves
+    // one merchant reads the same field an agent that lists them would.
+    const list = await call("GET", "/registry?protocol=valence");
+    const entries = (list.body as { entries: { merchant: string }[] }).entries;
+    expect(entries.length).toBeGreaterThan(0);
+    for (const { merchant } of entries) {
+      const resolved = await call("GET", `/registry/${encodeURIComponent(merchant)}`);
+      expect(resolved.status).toBe(200);
+      expect(findKey(resolved.body, meansAnyOf(PLATFORM_KEYS))).toEqual([]);
+    }
+  });
 });
 
 describe("registry: listing is not a condition of taking part (clause 13)", () => {
