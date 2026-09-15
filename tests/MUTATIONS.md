@@ -135,6 +135,7 @@ can repeat any row.
 | `name_the_model_settlement` | `model: "gpt-5"` put on the settlement record, which is built in the engine and not in the view | 1 |
 | `free_text_reason` | The check that an exclusion's reason names a published rule removed | 1 |
 | `registry_names_platform` | `platform: "atarasy-hosted"` put on every registry entry | 1 |
+| `registry_resolver_names_platform` | `platform: "atarasy-hosted"` put only on an entry resolved by key, leaving the list unchanged. **It survived the sweep of 2026-09-15**, because the platform probe read only the list; the probe that resolves each listed entry was added the same day and fails alone under it | 1 |
 | `vertical_view_not_vertical` | The presenter filter dropped from the household list, which is what the engine did until 2026-09-09 | 1 |
 | `presenter_optional` | The list served without a presenter named, as an empty view rather than a refusal | 1 |
 | `platform_reinfers` | Each prediction scaled by the return rate of the same product across every household seen | 1 |
