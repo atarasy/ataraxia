@@ -1,23 +1,26 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
-  call,
+  CO_SIGNER_KEY,
   HAS_PHYSICAL,
-  settleSigned,
-  conformingOffer,
+  HOUSEHOLD,
+  MANDATE_STATE,
+  PRODUCTS,
+  assertDecisions,
+  assertMandate,
+  call,
+  canonicalMandate,
   coSignDecisions,
+  conformingOffer,
   createConformingOffer,
   decide,
   findKey,
   freshHousehold,
-  HOUSEHOLD,
-  MANDATE_STATE,
+  mandateOf,
   meansAnyOf,
+  nameOf,
   ownMandate,
-  PRODUCTS,
-  assertDecisions,
-  assertMandate,
-  CO_SIGNER_KEY,
+  settleSigned,
   signDecisions,
   signMandate,
   sleep,
@@ -468,11 +471,42 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect(presented.text).toContain("mandate_ceiling_out_of_network");
   });
 
+  test("a key registered under a name it does not have is refused (§13.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): identity_name_unchecked stops
+    // comparing the name against the key. This assertion answered 201: the
+    // squat question 55 exists to close, where whoever files a household's
+    // name first holds the key its mandates and its decided sets are checked
+    // against.
+    //
+    // §13.2, condition 18. The probe takes no name from any other probe: the
+    // name it sends is one no key here has, and a name that is refused is a
+    // name nobody holds.
+    const mine = generateKeyPairSync("ed25519");
+    const theirs = generateKeyPairSync("ed25519");
+    const pemOf = (p: ReturnType<typeof generateKeyPairSync>) =>
+      p.publicKey.export({ type: "spki", format: "pem" }).toString();
+    const wrong = await call("POST", "/_identities", { key: nameOf(pemOf(mine)), public_key: pemOf(theirs) });
+    expect(wrong.status).toBe(422);
+    expect((wrong.body as { error: string }).error).toBe("name_is_not_the_key");
+    // And the key under its own name is taken, so the refusal above is not a
+    // route that refuses everything.
+    expect((await call("POST", "/_identities", { key: nameOf(pemOf(mine)), public_key: pemOf(mine) })).status).toBe(201);
+    // Clause 22. A name that claims to be no key is still the registry's to
+    // hand out once, and a second, different key under it is refused. The
+    // same key again is not: a household registers its own on every host it
+    // reaches, and a move brings it to one that may already hold it.
+    const free = `probe-identity-${Math.random().toString(36).slice(2, 10)}`;
+    expect((await call("POST", "/_identities", { key: free, public_key: pemOf(mine) })).status).toBe(201);
+    expect((await call("POST", "/_identities", { key: free, public_key: pemOf(mine) })).status).toBe(201);
+    const taken = await call("POST", "/_identities", { key: free, public_key: pemOf(theirs) });
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("identity_exists");
+  });
+
   test("an offer reads only its own household's mandate (§16)", async () => {
-    // NOTE (mutation check, 2026-09-16): offer_reads_any_mandate reads the
-    // mandate an offer names whoever it belongs to. The first presentation
-    // answered 422 where 200 was expected: another household's ceiling of 1
-    // refused this household's offer.
+    // NOTE (mutation check, 2026-09-16): offer_mandate_shape_unchecked lets an
+    // offer name a mandate outside its household. The first assertion answered
+    // 201 where 422 was expected.
     //
     // Question 54, decided 2026-09-16. An offer named a mandate id and read
     // its ceilings, its cooling window and its co-signers through it, whoever
@@ -481,14 +515,77 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     // the same ceiling refuses it, so the first is not passing because the
     // mandate was never read.
     const theirs = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
+    // §13.2, question 55, decided 2026-09-16. An offer of another household
+    // can no longer name this mandate at all: a mandate identifier begins with
+    // its household's, which is that household's key. What question 54 made a
+    // check is now a property of the identifier, and this is where the suite
+    // asks for it.
     const elsewhere = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id }));
-    expect(elsewhere.status).toBe(201);
-    expect((await call("POST", `/offers/${(elsewhere.body as { id: string }).id}/present`, {})).status).toBe(200);
+    expect(elsewhere.status).toBe(422);
+    expect((elsewhere.body as { error: string }).error).toBe("name_is_not_the_key");
     const owned = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id, household: theirs.household }));
     expect(owned.status).toBe(201);
     const refused = await call("POST", `/offers/${(owned.body as { id: string }).id}/present`, {});
     expect(refused.status).toBe(422);
     expect((refused.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+  });
+
+  test("an offer names a mandate this household has, where it has any (§16.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): offer_names_any_label. The phantom
+    // offer presented, and then settled with the household's daily ceiling and
+    // cooling window unapplied.
+    //
+    // Question 56's first half, decided 2026-09-16. An unknown mandate is left
+    // alone, which let a presenter name any label after the household's own
+    // prefix and get an offer with no ceiling and no cooling window, having
+    // recorded nothing, imported nothing and forged nothing. The household
+    // cannot see it: the decided set's signed bytes name the offer and its
+    // candidates and not the mandate.
+    const own = await ownMandate({ ceiling_out_of_network: 10_000_000, co_signers: [], lapses_at: soon(600_000) });
+    const phantom = await call("POST", "/offers", conformingOffer({
+      household: own.household,
+      mandate: `${own.household}.presenter-chose-this`,
+    }));
+    expect(phantom.status).toBe(201);
+    const refused = await call("POST", `/offers/${(phantom.body as { id: string }).id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("mandate_unknown");
+    // The household's own mandate still presents, so this is not a rule that
+    // refuses everything.
+    const mine = await call("POST", "/offers", conformingOffer({ household: own.household, mandate: own.mandate.id }, 3));
+    expect(mine.status).toBe(201);
+    expect((await call("POST", `/offers/${(mine.body as { id: string }).id}/present`, {})).status).toBe(200);
+  });
+
+  test("a protection set after an offer was presented still reaches it (§16.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): offer_names_any_label. The settlement
+    // went through, with the cooling window the household had set unapplied.
+    //
+    // The refusal belongs wherever the mandate is read and not at presentation
+    // alone: a presenter has only to present before the household sets its
+    // first protection, which is the ordinary order for a new member. The
+    // probe above asks for the presentation half; this asks for the half that
+    // is reached after it.
+    const household = freshHousehold();
+    const offer = await createConformingOffer({
+      household,
+      mandate: mandateOf(household, "presenter-chose-this"),
+    });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const mandate = {
+      id: mandateOf(household), household, ceiling_out_of_network: 10_000_000,
+      ceiling_daily: null, cooling_seconds: 3600, co_signers: [] as string[],
+      lapses_at: soon(600_000), version: 1,
+    };
+    const recorded = await call("POST", "/_node/mandates", { ...mandate, signatures: signMandate(mandate, false) });
+    expect([recorded.status, recorded.text]).toEqual([201, recorded.text]);
+    const decided = await decide(offer.id, {
+      decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const })),
+    });
+    expect(decided.status).toBe(200);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_unknown");
   });
 
   test("a lapsed mandate carries no offer", async () => {
@@ -860,7 +957,8 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     // key of the kind a device makes and records with it. `/_identities` is in
     // the specification (§13.2), which is why a probe may call it.
     const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-    const who = `household-p256-${Math.random().toString(36).slice(2, 10)}`;
+    // §13.2, question 55. The household is the name of the key it records with.
+    const who = nameOf(pair.publicKey.export({ type: "spki", format: "pem" }).toString());
     const registered = await call("POST", "/_identities", {
       key: who,
       public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
@@ -868,7 +966,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     });
     expect(registered.status).toBe(201);
     const mandate = {
-      id: `mandate-p256-${Math.random().toString(36).slice(2, 10)}`,
+      id: mandateOf(who),
       household: who,
       ceiling_out_of_network: 100000,
       ceiling_daily: null,
@@ -896,20 +994,29 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     // which no loosening can ever be signed, and the signature still
     // verifies. The probe read the category list until §16.4 was withdrawn;
     // the defect was always on both.
+    //
+    // **§13.2 closed the same door from the other side on 2026-09-16.** A
+    // co-signer is now named by the key it signs with, so a fused name is not
+    // a name at all and the shape refuses it before a signature is read. The
+    // escaping stays and the property it holds is proven where it lives, in
+    // the canonical form the engine and this suite each build (`canonicalMandate`
+    // in `tests/lib/probe.ts`); what this probe asks for now is the refusal.
+    const one = nameOf(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString());
+    const two = nameOf(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString());
+    // The two forms differ in what is signed, which is the escaping doing its
+    // work: a plain join would make these the same bytes.
+    expect(canonicalMandate({ ...MANDATE_STATE, co_signers: [one, two] }).toString())
+      .not.toBe(canonicalMandate({ ...MANDATE_STATE, co_signers: [`${one},${two}`] }).toString());
     const now = await current();
-    const signed = {
-      ...now,
-      co_signers: [...now.co_signers, "cs-one", "cs-two"].sort(),
-      version: now.version + 1,
-    };
-    const relayed = { ...signed, co_signers: [...now.co_signers, "cs-one,cs-two"].sort() };
+    const signed = { ...now, co_signers: [...now.co_signers, one, two].sort(), version: now.version + 1 };
+    const relayed = { ...signed, co_signers: [...now.co_signers, `${one},${two}`].sort() };
     try {
       const posted = await call("POST", "/_node/mandates", {
         ...relayed,
         signatures: signMandate(signed, true),
       });
       expect(posted.status).toBe(422);
-      expect((posted.body as { error: string }).error).toBe("bad_signature");
+      expect((posted.body as { error: string }).error).toBe("name_is_not_the_key");
     } finally {
       await restore(now);
     }

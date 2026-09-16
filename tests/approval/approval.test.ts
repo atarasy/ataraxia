@@ -1,16 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
+  MAKERS,
+  PRICES,
+  assertDecisions,
   call,
   conformingOffer,
   createConformingOffer,
   decide,
   findKey,
-  MAKERS,
+  mandateOf,
   meansAnyOf,
-  PRICES,
+  nameOf,
   signDecisions,
-  assertDecisions,
 } from "../lib/probe.js";
 
 /**
@@ -420,15 +422,19 @@ describe("approval: a passkey confirms by challenge (§10.5)", () => {
     // fixture's mandate key is ed25519, so this probe registers a key of its
     // own under a mandate of its own; `/_identities` is in the specification
     // (§13.2), which is why the suite may call it.
-    const mandate = `mandate-p256-${Math.random().toString(36).slice(2, 10)}`;
+    // §13.2, question 55. A household is the name of its key, so registering a
+    // P-256 key is what makes the household, and its mandate hangs from it.
     const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+    const pem = pair.publicKey.export({ type: "spki", format: "pem" }).toString();
+    const household = nameOf(pem);
+    const mandate = mandateOf(household);
     const registered = await call("POST", "/_identities", {
-      key: mandate,
-      public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
+      key: household,
+      public_key: pem,
       attested: false,
     });
     expect(registered.status).toBe(201);
-    const offer = await presentedOffer({ mandate });
+    const offer = await presentedOffer({ household, mandate });
     const decisions = offer.candidates.map((c) => ({
       candidate: c.id,
       valence: "returned" as const,
