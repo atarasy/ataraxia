@@ -530,6 +530,33 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect((refused.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
   });
 
+  test("an offer names a mandate this household has, where it has any (§16.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): offer_names_any_label. The phantom
+    // offer presented, and then settled with the household's daily ceiling and
+    // cooling window unapplied.
+    //
+    // Question 56's first half, decided 2026-09-16. An unknown mandate is left
+    // alone, which let a presenter name any label after the household's own
+    // prefix and get an offer with no ceiling and no cooling window, having
+    // recorded nothing, imported nothing and forged nothing. The household
+    // cannot see it: the decided set's signed bytes name the offer and its
+    // candidates and not the mandate.
+    const own = await ownMandate({ ceiling_out_of_network: 10_000_000, co_signers: [], lapses_at: soon(600_000) });
+    const phantom = await call("POST", "/offers", conformingOffer({
+      household: own.household,
+      mandate: `${own.household}.presenter-chose-this`,
+    }));
+    expect(phantom.status).toBe(201);
+    const refused = await call("POST", `/offers/${(phantom.body as { id: string }).id}/present`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("mandate_unknown");
+    // The household's own mandate still presents, so this is not a rule that
+    // refuses everything.
+    const mine = await call("POST", "/offers", conformingOffer({ household: own.household, mandate: own.mandate.id }, 3));
+    expect(mine.status).toBe(201);
+    expect((await call("POST", `/offers/${(mine.body as { id: string }).id}/present`, {})).status).toBe(200);
+  });
+
   test("a lapsed mandate carries no offer", async () => {
     // NOTE (mutation check, 2026-09-09): lapsed_mandate_still_works skipped
     // the check. This assertion failed with 200. Clause 58: a standing
