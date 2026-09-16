@@ -9,6 +9,7 @@ import {
   assertDecisions,
   assertMandate,
   call,
+  canonicalMandate,
   coSignDecisions,
   conformingOffer,
   createConformingOffer,
@@ -925,20 +926,29 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     // which no loosening can ever be signed, and the signature still
     // verifies. The probe read the category list until §16.4 was withdrawn;
     // the defect was always on both.
+    //
+    // **§13.2 closed the same door from the other side on 2026-09-16.** A
+    // co-signer is now named by the key it signs with, so a fused name is not
+    // a name at all and the shape refuses it before a signature is read. The
+    // escaping stays and the property it holds is proven where it lives, in
+    // the canonical form the engine and this suite each build (`canonicalMandate`
+    // in `tests/lib/probe.ts`); what this probe asks for now is the refusal.
+    const one = nameOf(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString());
+    const two = nameOf(generateKeyPairSync("ed25519").publicKey.export({ type: "spki", format: "pem" }).toString());
+    // The two forms differ in what is signed, which is the escaping doing its
+    // work: a plain join would make these the same bytes.
+    expect(canonicalMandate({ ...MANDATE_STATE, co_signers: [one, two] }).toString())
+      .not.toBe(canonicalMandate({ ...MANDATE_STATE, co_signers: [`${one},${two}`] }).toString());
     const now = await current();
-    const signed = {
-      ...now,
-      co_signers: [...now.co_signers, "cs-one", "cs-two"].sort(),
-      version: now.version + 1,
-    };
-    const relayed = { ...signed, co_signers: [...now.co_signers, "cs-one,cs-two"].sort() };
+    const signed = { ...now, co_signers: [...now.co_signers, one, two].sort(), version: now.version + 1 };
+    const relayed = { ...signed, co_signers: [...now.co_signers, `${one},${two}`].sort() };
     try {
       const posted = await call("POST", "/_node/mandates", {
         ...relayed,
         signatures: signMandate(signed, true),
       });
       expect(posted.status).toBe(422);
-      expect((posted.body as { error: string }).error).toBe("bad_signature");
+      expect((posted.body as { error: string }).error).toBe("name_is_not_the_key");
     } finally {
       await restore(now);
     }

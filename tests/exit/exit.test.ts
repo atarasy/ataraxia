@@ -462,6 +462,17 @@ describe("exit: the move (clause 52)", () => {
     });
     expect(mandates.status).toBe(422);
     expect((mandates.body as { error: string }).error).toBe("name_is_not_the_key");
+
+    // NOTE (mutation check, 2026-09-16): import_cosigner_name_unchecked.
+    // §16.1. A co-signer is named by the key it signs with, here as where one
+    // is recorded: a loosening of an arriving mandate is checked against
+    // whatever key is registered under the name it carries.
+    const cosigner = await callSecond("POST", `/households/${encodeURIComponent(house)}/import`, {
+      format: "valence-node/6",
+      mandates: [{ id: mandateOf(house), household: house, ceiling_out_of_network: 1, co_signers: ["mum"], ceiling_daily: null, cooling_seconds: null, lapses_at: soon(600_000), version: 1 }],
+    });
+    expect(cosigner.status).toBe(422);
+    expect((cosigner.body as { error: string }).error).toBe("name_is_not_the_key");
   });
 
   test("an import verifies the edges it is handed and refuses another household's offers", async () => {
