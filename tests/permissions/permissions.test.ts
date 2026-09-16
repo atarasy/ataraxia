@@ -470,6 +470,28 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect(presented.text).toContain("mandate_ceiling_out_of_network");
   });
 
+  test("a key registered under a name it does not have is refused (§13.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): identity_name_unchecked stops
+    // comparing the name against the key. This assertion answered 201: the
+    // squat question 55 exists to close, where whoever files a household's
+    // name first holds the key its mandates and its decided sets are checked
+    // against.
+    //
+    // §13.2, condition 18. The probe takes no name from any other probe: the
+    // name it sends is one no key here has, and a name that is refused is a
+    // name nobody holds.
+    const mine = generateKeyPairSync("ed25519");
+    const theirs = generateKeyPairSync("ed25519");
+    const pemOf = (p: ReturnType<typeof generateKeyPairSync>) =>
+      p.publicKey.export({ type: "spki", format: "pem" }).toString();
+    const wrong = await call("POST", "/_identities", { key: nameOf(pemOf(mine)), public_key: pemOf(theirs) });
+    expect(wrong.status).toBe(422);
+    expect((wrong.body as { error: string }).error).toBe("name_is_not_the_key");
+    // And the key under its own name is taken, so the refusal above is not a
+    // route that refuses everything.
+    expect((await call("POST", "/_identities", { key: nameOf(pemOf(mine)), public_key: pemOf(mine) })).status).toBe(201);
+  });
+
   test("an offer reads only its own household's mandate (§16)", async () => {
     // NOTE (mutation check, 2026-09-16): offer_mandate_shape_unchecked lets an
     // offer name a mandate outside its household. The first assertion answered
