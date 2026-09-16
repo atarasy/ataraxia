@@ -557,6 +557,37 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     expect((await call("POST", `/offers/${(mine.body as { id: string }).id}/present`, {})).status).toBe(200);
   });
 
+  test("a protection set after an offer was presented still reaches it (§16.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): offer_names_any_label. The settlement
+    // went through, with the cooling window the household had set unapplied.
+    //
+    // The refusal belongs wherever the mandate is read and not at presentation
+    // alone: a presenter has only to present before the household sets its
+    // first protection, which is the ordinary order for a new member. The
+    // probe above asks for the presentation half; this asks for the half that
+    // is reached after it.
+    const household = freshHousehold();
+    const offer = await createConformingOffer({
+      household,
+      mandate: mandateOf(household, "presenter-chose-this"),
+    });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const mandate = {
+      id: mandateOf(household), household, ceiling_out_of_network: 10_000_000,
+      ceiling_daily: null, cooling_seconds: 3600, co_signers: [] as string[],
+      lapses_at: soon(600_000), version: 1,
+    };
+    const recorded = await call("POST", "/_node/mandates", { ...mandate, signatures: signMandate(mandate, false) });
+    expect([recorded.status, recorded.text]).toEqual([201, recorded.text]);
+    const decided = await decide(offer.id, {
+      decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const })),
+    });
+    expect(decided.status).toBe(200);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_unknown");
+  });
+
   test("a lapsed mandate carries no offer", async () => {
     // NOTE (mutation check, 2026-09-09): lapsed_mandate_still_works skipped
     // the check. This assertion failed with 200. Clause 58: a standing
