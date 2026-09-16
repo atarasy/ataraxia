@@ -1,23 +1,25 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
-  call,
+  CO_SIGNER_KEY,
   HAS_PHYSICAL,
-  settleSigned,
-  conformingOffer,
+  HOUSEHOLD,
+  MANDATE_STATE,
+  PRODUCTS,
+  assertDecisions,
+  assertMandate,
+  call,
   coSignDecisions,
+  conformingOffer,
   createConformingOffer,
   decide,
   findKey,
   freshHousehold,
-  HOUSEHOLD,
-  MANDATE_STATE,
+  mandateOf,
   meansAnyOf,
+  nameOf,
   ownMandate,
-  PRODUCTS,
-  assertDecisions,
-  assertMandate,
-  CO_SIGNER_KEY,
+  settleSigned,
   signDecisions,
   signMandate,
   sleep,
@@ -469,10 +471,9 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
   });
 
   test("an offer reads only its own household's mandate (§16)", async () => {
-    // NOTE (mutation check, 2026-09-16): offer_reads_any_mandate reads the
-    // mandate an offer names whoever it belongs to. The first presentation
-    // answered 422 where 200 was expected: another household's ceiling of 1
-    // refused this household's offer.
+    // NOTE (mutation check, 2026-09-16): offer_mandate_shape_unchecked lets an
+    // offer name a mandate outside its household. The first assertion answered
+    // 201 where 422 was expected.
     //
     // Question 54, decided 2026-09-16. An offer named a mandate id and read
     // its ceilings, its cooling window and its co-signers through it, whoever
@@ -481,9 +482,14 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     // the same ceiling refuses it, so the first is not passing because the
     // mandate was never read.
     const theirs = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
+    // §13.2, question 55, decided 2026-09-16. An offer of another household
+    // can no longer name this mandate at all: a mandate identifier begins with
+    // its household's, which is that household's key. What question 54 made a
+    // check is now a property of the identifier, and this is where the suite
+    // asks for it.
     const elsewhere = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id }));
-    expect(elsewhere.status).toBe(201);
-    expect((await call("POST", `/offers/${(elsewhere.body as { id: string }).id}/present`, {})).status).toBe(200);
+    expect(elsewhere.status).toBe(422);
+    expect((elsewhere.body as { error: string }).error).toBe("name_is_not_the_key");
     const owned = await call("POST", "/offers", conformingOffer({ mandate: theirs.mandate.id, household: theirs.household }));
     expect(owned.status).toBe(201);
     const refused = await call("POST", `/offers/${(owned.body as { id: string }).id}/present`, {});
@@ -860,7 +866,8 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     // key of the kind a device makes and records with it. `/_identities` is in
     // the specification (§13.2), which is why a probe may call it.
     const pair = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-    const who = `household-p256-${Math.random().toString(36).slice(2, 10)}`;
+    // §13.2, question 55. The household is the name of the key it records with.
+    const who = nameOf(pair.publicKey.export({ type: "spki", format: "pem" }).toString());
     const registered = await call("POST", "/_identities", {
       key: who,
       public_key: pair.publicKey.export({ type: "spki", format: "pem" }).toString(),
@@ -868,7 +875,7 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     });
     expect(registered.status).toBe(201);
     const mandate = {
-      id: `mandate-p256-${Math.random().toString(36).slice(2, 10)}`,
+      id: mandateOf(who),
       household: who,
       ceiling_out_of_network: 100000,
       ceiling_daily: null,

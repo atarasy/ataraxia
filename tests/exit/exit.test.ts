@@ -1,16 +1,18 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import {
-  call,
-  callSecond,
-  createConformingOffer,
-  decide,
-  freshHousehold,
   HAS_PHYSICAL,
   LINEAGE_EDGE,
   PRODUCTS,
+  call,
+  callSecond,
   conformingOffer,
+  createConformingOffer,
+  decide,
+  freshHousehold,
+  mandateOf,
   presenter,
   signDecisions,
+  soon,
 } from "../lib/probe.js";
 
 /**
@@ -427,6 +429,41 @@ describe("exit: the move (clause 52)", () => {
     }
   });
 
+  test("an import names a household that is a key, and carries mandates of that household's (§13.2)", async () => {
+    // NOTE (mutation check, 2026-09-16): import_household_shape_unchecked and
+    // import_offer_mandate_unscoped. Each case below answered 201 under its
+    // own mutation.
+    //
+    // §13.2, question 55, decided 2026-09-16. An import does not pass through
+    // the route that creates an offer, so without this the shape holds for an
+    // offer made here and not for one that arrived, and a decided set that
+    // arrived would go on being verified against whatever key its mandate's
+    // name resolved to.
+    const plain = await callSecond(
+      "POST",
+      `/households/${encodeURIComponent("household-not-a-key")}/import`,
+      { format: "valence-node/6", offers: [] }
+    );
+    expect(plain.status).toBe(422);
+    expect((plain.body as { error: string }).error).toBe("name_is_not_the_key");
+
+    const house = freshHousehold();
+    const other = freshHousehold();
+    const foreign = await callSecond("POST", `/households/${encodeURIComponent(house)}/import`, {
+      format: "valence-node/6",
+      offers: [{ id: `o-q55-${Math.random().toString(36).slice(2)}`, household: house, mandate: mandateOf(other), candidates: [{ id: "c-q55" }] }],
+    });
+    expect(foreign.status).toBe(422);
+    expect((foreign.body as { error: string }).error).toBe("name_is_not_the_key");
+
+    const mandates = await callSecond("POST", `/households/${encodeURIComponent(house)}/import`, {
+      format: "valence-node/6",
+      mandates: [{ id: mandateOf(other), household: house, ceiling_out_of_network: 1, co_signers: [], ceiling_daily: null, cooling_seconds: null, lapses_at: soon(600_000), version: 1 }],
+    });
+    expect(mandates.status).toBe(422);
+    expect((mandates.body as { error: string }).error).toBe("name_is_not_the_key");
+  });
+
   test("an import verifies the edges it is handed and refuses another household's offers", async () => {
     // NOTE (mutation check, 2026-09-09): import_trusts_everything wrote
     // whatever the export said. Both assertions failed with 201: an edge
@@ -523,7 +560,7 @@ describe("exit: recovery is not reading (clause 53)", () => {
     // exactly that and no more: the export carried it and the import dropped
     // it. Restoring the data without adding this probe left the mutation
     // surviving, which is the same failure one layer up.
-    const house = `household-recovery-move-${Math.random().toString(36).slice(2)}`;
+    const house = freshHousehold();
     await call("POST", "/_node/channels", {
       household: house,
       channels: [{ channel: "own-email", controlled_by_recoverer: false }],

@@ -1,4 +1,4 @@
-import { createPrivateKey, createPublicKey, sign, createHash, type KeyObject } from "node:crypto";
+import { createPrivateKey, createPublicKey, generateKeyPairSync, sign, createHash, type KeyObject } from "node:crypto";
 /**
  * The probes talk to an implementation over HTTP and nothing else. They know
  * no route that is not in the Valence specification, and they import nothing
@@ -132,7 +132,60 @@ export const DISCLOSURE_PRODUCT: {
  * a probe that needs the same household twice names it.
  */
 export function freshHousehold(): string {
-  return `${HOUSEHOLD}-${Math.random().toString(36).slice(2, 10)}`;
+  // §13.2, question 55. A household's identifier is the name of its key, so a
+  // fresh household is a fresh key. It is registered lazily, on the first call
+  // that needs it, because the identifier alone creates offers and only a
+  // signature needs the key behind it.
+  const { privateKey } = generateKeyPairSync("ed25519");
+  const pem = createPublicKey(privateKey).export({ type: "spki", format: "pem" }).toString();
+  const household = nameOf(pem);
+  HOUSEHOLD_KEYS.set(household, { key: privateKey, pem });
+  return household;
+}
+
+/** §13.2. A mandate of this household's: its identifier, a full stop and a label. */
+export function mandateOf(household: string, label = "1"): string {
+  return `${household}.${label}`;
+}
+
+/**
+ * §13.2, question 55. `key:` and the base64url SHA-256 of a public key in
+ * SubjectPublicKeyInfo DER. Written from the specification rather than taken
+ * from an implementation, as everything in this file is.
+ */
+export function nameOf(publicKeyPem: string): string {
+  const der = createPublicKey(publicKeyPem).export({ type: "spki", format: "der" });
+  return "key:" + createHash("sha256").update(der).digest("base64url");
+}
+
+const HOUSEHOLD_KEYS = new Map<string, { key: KeyObject; pem: string }>();
+/** Which households have had their key registered, per host. */
+const REGISTERED = new Map<string, Set<string>>();
+/** Which household each offer belongs to, so that a signature uses its key. */
+const OFFER_HOUSEHOLD = new Map<string, string>();
+
+/** The private half for a household, the fixture's own for the seeded one. */
+export function keyForHousehold(household: string): KeyObject {
+  return HOUSEHOLD_KEYS.get(household)?.key ?? MANDATE_KEY;
+}
+
+/**
+ * §13.2, question 55. Put a fresh household's key on a host. `call` does it
+ * for the host it talks to; a probe that reaches another host directly, as the
+ * roles suite does, asks for it.
+ */
+export async function ensureRegistered(base: string, household: string): Promise<void> {
+  const held = HOUSEHOLD_KEYS.get(household);
+  if (!held) return;
+  let seen = REGISTERED.get(base);
+  if (!seen) REGISTERED.set(base, (seen = new Set()));
+  if (seen.has(household)) return;
+  seen.add(household);
+  await fetch(`${base}/_identities`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ key: household, public_key: held.pem, attested: false }),
+  });
 }
 export const MANDATE = required("VALENCE_MANDATE");
 
@@ -244,19 +297,17 @@ export async function ownMandate(
   const household = freshHousehold();
   const registered = await call("POST", "/_identities", {
     key: household,
-    public_key: MANDATE_PUBLIC_KEY,
+    public_key: HOUSEHOLD_KEYS.get(household)!.pem,
     attested: false,
   });
   if (registered.status !== 201) {
     throw new Error(`the probe could not register a key for ${household}: ${registered.status}`);
   }
-  // A decision is verified with the key registered under the mandate the
-  // offer names (§10.5), so the mandate's id gets the fixture's key as well.
-  const id = `mandate-${household}`;
-  const keyed = await call("POST", "/_identities", { key: id, public_key: MANDATE_PUBLIC_KEY, attested: false });
-  if (keyed.status !== 201) {
-    throw new Error(`the probe could not register a key for ${id}: ${keyed.status}`);
-  }
+  REGISTERED.get(BASE)?.add(household) ?? REGISTERED.set(BASE, new Set([household]));
+  // §13.2, question 55. A decided set is verified with the key of the
+  // household its mandate names, and a mandate names no key of its own, so
+  // there is one registration here where there were two.
+  const id = mandateOf(household, "m");
   const mandate = {
     id,
     household,
@@ -285,7 +336,7 @@ export function signMandate(
 ): Record<string, string> {
   const bytes = canonicalMandate(m);
   const out: Record<string, string> = {
-    [m.household]: sign(null, bytes, MANDATE_KEY).toString("base64"),
+    [m.household]: sign(null, bytes, keyForHousehold(m.household)).toString("base64"),
   };
   if (withCoSigner) {
     for (const k of MANDATE_STATE.co_signers) {
@@ -308,7 +359,9 @@ export function assertMandate(
   m: Parameters<typeof canonicalMandate>[0],
   options: { key?: KeyObject; relyingParty?: string } = {}
 ) {
-  const { key = MANDATE_KEY, relyingParty = RP_ID } = options;
+  // §13.2, question 55. The key is the household's own, which is what its
+  // identifier names.
+  const { key = keyForHousehold(m.household), relyingParty = RP_ID } = options;
   const challenge = createHash("sha256").update(canonicalMandate(m)).digest("base64url");
   const authenticatorData = Buffer.concat([
     createHash("sha256").update(relyingParty).digest(),
@@ -350,7 +403,23 @@ export function canonicalDecisions(offerId: string, decisions: DecisionSpec[]): 
 }
 
 export function signDecisions(offerId: string, decisions: DecisionSpec[]): string {
-  return sign(null, canonicalDecisions(offerId, decisions), MANDATE_KEY).toString("base64");
+  // §13.2, question 55. The key is the offer's household's, which this file
+  // remembers from the reply that created the offer.
+  return sign(null, canonicalDecisions(offerId, decisions), keyForOffer(offerId)).toString("base64");
+}
+
+/**
+ * §13.2, question 55. Tell this file which household an offer belongs to, for
+ * a probe that created it through a sender of its own rather than `call`.
+ */
+export function rememberOffer(offerId: string, household: string): void {
+  OFFER_HOUSEHOLD.set(offerId, household);
+}
+
+/** The key a decided set of this offer is signed with. */
+export function keyForOffer(offerId: string): KeyObject {
+  const household = OFFER_HOUSEHOLD.get(offerId);
+  return household === undefined ? MANDATE_KEY : keyForHousehold(household);
 }
 
 /**
@@ -392,7 +461,7 @@ export function assertDecisions(
     ceremony = "webauthn.get",
     present = true,
     verified = true,
-    key = MANDATE_KEY,
+    key = keyForOffer(offerId),
     relyingParty = RP_ID,
   } = options;
   const challenge = createHash("sha256")
@@ -461,13 +530,13 @@ export function canonicalStatement(offerId: string, carriage: number, lines: Sta
   return Buffer.from([STATEMENT_DOMAIN, offerId, String(carriage), ...body].join("\n"), "utf8");
 }
 
-export function signStatement(offerId: string, carriage: number, lines: StatementLineSpec[], key: KeyObject = MANDATE_KEY): string {
+export function signStatement(offerId: string, carriage: number, lines: StatementLineSpec[], key: KeyObject = keyForOffer(offerId)): string {
   return sign(key.asymmetricKeyType === "ed25519" ? null : "sha256", canonicalStatement(offerId, carriage, lines), key).toString("base64");
 }
 
 /** §10.5's assertion shape over the same bytes, built as `assertDecisions` builds its own. */
 export function assertStatement(offerId: string, carriage: number, lines: StatementLineSpec[], options: { key?: KeyObject; relyingParty?: string } = {}) {
-  const { key = MANDATE_KEY, relyingParty = RP_ID } = options;
+  const { key = keyForOffer(offerId), relyingParty = RP_ID } = options;
   const challenge = createHash("sha256").update(canonicalStatement(offerId, carriage, lines)).digest("base64url");
   const authenticatorData = Buffer.concat([
     createHash("sha256").update(relyingParty).digest(),
@@ -748,6 +817,14 @@ export async function callSecond(
   body?: unknown,
   headers: Record<string, string> = {}
 ): Promise<Probe> {
+  // §13.2, question 55. A household signs with its own key, so the key has
+  // to be registered before anything of that household is signed. It is done
+  // here rather than in `freshHousehold`, which is not asynchronous, and it
+  // runs once per host.
+  const named = method === "POST" && path === "/offers" && body && typeof body === "object"
+    ? (body as Record<string, unknown>).household
+    : undefined;
+  if (typeof named === "string") await ensureRegistered(SECOND_HOST, named);
   const response = await fetch(`${SECOND_HOST}${path}`, {
     method,
     headers: { "content-type": "application/json", ...headers },
@@ -759,6 +836,10 @@ export async function callSecond(
     parsed = text === "" ? undefined : JSON.parse(text);
   } catch {
     parsed = undefined;
+  }
+  if (typeof named === "string" && parsed && typeof parsed === "object") {
+    const id = (parsed as Record<string, unknown>).id;
+    if (typeof id === "string") OFFER_HOUSEHOLD.set(id, named);
   }
   return { status: response.status, body: parsed, text };
 }
@@ -791,6 +872,14 @@ export async function call(
   body?: unknown,
   headers: Record<string, string> = {}
 ): Promise<Probe> {
+  // §13.2, question 55. A household signs with its own key, so the key has
+  // to be registered before anything of that household is signed. It is done
+  // here rather than in `freshHousehold`, which is not asynchronous, and it
+  // runs once per host.
+  const named = method === "POST" && path === "/offers" && body && typeof body === "object"
+    ? (body as Record<string, unknown>).household
+    : undefined;
+  if (typeof named === "string") await ensureRegistered(BASE, named);
   const response = await fetch(`${BASE}${path}`, {
     method,
     headers: {
@@ -805,6 +894,10 @@ export async function call(
     parsed = text === "" ? undefined : JSON.parse(text);
   } catch {
     parsed = undefined;
+  }
+  if (typeof named === "string" && parsed && typeof parsed === "object") {
+    const id = (parsed as Record<string, unknown>).id;
+    if (typeof id === "string") OFFER_HOUSEHOLD.set(id, named);
   }
   return { status: response.status, body: parsed, text };
 }
@@ -866,13 +959,16 @@ export function offerBody(
   candidates: CandidateSpec[],
   overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
+  // §13.2, question 55. The mandate an offer names is its household's, so the
+  // two are chosen together rather than one of each.
+  const household = (overrides.household as string | undefined) ?? freshHousehold();
   return {
     binding: "digital",
-    household: freshHousehold(),
+    household,
     purpose: "replenish",
     config_version: CONFIG_VERSION,
     expires_at: soon(60_000),
-    mandate: MANDATE,
+    mandate: mandateOf(household),
     candidates: candidates.map((c) => ({
       product: c.product,
       quantity: c.quantity ?? 1,

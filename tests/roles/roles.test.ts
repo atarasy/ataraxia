@@ -4,8 +4,11 @@ import {
   CONFIG_VERSION,
   HOUSEHOLD,
   MANDATE,
-  freshHousehold,
   PRODUCTS,
+  ensureRegistered,
+  freshHousehold,
+  mandateOf,
+  rememberOffer,
   signDecisions,
   soon,
 } from "../lib/probe.js";
@@ -62,11 +65,11 @@ async function send(base: string, method: string, path: string, body?: unknown):
 }
 
 /** §16.3. What the hub says has settled for this household today. */
-async function total(): Promise<number> {
+async function total(who: string = HOUSEHOLD): Promise<number> {
   const body = (await send(
     HUB_ONLY,
     "GET",
-    `/households/${encodeURIComponent(HOUSEHOLD)}/settled?since=0`
+    `/households/${encodeURIComponent(who)}/settled?since=0`
   )) as { total: number };
   return body.total;
 }
@@ -80,7 +83,7 @@ function offerBody(who: string = HOUSEHOLD) {
     purpose: "replenish",
     config_version: CONFIG_VERSION,
     expires_at: soon(60_000),
-    mandate: MANDATE,
+    mandate: mandateOf(who),
     candidates: PRODUCTS.map((product) => ({
       product,
       quantity: 1,
@@ -159,12 +162,18 @@ describe("roles: the two parties are one implementation (§13.2)", () => {
    * them can make it pass.
    */
   test("a settlement on the engine reaches the person's own copy on the hub", async () => {
-    const before = await total();
-    const offer = (await send(ENGINE_ONLY, "POST", "/offers", offerBody())) as {
+    // §13.2, question 55. The household signs with its own key, so this suite
+    // names the household, puts its key on the engine and says which offer is
+    // whose: it posts to a party `lib/probe.ts` does not talk to.
+    const mine = freshHousehold();
+    await ensureRegistered(ENGINE_ONLY, mine);
+    const before = await total(mine);
+    const offer = (await send(ENGINE_ONLY, "POST", "/offers", offerBody(mine))) as {
       id: string;
       candidates: { id: string }[];
     };
     expect(offer.id).toBeTruthy();
+    rememberOffer(offer.id, mine);
     await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/present`, {});
     const decisions = offer.candidates.map((c) => ({
       candidate: c.id,
@@ -183,7 +192,7 @@ describe("roles: the two parties are one implementation (§13.2)", () => {
 
     // The hub is a different process with a different store. What it knows
     // about this settlement it can only have been told.
-    const after = await total();
+    const after = await total(mine);
     expect(after - before).toBe(settled.charged);
   });
 
@@ -191,6 +200,7 @@ describe("roles: the two parties are one implementation (§13.2)", () => {
     // A household of its own: novelty is per household (clause 26), and the
     // probe above has already been offered every product in the catalogue.
     const who = freshHousehold();
+    await ensureRegistered(ENGINE_ONLY, who);
     // Clause 43, §13.2. Until 2026-09-11 the export read the engine's store,
     // so a hub presenting its role alone answered this route with an empty
     // node: the route was there and there was nothing behind it.
@@ -198,6 +208,7 @@ describe("roles: the two parties are one implementation (§13.2)", () => {
       id: string;
       candidates: { id: string }[];
     };
+    rememberOffer(offer.id, who);
     await send(ENGINE_ONLY, "POST", `/offers/${offer.id}/present`, {});
     // Clause 8: what was declined belongs in the person's copy as much as what
     // was kept, so this set refuses everything and the export still carries it.
@@ -290,13 +301,14 @@ describe("roles: the carriage crosses the split (§13.1, §7.5b, §6.5)", () => 
     // the engine at its own empty register instead of the hub. This assertion
     // failed: the approval carried `carriage: null` while the hub held 480.
     const household = freshHousehold();
+    await ensureRegistered(ENGINE_ONLY, household);
     const created = await json(ENGINE_ONLY, "/offers", "POST", {
       binding: "digital",
       household,
       purpose: "replenish",
       config_version: CONFIG_VERSION,
       expires_at: soon(120_000),
-      mandate: MANDATE,
+      mandate: mandateOf(household),
       candidates: PRODUCTS.slice(0, 3).map((product) => ({
         product,
         quantity: 1,
@@ -311,6 +323,9 @@ describe("roles: the carriage crosses the split (§13.1, §7.5b, §6.5)", () => 
       return;
     }
     const offer = created.body as { id: string; candidates: { id: string }[] };
+    // §13.2, question 55. This probe creates the offer through a sender of its
+    // own, so the household its decided set is signed for is named here.
+    rememberOffer(offer.id, household);
 
     // The delivery goes to the hub, which is the only party that answers for it.
     const recorded = await json(HUB_ONLY, `/offers/${offer.id}/delivery`, "POST", {
