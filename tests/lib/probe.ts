@@ -181,11 +181,17 @@ export async function ensureRegistered(base: string, household: string): Promise
   if (!seen) REGISTERED.set(base, (seen = new Set()));
   if (seen.has(household)) return;
   seen.add(household);
-  await fetch(`${base}/_identities`, {
+  const registered = await fetch(`${base}/_identities`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ key: household, public_key: held.pem, attested: false }),
   });
+  // A registration that failed silently would come back as an `unsigned`
+  // refusal several probes later, on a signature that was correct. It is said
+  // here instead.
+  if (registered.status !== 201) {
+    throw new Error(`the suite could not register a key for ${household}: ${registered.status} ${await registered.text()}`);
+  }
 }
 export const MANDATE = required("VALENCE_MANDATE");
 
