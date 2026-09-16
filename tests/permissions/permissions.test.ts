@@ -491,6 +491,16 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     // And the key under its own name is taken, so the refusal above is not a
     // route that refuses everything.
     expect((await call("POST", "/_identities", { key: nameOf(pemOf(mine)), public_key: pemOf(mine) })).status).toBe(201);
+    // Clause 22. A name that claims to be no key is still the registry's to
+    // hand out once, and a second, different key under it is refused. The
+    // same key again is not: a household registers its own on every host it
+    // reaches, and a move brings it to one that may already hold it.
+    const free = `probe-identity-${Math.random().toString(36).slice(2, 10)}`;
+    expect((await call("POST", "/_identities", { key: free, public_key: pemOf(mine) })).status).toBe(201);
+    expect((await call("POST", "/_identities", { key: free, public_key: pemOf(mine) })).status).toBe(201);
+    const taken = await call("POST", "/_identities", { key: free, public_key: pemOf(theirs) });
+    expect(taken.status).toBe(409);
+    expect((taken.body as { error: string }).error).toBe("identity_exists");
   });
 
   test("an offer reads only its own household's mandate (§16)", async () => {
