@@ -203,6 +203,44 @@ describe("exit: the move (clause 52)", () => {
     expect((await callSecond("GET", `/offers/${offer.id}/settlement`)).status).toBe(404);
   });
 
+  test("a giver's move names the gift it pays for that is still in flight, and carries what it paid without the lines (§12, §14.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): gifts_in_flight_unnamed and
+    // export_drops_payments. The first failed with a left_behind of [] and
+    // the second with payments of [].
+    //
+    // Question 61. A settlement lives with the recipient's offer, so a giver
+    // that moved took no record of what it paid, and its move named nothing
+    // left behind while its reserve was held at the old host. Measured by the
+    // fifth refutation pass over question 57.
+    const giver = freshHousehold();
+    const giverPath = encodeURIComponent(giver);
+    const offer = await createConformingOffer({ household: household(), purpose: "ceremonial", giver });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+
+    const inFlight = await call("GET", `/households/${giverPath}/export`);
+    const moved = await callSecond("POST", `/households/${giverPath}/import`, inFlight.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as { charged: number; receipt: string; payer: string };
+    expect(settlement.payer).toBe(giver);
+
+    const after = (await call("GET", `/households/${giverPath}/export`)).body as { payments: Record<string, unknown>[] };
+    const paid = after.payments.find((p) => p.offer === offer.id);
+    expect(paid).toBeDefined();
+    expect(paid!.charged).toBe(settlement.charged);
+    expect(paid!.receipt).toBe(settlement.receipt);
+    // Clause 24: what the recipient chose stays with the recipient.
+    expect(Object.keys(paid!).sort()).toEqual(["charged", "offer", "presenter", "receipt", "settled_at"]);
+  });
+
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
     // NOTE (mutation check, 2026-09-15): import_writes_before_verifying drops
     // the check of the whole body. The 404 assertion failed with 200: the offer
@@ -749,7 +787,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/6");
+    expect((exported.body as { format: string }).format).toBe("valence-node/7");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
