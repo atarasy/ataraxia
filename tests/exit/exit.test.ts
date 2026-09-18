@@ -429,6 +429,34 @@ describe("exit: the move (clause 52)", () => {
     }
   });
 
+  test("a mandate that arrives by a move is not a mandate this host holds (§14.2, question 56)", async () => {
+    // NOTE (mutation check, 2026-09-18): import_mandate_is_a_mandate and
+    // claim_is_held_for_the_household. The first writes the arriving row as a
+    // mandate, so `GET /_node/mandates/{id}` answers it; the second counts it
+    // among what the household holds, so every offer naming any other label is
+    // refused and one unsigned POST freezes a household that has never moved.
+    //
+    // §14.2, question 56, decided 2026-09-18. This route authenticates nobody,
+    // so what it carries is a claim: measured on the reference the day it was
+    // decided, an unsigned import placed a second mandate under a household's
+    // own identifier with a ceiling of 9,999,999 beside its real one at 0.
+    const house = freshHousehold();
+    const id = mandateOf(house);
+    const arriving = await callSecond("POST", `/households/${encodeURIComponent(house)}/import`, {
+      format: "valence-node/6",
+      mandates: [{ id, household: house, ceiling_out_of_network: 9_999_999, co_signers: [], ceiling_daily: null, cooling_seconds: null, lapses_at: soon(600_000), version: 1 }],
+    });
+    expect(arriving.status).toBe(201);
+    // It is not a mandate this host holds, so the hub does not answer for it.
+    const read = await callSecond("GET", `/_node/mandates/${encodeURIComponent(id)}`);
+    expect(read.status).toBe(404);
+    // And it does not make this household one that has set a protection here,
+    // which is what would let a stranger refuse every offer it is ever made.
+    const has = await callSecond("GET", `/_node/mandates?household=${encodeURIComponent(house)}`);
+    expect(has.status).toBe(200);
+    expect((has.body as { has: boolean }).has).toBe(false);
+  });
+
   test("an import names a household that is a key, and carries mandates of that household's (§13.2)", async () => {
     // NOTE (mutation check, 2026-09-16): import_household_shape_unchecked and
     // import_offer_mandate_unscoped. Each case below answered 201 under its
