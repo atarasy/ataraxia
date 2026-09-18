@@ -151,11 +151,15 @@ describe("exit: the move (clause 52)", () => {
     const carried = (exported.body as { confirmations?: Record<string, string[]> }).confirmations;
     expect(Object.keys(carried ?? {})).toContain(offer.id);
     expect((carried ?? {})[offer.id]?.length).toBeGreaterThan(0);
-    // Opaque on purpose: what identifies a confirmation is the receiving
-    // host's business to compare and nobody's to read as a signature.
-    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
-    const moved = await callSecond("GET", `/offers/${offer.id}`);
-    expect((moved.body as { state: string }).state).toBe("decided");
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. A decided set whose
+    // settlement has not happened still has money to move, and its reserve is
+    // on this host, so the move leaves it here and says so. The register goes on
+    // being exported, which is what the mutation above breaks; it is the
+    // receiving host that no longer takes an offer the register would guard.
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+    expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
@@ -176,10 +180,11 @@ describe("exit: the move (clause 52)", () => {
     const decisions = offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+    // Settled, so it has finished moving money and travels (§14.2, question 57).
+    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
 
     const exported = await call("GET", `/households/${house}/export`);
     const node = exported.body as { lineage: unknown[]; confirmations: Record<string, string[]> };
-    expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
     const refused = await callSecond("POST", `/households/${house}/import`, {
       ...node,
       lineage: [{ ...LINEAGE_EDGE, id: `edge-refused-${offer.id}`, from: household(), signature: "not-a-signature" }],
@@ -195,12 +200,10 @@ describe("exit: the move (clause 52)", () => {
 
     const retried = await callSecond("POST", `/households/${house}/import`, node);
     expect(retried.status).toBe(201);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
-    const arrived = (await callSecond("GET", `/households/${house}/export`)).body as { confirmations?: Record<string, string[]> };
-    expect(arrived.confirmations?.[offer.id]?.length).toBeGreaterThan(0);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("settled");
   });
 
-  test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
+  test("a set not yet settled does not arrive, and a register cannot be planted for it (§16.5, §14.2)", async () => {
     // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
     // the refusal. This assertion failed with 422: the route went on to the
     // mandate instead. The mutation had survived that day's sweep, because
@@ -234,13 +237,14 @@ describe("exit: the move (clause 52)", () => {
     const node = exported.body as { format: string; confirmations?: Record<string, string[]> };
     node.format = "valence-node/5";
     delete node.confirmations;
-    expect((await callSecond("POST", `/households/${house}/import`, node)).status).toBe(201);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
-
-    const taken = await callSecond("DELETE", `/offers/${offer.id}/decisions`);
-    expect(taken.status).toBe(409);
-    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. **A decided set whose
+    // settlement has not happened does not arrive at all**, so the state this
+    // probe was written for, a set here with no confirmation behind it, is no
+    // longer reachable through a move: the set stays where its reserve is.
+    const arriving = await callSecond("POST", `/households/${house}/import`, node);
+    expect(arriving.status).toBe(201);
+    expect((arriving.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+    expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
 
     // NOTE (mutation check, 2026-09-15): import_confirmations_unscoped accepts
     // the register below. This assertion failed with 201.
@@ -263,7 +267,6 @@ describe("exit: the move (clause 52)", () => {
       confirmations: { [offer.id]: "planted" },
     });
     expect(misshaped.status).toBe(400);
-    expect((await callSecond("DELETE", `/offers/${offer.id}/decisions`)).status).toBe(409);
   });
 
 
@@ -293,7 +296,9 @@ describe("exit: the move (clause 52)", () => {
     };
     for (const o of node.offers) {
       if (o.id !== offer.id) continue;
-      o.state = "decided";
+      // Settled, so it is one a move carries and reaches the rule below
+      // (§14.2, question 57); a forged decided set would be left behind.
+      o.state = "settled";
       for (const c of o.candidates) {
         c.valence = "kept";
         c.kept_as = "self";
@@ -708,7 +713,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     expect(row?.missing_notes).toEqual({ [gone!.id]: "not in the box at collection" });
   });
 
-  test("the export carries the collection, and the second host holds the block", async () => {
+  test("the export carries the collection, and the box it belongs to stays at its host", async () => {
     // NOTE (mutation check, 2026-09-12): export_drops_collections leaves the
     // rows out. The first assertion failed, and the last one failed too: the
     // receiving host presented the next box freely.
@@ -744,10 +749,18 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     expect(row).toBeDefined();
     expect(row!.consumed).toContain(used!.id);
 
-    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. The box awaits its
+    // statement, so its money has not finished moving and it stays where its
+    // reserve is. This probe used to require the block to travel with it, and
+    // a third refutation pass measured what that cost: the statement was
+    // refused `no_reservation` at the new host and this presenter's next box
+    // was refused there for good. **The block is per host now**, which is the
+    // cost of this shape and is stated rather than discovered.
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
 
-    // The receiving host now knows a statement is waiting, so this
-    // presenter's next box is refused there as it is here.
+    // So this presenter's next box presents at the new host.
     const next = await callSecond("POST", "/offers", conformingOffer({
       binding: "physical",
       household: household(),
@@ -755,8 +768,6 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     }));
     expect(next.status).toBe(201);
     const second = next.body as { id: string };
-    const refused = await callSecond("POST", `/offers/${second.id}/present`, {});
-    expect(refused.status).toBe(422);
-    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
+    expect((await callSecond("POST", `/offers/${second.id}/present`, {})).status).toBe(200);
   });
 });
