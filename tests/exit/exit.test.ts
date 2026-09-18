@@ -151,11 +151,44 @@ describe("exit: the move (clause 52)", () => {
     const carried = (exported.body as { confirmations?: Record<string, string[]> }).confirmations;
     expect(Object.keys(carried ?? {})).toContain(offer.id);
     expect((carried ?? {})[offer.id]?.length).toBeGreaterThan(0);
-    // Opaque on purpose: what identifies a confirmation is the receiving
-    // host's business to compare and nobody's to read as a signature.
-    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
-    const moved = await callSecond("GET", `/offers/${offer.id}`);
-    expect((moved.body as { state: string }).state).toBe("decided");
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. A decided set whose
+    // settlement has not happened still has money to move, and its reserve is
+    // on this host, so the move leaves it here and says so. The register goes on
+    // being exported, which is what the mutation above breaks; it is the
+    // receiving host that no longer takes an offer the register would guard.
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+    expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
+  });
+
+  test("an offer that travelled settles only where its reserve is, even at nothing (§14.2, §6.4)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_without_a_reservation drops the
+    // refusal. The 409 assertion failed with 200: the second host wrote a
+    // settlement of 0 with a receipt of its own.
+    //
+    // Question 57. An expired offer with every line returned owes nothing, so
+    // it travels. A fifth refutation pass then settled it at 0 on both hosts:
+    // one offer, two settlements, two receipts, and two hosts answering
+    // `GET /offers/{id}/settlement` differently. Money moves at the host that
+    // holds the reserve, and a settlement of nothing is still a settlement.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household(), expires_at: soon(1_500) });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
+
+    const exported = await call("GET", `/households/${house}/export`);
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).not.toContain(offer.id);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
+
+    const there = await callSecond("POST", `/offers/${offer.id}/settle`, {});
+    expect(there.status).toBe(409);
+    expect((there.body as { error: string }).error).toBe("no_reservation");
+    expect((await callSecond("GET", `/offers/${offer.id}/settlement`)).status).toBe(404);
+    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
@@ -176,10 +209,11 @@ describe("exit: the move (clause 52)", () => {
     const decisions = offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+    // Settled, so it has finished moving money and travels (§14.2, question 57).
+    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
 
     const exported = await call("GET", `/households/${house}/export`);
     const node = exported.body as { lineage: unknown[]; confirmations: Record<string, string[]> };
-    expect(node.confirmations[offer.id]?.length).toBeGreaterThan(0);
     const refused = await callSecond("POST", `/households/${house}/import`, {
       ...node,
       lineage: [{ ...LINEAGE_EDGE, id: `edge-refused-${offer.id}`, from: household(), signature: "not-a-signature" }],
@@ -195,18 +229,17 @@ describe("exit: the move (clause 52)", () => {
 
     const retried = await callSecond("POST", `/households/${house}/import`, node);
     expect(retried.status).toBe(201);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
-    const arrived = (await callSecond("GET", `/households/${house}/export`)).body as { confirmations?: Record<string, string[]> };
-    expect(arrived.confirmations?.[offer.id]?.length).toBeGreaterThan(0);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("settled");
   });
 
-  test("a set that arrives with no confirmation cannot be taken back (§16.5, §14.2)", async () => {
-    // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
-    // the refusal. This assertion failed with 422: the route went on to the
-    // mandate instead. The mutation had survived that day's sweep, because
-    // the question 46 guard now refuses the collected box the binding probe
-    // builds before this guard is reached, and nothing else reached it. This
-    // is the path that still does, and the digital binding has no other guard.
+  test("a set not yet settled does not arrive, and a register cannot be planted for it (§16.5, §14.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): this probe no longer catches
+    // withdraw_a_set_nobody_signed. It built a decided set that arrived by a
+    // move without its register, and question 57 rebuilt made that state
+    // unreachable: a decided set does not move. A fourth refutation pass
+    // measured the mutation caught by nothing afterwards, and the engine's
+    // `names` unit test now reaches the guard by planting the row an older
+    // host would hold.
     //
     // §14 and §16.5, question 50, decided 2026-09-15. The export carries the
     // register of what has confirmed each offer, and an offer it does not name
@@ -234,13 +267,14 @@ describe("exit: the move (clause 52)", () => {
     const node = exported.body as { format: string; confirmations?: Record<string, string[]> };
     node.format = "valence-node/5";
     delete node.confirmations;
-    expect((await callSecond("POST", `/households/${house}/import`, node)).status).toBe(201);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
-
-    const taken = await callSecond("DELETE", `/offers/${offer.id}/decisions`);
-    expect(taken.status).toBe(409);
-    expect((taken.body as { error: string }).error).toBe("not_withdrawable");
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("decided");
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. **A decided set whose
+    // settlement has not happened does not arrive at all**, so the state this
+    // probe was written for, a set here with no confirmation behind it, is no
+    // longer reachable through a move: the set stays where its reserve is.
+    const arriving = await callSecond("POST", `/households/${house}/import`, node);
+    expect(arriving.status).toBe(201);
+    expect((arriving.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+    expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
 
     // NOTE (mutation check, 2026-09-15): import_confirmations_unscoped accepts
     // the register below. This assertion failed with 201.
@@ -263,7 +297,6 @@ describe("exit: the move (clause 52)", () => {
       confirmations: { [offer.id]: "planted" },
     });
     expect(misshaped.status).toBe(400);
-    expect((await callSecond("DELETE", `/offers/${offer.id}/decisions`)).status).toBe(409);
   });
 
 
@@ -293,7 +326,9 @@ describe("exit: the move (clause 52)", () => {
     };
     for (const o of node.offers) {
       if (o.id !== offer.id) continue;
-      o.state = "decided";
+      // Settled, so it is one a move carries and reaches the rule below
+      // (§14.2, question 57); a forged decided set would be left behind.
+      o.state = "settled";
       for (const c of o.candidates) {
         c.valence = "kept";
         c.kept_as = "self";
@@ -427,6 +462,34 @@ describe("exit: the move (clause 52)", () => {
     for (const edge of beforeEdges) {
       expect(afterEdges.has(key(edge))).toBe(true);
     }
+  });
+
+  test("a mandate that arrives by a move is not a mandate this host holds (§14.2, question 56)", async () => {
+    // NOTE (mutation check, 2026-09-18): import_mandate_is_a_mandate and
+    // claim_is_held_for_the_household. The first writes the arriving row as a
+    // mandate, so `GET /_node/mandates/{id}` answers it; the second counts it
+    // among what the household holds, so every offer naming any other label is
+    // refused and one unsigned POST freezes a household that has never moved.
+    //
+    // §14.2, question 56, decided 2026-09-18. This route authenticates nobody,
+    // so what it carries is a claim: measured on the reference the day it was
+    // decided, an unsigned import placed a second mandate under a household's
+    // own identifier with a ceiling of 9,999,999 beside its real one at 0.
+    const house = freshHousehold();
+    const id = mandateOf(house);
+    const arriving = await callSecond("POST", `/households/${encodeURIComponent(house)}/import`, {
+      format: "valence-node/6",
+      mandates: [{ id, household: house, ceiling_out_of_network: 9_999_999, co_signers: [], ceiling_daily: null, cooling_seconds: null, lapses_at: soon(600_000), version: 1 }],
+    });
+    expect(arriving.status).toBe(201);
+    // It is not a mandate this host holds, so the hub does not answer for it.
+    const read = await callSecond("GET", `/_node/mandates/${encodeURIComponent(id)}`);
+    expect(read.status).toBe(404);
+    // And it does not make this household one that has set a protection here,
+    // which is what would let a stranger refuse every offer it is ever made.
+    const has = await callSecond("GET", `/_node/mandates?household=${encodeURIComponent(house)}`);
+    expect(has.status).toBe(200);
+    expect((has.body as { has: boolean }).has).toBe(false);
   });
 
   test("an import names a household that is a key, and carries mandates of that household's (§13.2)", async () => {
@@ -680,7 +743,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     expect(row?.missing_notes).toEqual({ [gone!.id]: "not in the box at collection" });
   });
 
-  test("the export carries the collection, and the second host holds the block", async () => {
+  test("the export carries the collection, and the box it belongs to stays at its host", async () => {
     // NOTE (mutation check, 2026-09-12): export_drops_collections leaves the
     // rows out. The first assertion failed, and the last one failed too: the
     // receiving host presented the next box freely.
@@ -716,10 +779,18 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     expect(row).toBeDefined();
     expect(row!.consumed).toContain(used!.id);
 
-    expect((await callSecond("POST", `/households/${house}/import`, exported.body)).status).toBe(201);
+    // §14.2 and §6.4, question 57, rebuilt 2026-09-19. The box awaits its
+    // statement, so its money has not finished moving and it stays where its
+    // reserve is. This probe used to require the block to travel with it, and
+    // a third refutation pass measured what that cost: the statement was
+    // refused `no_reservation` at the new host and this presenter's next box
+    // was refused there for good. **The block is per host now**, which is the
+    // cost of this shape and is stated rather than discovered.
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
 
-    // The receiving host now knows a statement is waiting, so this
-    // presenter's next box is refused there as it is here.
+    // So this presenter's next box presents at the new host.
     const next = await callSecond("POST", "/offers", conformingOffer({
       binding: "physical",
       household: household(),
@@ -727,8 +798,6 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     }));
     expect(next.status).toBe(201);
     const second = next.body as { id: string };
-    const refused = await callSecond("POST", `/offers/${second.id}/present`, {});
-    expect(refused.status).toBe(422);
-    expect((refused.body as { error: string }).error).toBe("statement_unsigned");
+    expect((await callSecond("POST", `/offers/${second.id}/present`, {})).status).toBe(200);
   });
 });
