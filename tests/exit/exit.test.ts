@@ -162,6 +162,35 @@ describe("exit: the move (clause 52)", () => {
     expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
   });
 
+  test("an offer that travelled settles only where its reserve is, even at nothing (§14.2, §6.4)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_without_a_reservation drops the
+    // refusal. The 409 assertion failed with 200: the second host wrote a
+    // settlement of 0 with a receipt of its own.
+    //
+    // Question 57. An expired offer with every line returned owes nothing, so
+    // it travels. A fifth refutation pass then settled it at 0 on both hosts:
+    // one offer, two settlements, two receipts, and two hosts answering
+    // `GET /offers/{id}/settlement` differently. Money moves at the host that
+    // holds the reserve, and a settlement of nothing is still a settlement.
+    const house = encodeURIComponent(household());
+    const offer = await createConformingOffer({ household: household(), expires_at: soon(1_500) });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
+
+    const exported = await call("GET", `/households/${house}/export`);
+    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).not.toContain(offer.id);
+    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
+
+    const there = await callSecond("POST", `/offers/${offer.id}/settle`, {});
+    expect(there.status).toBe(409);
+    expect((there.body as { error: string }).error).toBe("no_reservation");
+    expect((await callSecond("GET", `/offers/${offer.id}/settlement`)).status).toBe(404);
+    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
+  });
+
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
     // NOTE (mutation check, 2026-09-15): import_writes_before_verifying drops
     // the check of the whole body. The 404 assertion failed with 200: the offer
