@@ -330,7 +330,7 @@ describe("approval: a passkey confirms by challenge (§10.5)", () => {
       assertion: assertDecisions(offer.id, decisions),
     });
     expect(response.status).toBe(200);
-    expect((response.body as { state: string }).state).toBe("decided");
+    expect((response.body as { state: string }).state).toBe("settled"); // every line returned: question 62 settles it at once
   });
 
   test("an assertion for another set does not confirm this one", async () => {
@@ -444,7 +444,7 @@ describe("approval: a passkey confirms by challenge (§10.5)", () => {
       assertion: assertDecisions(offer.id, decisions, { key: pair.privateKey }),
     });
     expect(response.status).toBe(200);
-    expect((response.body as { state: string }).state).toBe("decided");
+    expect((response.body as { state: string }).state).toBe("settled"); // every line returned: question 62 settles it at once
   });
 
   test("an assertion made for another relying party is refused", async () => {

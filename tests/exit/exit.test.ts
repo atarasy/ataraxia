@@ -139,10 +139,11 @@ describe("exit: the move (clause 52)", () => {
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
-    const decisions = offer.candidates.map((c) => ({
-      candidate: c.id,
-      valence: "returned" as const,
-    }));
+    // One line kept, so that the set owes a settlement and stays `decided`:
+    // since question 62 a set with every line returned settles at once.
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
 
@@ -162,16 +163,17 @@ describe("exit: the move (clause 52)", () => {
     expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
   });
 
-  test("an offer that travelled settles only where its reserve is, even at nothing (§14.2, §6.4)", async () => {
+  test("an offer that owes nothing is settled before it moves, and one that arrives unsettled settles only where its reserve is (§14.2, §6.4)", async () => {
     // NOTE (mutation check, 2026-09-19): settle_without_a_reservation drops the
-    // refusal. The 409 assertion failed with 200: the second host wrote a
-    // settlement of 0 with a receipt of its own.
+    // refusal at the receiving host. The 409 assertion failed with 200: the
+    // second host wrote a settlement of 0 with a receipt of its own.
     //
     // Question 57. An expired offer with every line returned owes nothing, so
     // it travels. A fifth refutation pass then settled it at 0 on both hosts:
-    // one offer, two settlements, two receipts, and two hosts answering
-    // `GET /offers/{id}/settlement` differently. Money moves at the host that
-    // holds the reserve, and a settlement of nothing is still a settlement.
+    // one offer, two settlements, two receipts. Question 62 now settles such
+    // an offer at nothing before the export carries it, and the receiving
+    // host refuses to settle an offer it holds no reserve for, which is the
+    // guard for a body from a host that did not.
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household(), expires_at: soon(1_500) });
     expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
@@ -179,16 +181,26 @@ describe("exit: the move (clause 52)", () => {
     expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
 
     const exported = await call("GET", `/households/${house}/export`);
-    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    // NOTE (mutation check, 2026-09-19): export_leaves_what_owes_nothing
+    // stops the export settling first. This assertion failed with "expired".
+    expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("settled");
+    const body = exported.body as { offers: { id: string; state: string }[]; settlements: { offer: string }[] };
+    expect(body.offers.find((o) => o.id === offer.id)?.state).toBe("settled");
+
+    // The body a host from before question 62 would send: the offer expired
+    // and unsettled.
+    const older = {
+      ...body,
+      offers: body.offers.map((o) => (o.id === offer.id ? { ...o, state: "expired" } : o)),
+      settlements: body.settlements.filter((st) => st.offer !== offer.id),
+    };
+    const moved = await callSecond("POST", `/households/${house}/import`, older);
     expect(moved.status).toBe(201);
     expect((moved.body as { left_behind: string[] }).left_behind).not.toContain(offer.id);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
-
     const there = await callSecond("POST", `/offers/${offer.id}/settle`, {});
     expect(there.status).toBe(409);
     expect((there.body as { error: string }).error).toBe("no_reservation");
     expect((await callSecond("GET", `/offers/${offer.id}/settlement`)).status).toBe(404);
-    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
@@ -253,10 +265,11 @@ describe("exit: the move (clause 52)", () => {
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
-    const decisions = offer.candidates.map((c) => ({
-      candidate: c.id,
-      valence: "returned" as const,
-    }));
+    // One line kept, so that the set owes a settlement and stays `decided`
+    // (question 62 settles a set with every line returned at once).
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
 
