@@ -9,6 +9,7 @@ import {
   createConformingOffer,
   createMixedOffer,
   decide,
+  ownMandate,
   PRICES,
   PRICES_LATER,
   PRODUCTS,
@@ -254,6 +255,39 @@ describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
     const signed = await call("POST", `/offers/${offer.id}/present`, { signature: signGift(offer.id) });
     expect(signed.status).toBe(200);
     expect((signed.body as { state: string }).state).toBe("presented");
+  });
+
+  test("a gift is held to the giver's daily ceiling, and the recipient's never refuses it (§12, §16.3)", async () => {
+    // NOTE (mutation check, 2026-09-19): gift_ceiling_is_the_recipients. The
+    // first settle answered 200 and the second 422: the recipient's ceiling
+    // was read for a gift the giver pays.
+    //
+    // Question 60. A daily ceiling protects the person whose money moves. A
+    // second refutation pass noted that until this probe the rule rested on
+    // the engine's unit tests alone.
+    const keepOne = (offer: { candidates: { id: string }[] }) => ({
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+
+    const tightGiver = await ownMandate({ ceiling_daily: 1 });
+    const first = await createConformingOffer({ purpose: "ceremonial", giver: tightGiver.household });
+    expect((await call("POST", `/offers/${first.id}/present`, {})).status).toBe(200);
+    expect((await decide(first.id, keepOne(first))).status).toBe(200);
+    const refused = await call("POST", `/offers/${first.id}/settle`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("mandate_ceiling_daily");
+
+    const tightRecipient = await ownMandate({ ceiling_daily: 1 });
+    const second = await createConformingOffer({
+      purpose: "ceremonial", household: tightRecipient.household, mandate: tightRecipient.mandate.id,
+    });
+    expect((await call("POST", `/offers/${second.id}/present`, {})).status).toBe(200);
+    expect((await decide(second.id, keepOne(second))).status).toBe(200);
+    expect((await call("POST", `/offers/${second.id}/settle`, {})).status).toBe(200);
   });
 
   test("a recipient who chose one item is sent no default (clause 25)", async () => {
