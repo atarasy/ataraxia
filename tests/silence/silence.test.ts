@@ -1,15 +1,20 @@
 import { describe, expect, test } from "bun:test";
+import { generateKeyPairSync, sign } from "node:crypto";
 import {
+  BASE,
   call,
+  canonicalGift,
   CONFIG_VERSION_LATER,
   conformingOffer,
   createConformingOffer,
   createMixedOffer,
   decide,
+  ownMandate,
   PRICES,
   PRICES_LATER,
   PRODUCTS,
   REPRICED,
+  signGift,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -215,6 +220,74 @@ describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
     const payer = (settled.body as { payer: string }).payer;
     expect(payer).toBe(view.giver);
     expect(payer).not.toBe(view.household);
+  });
+
+  test("a gift is presented only on its giver's signature, over terms the suite computes itself (§12)", async () => {
+    // NOTE (mutation check, 2026-09-19): gift_presented_unsigned and
+    // gift_signature_unchecked. The first failed with 200 on an empty body,
+    // the second with 200 on a stranger's signature.
+    //
+    // Question 64. A ceremonial offer charges its giver, and the giver was
+    // whatever household the presenter wrote: a refutation pass measured a
+    // household named as giver charged 1500 without any act of its own.
+    const offer = await createConformingOffer({ purpose: "ceremonial" });
+    const unsigned = await fetch(`${BASE}/offers/${offer.id}/present`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: "{}",
+    });
+    expect(unsigned.status).toBe(422);
+    expect(((await unsigned.json()) as { error: string }).error).toBe("gift_unsigned");
+
+    const stranger = generateKeyPairSync("ed25519").privateKey;
+    const read = (await call("GET", `/offers/${offer.id}`)).body as Parameters<typeof canonicalGift>[0];
+    const forged = await call("POST", `/offers/${offer.id}/present`, {
+      signature: sign(null, canonicalGift(read), stranger).toString("base64"),
+    });
+    expect(forged.status).toBe(422);
+    expect((forged.body as { error: string }).error).toBe("bad_signature");
+    expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("drafted");
+
+    // The terms the host serves agree with the ones computed here.
+    const terms = (await call("GET", `/offers/${offer.id}/gift`)).body as { upper_bound: number; giver: string; recipient: string };
+    expect(terms.giver).toBe(read.giver);
+    expect(terms.recipient).toBe(read.household);
+    expect(terms.upper_bound).toBe(read.candidates.reduce((sum, c) => sum + (c.given_by ? 0 : c.unit_price * c.quantity), 0));
+
+    const signed = await call("POST", `/offers/${offer.id}/present`, { signature: signGift(offer.id) });
+    expect(signed.status).toBe(200);
+    expect((signed.body as { state: string }).state).toBe("presented");
+  });
+
+  test("a gift is held to the giver's daily ceiling, and the recipient's never refuses it (§12, §16.3)", async () => {
+    // NOTE (mutation check, 2026-09-19): gift_ceiling_is_the_recipients. The
+    // first settle answered 200 and the second 422: the recipient's ceiling
+    // was read for a gift the giver pays.
+    //
+    // Question 60. A daily ceiling protects the person whose money moves. A
+    // second refutation pass noted that until this probe the rule rested on
+    // the engine's unit tests alone.
+    const keepOne = (offer: { candidates: { id: string }[] }) => ({
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+
+    const tightGiver = await ownMandate({ ceiling_daily: 1 });
+    const first = await createConformingOffer({ purpose: "ceremonial", giver: tightGiver.household });
+    expect((await call("POST", `/offers/${first.id}/present`, {})).status).toBe(200);
+    expect((await decide(first.id, keepOne(first))).status).toBe(200);
+    const refused = await call("POST", `/offers/${first.id}/settle`, {});
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("mandate_ceiling_daily");
+
+    const tightRecipient = await ownMandate({ ceiling_daily: 1 });
+    const second = await createConformingOffer({
+      purpose: "ceremonial", household: tightRecipient.household, mandate: tightRecipient.mandate.id,
+    });
+    expect((await call("POST", `/offers/${second.id}/present`, {})).status).toBe(200);
+    expect((await decide(second.id, keepOne(second))).status).toBe(200);
+    expect((await call("POST", `/offers/${second.id}/settle`, {})).status).toBe(200);
   });
 
   test("a recipient who chose one item is sent no default (clause 25)", async () => {

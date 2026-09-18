@@ -139,10 +139,11 @@ describe("exit: the move (clause 52)", () => {
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
-    const decisions = offer.candidates.map((c) => ({
-      candidate: c.id,
-      valence: "returned" as const,
-    }));
+    // One line kept, so that the set owes a settlement and stays `decided`:
+    // since question 62 a set with every line returned settles at once.
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
 
@@ -162,16 +163,17 @@ describe("exit: the move (clause 52)", () => {
     expect((await callSecond("GET", `/offers/${offer.id}`)).status).toBe(404);
   });
 
-  test("an offer that travelled settles only where its reserve is, even at nothing (§14.2, §6.4)", async () => {
+  test("an offer that owes nothing is settled before it moves, and one that arrives unsettled settles only where its reserve is (§14.2, §6.4)", async () => {
     // NOTE (mutation check, 2026-09-19): settle_without_a_reservation drops the
-    // refusal. The 409 assertion failed with 200: the second host wrote a
-    // settlement of 0 with a receipt of its own.
+    // refusal at the receiving host. The 409 assertion failed with 200: the
+    // second host wrote a settlement of 0 with a receipt of its own.
     //
     // Question 57. An expired offer with every line returned owes nothing, so
     // it travels. A fifth refutation pass then settled it at 0 on both hosts:
-    // one offer, two settlements, two receipts, and two hosts answering
-    // `GET /offers/{id}/settlement` differently. Money moves at the host that
-    // holds the reserve, and a settlement of nothing is still a settlement.
+    // one offer, two settlements, two receipts. Question 62 now settles such
+    // an offer at nothing before the export carries it, and the receiving
+    // host refuses to settle an offer it holds no reserve for, which is the
+    // guard for a body from a host that did not.
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household(), expires_at: soon(1_500) });
     expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
@@ -179,16 +181,72 @@ describe("exit: the move (clause 52)", () => {
     expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
 
     const exported = await call("GET", `/households/${house}/export`);
-    const moved = await callSecond("POST", `/households/${house}/import`, exported.body);
+    // NOTE (mutation check, 2026-09-19): export_leaves_what_owes_nothing
+    // stops the export settling first. This assertion failed with "expired".
+    expect(((await call("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("settled");
+    const body = exported.body as { offers: { id: string; state: string }[]; settlements: { offer: string }[] };
+    expect(body.offers.find((o) => o.id === offer.id)?.state).toBe("settled");
+
+    // The body a host from before question 62 would send: the offer expired
+    // and unsettled.
+    const older = {
+      ...body,
+      offers: body.offers.map((o) => (o.id === offer.id ? { ...o, state: "expired" } : o)),
+      settlements: body.settlements.filter((st) => st.offer !== offer.id),
+    };
+    const moved = await callSecond("POST", `/households/${house}/import`, older);
     expect(moved.status).toBe(201);
     expect((moved.body as { left_behind: string[] }).left_behind).not.toContain(offer.id);
-    expect(((await callSecond("GET", `/offers/${offer.id}`)).body as { state: string }).state).toBe("expired");
-
     const there = await callSecond("POST", `/offers/${offer.id}/settle`, {});
     expect(there.status).toBe(409);
     expect((there.body as { error: string }).error).toBe("no_reservation");
     expect((await callSecond("GET", `/offers/${offer.id}/settlement`)).status).toBe(404);
-    expect((await call("POST", `/offers/${offer.id}/settle`, {})).status).toBe(200);
+  });
+
+  test("a giver's move names the gift it pays for that is still in flight, and carries what it paid without the lines (§12, §14.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): gifts_in_flight_unnamed and
+    // export_drops_payments. The first failed with a left_behind of [] and
+    // the second with payments of [].
+    //
+    // Question 61. A settlement lives with the recipient's offer, so a giver
+    // that moved took no record of what it paid, and its move named nothing
+    // left behind while its reserve was held at the old host. Measured by the
+    // fifth refutation pass over question 57.
+    const giver = freshHousehold();
+    const giverPath = encodeURIComponent(giver);
+    const offer = await createConformingOffer({ household: household(), purpose: "ceremonial", giver });
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+
+    const inFlight = await call("GET", `/households/${giverPath}/export`);
+    const moved = await callSecond("POST", `/households/${giverPath}/import`, inFlight.body);
+    expect(moved.status).toBe(201);
+    expect((moved.body as { left_behind: string[] }).left_behind).toContain(offer.id);
+
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
+    const signature = signDecisions(offer.id, decisions);
+    expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const settlement = settled.body as { charged: number; receipt: string; payer: string };
+    expect(settlement.payer).toBe(giver);
+
+    const afterBody = (await call("GET", `/households/${giverPath}/export`)).body;
+    const after = afterBody as { payments: Record<string, unknown>[] };
+    const paid = after.payments.find((p) => p.offer === offer.id);
+    expect(paid).toBeDefined();
+    expect(paid!.charged).toBe(settlement.charged);
+    expect(paid!.receipt).toBe(settlement.receipt);
+    // Clause 24: what the recipient chose stays with the recipient.
+    expect(Object.keys(paid!).sort()).toEqual(["charged", "offer", "presenter", "receipt", "settled_at"]);
+
+    // NOTE (mutation check, 2026-09-19): import_drops_payments. The payment
+    // arrives with the giver, which a second refutation pass noted only the
+    // engine's own unit test had asked.
+    expect((await callSecond("POST", `/households/${giverPath}/import`, afterBody)).status).toBe(201);
+    const there = (await callSecond("GET", `/households/${giverPath}/export`)).body as { payments: Record<string, unknown>[] };
+    expect(there.payments.find((p) => p.offer === offer.id)?.receipt).toBe(settlement.receipt);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
@@ -253,10 +311,11 @@ describe("exit: the move (clause 52)", () => {
     const house = encodeURIComponent(household());
     const offer = await createConformingOffer({ household: household() });
     await call("POST", `/offers/${offer.id}/present`, {});
-    const decisions = offer.candidates.map((c) => ({
-      candidate: c.id,
-      valence: "returned" as const,
-    }));
+    // One line kept, so that the set owes a settlement and stays `decided`
+    // (question 62 settles a set with every line returned at once).
+    const decisions = offer.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
     const signature = signDecisions(offer.id, decisions);
     expect((await call("POST", `/offers/${offer.id}/decisions`, { decisions, signature })).status).toBe(200);
 
@@ -736,7 +795,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/6");
+    expect((exported.body as { format: string }).format).toBe("valence-node/7");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);

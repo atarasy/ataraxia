@@ -114,7 +114,9 @@ describe("machine: an offer may be decided partially (§2.1)", () => {
       decisions: rest.map((c) => ({ candidate: c.id, valence: "returned" })),
     });
     expect(remainder.status).toBe(200);
-    expect((remainder.body as { state: string }).state).toBe("decided");
+    // Every line returned owes nothing, and since question 62 such a set
+    // settles at once where no cooling window stands (§6.4).
+    expect((remainder.body as { state: string }).state).toBe("settled");
   });
 
   test("deciding the same candidate twice is refused", async () => {

@@ -748,6 +748,29 @@ describe.if(HAS_PHYSICAL)("binding: recovery (§11)", () => {
     expect((settled.body as { consumed_amount: number }).consumed_amount).toBe(used!.unit_price);
   });
 
+  test("a box the household called returned in full waits for its collection, which can still find a line used (§11.2, §6.4)", async () => {
+    // NOTE (mutation check, 2026-09-19): nothing_owed_before_collection. The
+    // state assertion failed with "settled" and the collection with 409.
+    //
+    // Question 62 settles at nothing a set that owes nothing. A first
+    // refutation pass measured it settling a box the household had called
+    // returned in full, before anyone collected it, after which the route's
+    // collection was refused on a settled offer: the household ate the box
+    // for free. A box is not finished until it has been collected.
+    const created = await call("POST", "/offers", conformingOffer({ binding: "physical", expires_at: soon(60_000) }));
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    await call("POST", `/offers/${offer.id}/present`, {});
+    const everything = await decide(offer.id, { decisions: offer.candidates.map((c) => ({ candidate: c.id, valence: "returned" })) });
+    expect(everything.status).toBe(200);
+    expect((everything.body as { state: string }).state).toBe("decided");
+    await delivered(offer.id);
+    const [used, ...rest] = offer.candidates;
+    const collected = await call("POST", `/offers/${offer.id}/recovery`, { returned: rest.map((c) => c.id), consumed: [used!.id] });
+    expect(collected.status).toBe(200);
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect((read.body as { candidates: { id: string; valence: string }[] }).candidates.find((c) => c.id === used!.id)!.valence).toBe("consumed");
+  });
+
   test("a collection cannot restate a candidate the household already decided (question 46)", async () => {
     // NOTE (mutation check, 2026-09-14): collection_restates_decisions drops
     // the rule. This assertion failed with 200. A line the household decided
