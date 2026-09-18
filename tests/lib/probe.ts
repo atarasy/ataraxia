@@ -872,12 +872,51 @@ export type Probe = {
   text: string;
 };
 
+/**
+ * §12, question 64. What a gift's giver signs, written from the specification:
+ * the domain, the offer, the giver, the recipient, the presenter, the band, the
+ * most the gift can come to and its expiry, one to a line.
+ */
+export function canonicalGift(offer: {
+  id: string; giver: string; household: string; presenter: string; expires_at: number;
+  price_band: { min: number; max: number };
+  candidates: { unit_price: number; quantity: number; given_by?: string | null }[];
+}): Buffer {
+  const upper = offer.candidates.reduce((sum, c) => sum + (c.given_by ? 0 : c.unit_price * c.quantity), 0);
+  return Buffer.from(
+    ["valence.gift.1", offer.id, offer.giver, offer.household, offer.presenter,
+      String(offer.price_band.min), String(offer.price_band.max), String(upper), String(offer.expires_at)].join("\n"),
+    "utf8"
+  );
+}
+
+/** Gifts this file created, so that presenting one is signed by its giver. */
+const GIFTS = new Map<string, Parameters<typeof canonicalGift>[0]>();
+
+/** §12, question 64. The giver's signature over a gift this file created. */
+export function signGift(offerId: string): string {
+  const offer = GIFTS.get(offerId);
+  if (!offer) throw new Error(`the suite did not create gift ${offerId}`);
+  return sign(null, canonicalGift(offer), keyForHousehold(offer.giver)).toString("base64");
+}
+
 export async function call(
   method: string,
   path: string,
   body?: unknown,
   headers: Record<string, string> = {}
 ): Promise<Probe> {
+  // §12, question 64. A gift is presented on its giver's signature. A probe
+  // that is not about that signature presents with an empty body, and the
+  // signature is added here; the probe that is about it sends its own body.
+  const presenting = method === "POST" ? /^\/offers\/([^/]+)\/present$/.exec(path) : null;
+  if (presenting && GIFTS.has(presenting[1]!) && (body === undefined || (typeof body === "object" && body !== null && Object.keys(body).length === 0))) {
+    body = { signature: signGift(presenting[1]!) };
+  }
+  const giving = method === "POST" && path === "/offers" && body && typeof body === "object"
+    ? (body as Record<string, unknown>).giver
+    : undefined;
+  if (typeof giving === "string") await ensureRegistered(BASE, giving);
   // §13.2, question 55. A household signs with its own key, so the key has
   // to be registered before anything of that household is signed. It is done
   // here rather than in `freshHousehold`, which is not asynchronous, and it
@@ -904,6 +943,10 @@ export async function call(
   if (typeof named === "string" && parsed && typeof parsed === "object") {
     const id = (parsed as Record<string, unknown>).id;
     if (typeof id === "string") OFFER_HOUSEHOLD.set(id, named);
+  }
+  if (typeof giving === "string" && response.status === 201 && parsed && typeof parsed === "object") {
+    const created = parsed as Parameters<typeof canonicalGift>[0];
+    if (typeof created.id === "string") GIFTS.set(created.id, created);
   }
   return { status: response.status, body: parsed, text };
 }
@@ -990,8 +1033,10 @@ export function offerBody(
       : {}),
     // Clause 25, §12. A ceremonial offer names its giver, who pays; the
     // household on the offer is the recipient, who chooses.
+    // §12, question 64: the giver signs the gift, so it is a household with a
+    // key, fresh for each offer.
     ...(overrides.purpose === "ceremonial" && overrides.giver === undefined
-      ? { giver: `${HOUSEHOLD}-giver` }
+      ? { giver: freshHousehold() }
       : {}),
     ...overrides,
   };
