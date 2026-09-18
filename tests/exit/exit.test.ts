@@ -204,12 +204,13 @@ describe("exit: the move (clause 52)", () => {
   });
 
   test("a set not yet settled does not arrive, and a register cannot be planted for it (§16.5, §14.2)", async () => {
-    // NOTE (mutation check, 2026-09-15): withdraw_a_set_nobody_signed removes
-    // the refusal. This assertion failed with 422: the route went on to the
-    // mandate instead. The mutation had survived that day's sweep, because
-    // the question 46 guard now refuses the collected box the binding probe
-    // builds before this guard is reached, and nothing else reached it. This
-    // is the path that still does, and the digital binding has no other guard.
+    // NOTE (mutation check, 2026-09-19): this probe no longer catches
+    // withdraw_a_set_nobody_signed. It built a decided set that arrived by a
+    // move without its register, and question 57 rebuilt made that state
+    // unreachable: a decided set does not move. A fourth refutation pass
+    // measured the mutation caught by nothing afterwards, and the engine's
+    // `names` unit test now reaches the guard by planting the row an older
+    // host would hold.
     //
     // §14 and §16.5, question 50, decided 2026-09-15. The export carries the
     // register of what has confirmed each offer, and an offer it does not name
