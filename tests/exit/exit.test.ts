@@ -232,13 +232,21 @@ describe("exit: the move (clause 52)", () => {
     const settlement = settled.body as { charged: number; receipt: string; payer: string };
     expect(settlement.payer).toBe(giver);
 
-    const after = (await call("GET", `/households/${giverPath}/export`)).body as { payments: Record<string, unknown>[] };
+    const afterBody = (await call("GET", `/households/${giverPath}/export`)).body;
+    const after = afterBody as { payments: Record<string, unknown>[] };
     const paid = after.payments.find((p) => p.offer === offer.id);
     expect(paid).toBeDefined();
     expect(paid!.charged).toBe(settlement.charged);
     expect(paid!.receipt).toBe(settlement.receipt);
     // Clause 24: what the recipient chose stays with the recipient.
     expect(Object.keys(paid!).sort()).toEqual(["charged", "offer", "presenter", "receipt", "settled_at"]);
+
+    // NOTE (mutation check, 2026-09-19): import_drops_payments. The payment
+    // arrives with the giver, which a second refutation pass noted only the
+    // engine's own unit test had asked.
+    expect((await callSecond("POST", `/households/${giverPath}/import`, afterBody)).status).toBe(201);
+    const there = (await callSecond("GET", `/households/${giverPath}/export`)).body as { payments: Record<string, unknown>[] };
+    expect(there.payments.find((p) => p.offer === offer.id)?.receipt).toBe(settlement.receipt);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
