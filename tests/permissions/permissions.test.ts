@@ -1015,6 +1015,42 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     }
   });
 
+  test("bringing a co-signed mandate's lapse forward needs the co-signer (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-19): lapse_forward_is_the_households_alone.
+    // The refusal assertion answered 201: the household alone brought the
+    // co-signed lapse forward.
+    //
+    // Decided 2026-09-19 after the first refutation pass over question 68,
+    // which measured the escape that question left open: bringing a lapse
+    // forward counted as a tightening, so a household holding a tight mandate
+    // with a co-signer moved its lapse to a second away, alone, and once it
+    // had lapsed the loose label beside it governed every offer. Bringing it
+    // forward takes the co-signers' protection away sooner, so it needs them.
+    const was = await current();
+    expect(was.co_signers.length).toBeGreaterThan(0);
+    expect((await put({ ceiling_out_of_network: 0 }, false)).response.status).toBe(201);
+    try {
+      const second = await secondLabel({ ceiling_out_of_network: 10_000_000 });
+      const alone = await put({ lapses_at: soon(1_000) }, false);
+      expect(alone.response.status).toBe(422);
+      expect((alone.response.body as { error: string }).error).toBe("unsigned");
+      await sleep(1_500);
+      // So the tight mandate is still live, and still binds the second label.
+      const created = await call("POST", "/offers", conformingOffer({ household: own.household, mandate: second.id }));
+      expect(created.status).toBe(201);
+      const shown = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
+      expect(shown.status).toBe(422);
+      expect((shown.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+    } finally {
+      await restore(was);
+    }
+
+    // A mandate that names nobody is the household's alone, lapse included.
+    own = await ownMandate({ co_signers: [], lapses_at: soon(600_000) });
+    const mine = await put({ lapses_at: soon(300_000) }, false);
+    expect([mine.response.status, mine.response.text]).toEqual([201, mine.response.text]);
+  });
+
 
   test("a confirmation taken back cannot be sent again (§10.5)", async () => {
     // NOTE (mutation check, 2026-09-11): confirmation_reusable disables the refusal
