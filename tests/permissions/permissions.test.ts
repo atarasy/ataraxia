@@ -1118,26 +1118,38 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
   });
 
-  test("a mandate lapses at most a year after it is recorded (§16.1, clause 58)", async () => {
+  test("a mandate lapses at most 400 days after it is recorded (§16.1, clause 58)", async () => {
     // NOTE (mutation check, 2026-09-19): lapse_unbounded. The refusal
     // assertion answered 201 for a lapse in the year 9999.
+    // NOTE (mutation check, 2026-09-20): lapse_bound_is_a_year. The 367-day
+    // and 400-day assertions read 422 lapse_too_far at a bound of 366.
     //
     // Decided 2026-09-19 with the probe above. A mandate naming a co-signer
     // nobody holds binds every offer its household makes (question 68), and
     // only its co-signers can bring its lapse forward, so the lapse is how
     // long it holds the household. The first refutation pass over question 68
-    // recorded one lapsing in the year 9999. The reference hub renews a year
-    // out, which is the bound.
+    // recorded one lapsing in the year 9999.
+    //
+    // **The bound is 400 days and not 366**, decided 2026-09-20 after the
+    // second pass measured what a year plus a day of slack is spent on: the
+    // reference hub computes the lapse on the member's own device, so a phone
+    // two days fast had every button on its protections screen refused. The
+    // bound is there to bound the freeze, so the tolerance is 35 days and a
+    // renewal from a device a week fast records.
     const DAY = 86_400_000;
     const was = await current();
     try {
-      for (const lapses_at of [Date.UTC(9999, 0, 1), soon(400 * DAY)]) {
+      for (const lapses_at of [Date.UTC(9999, 0, 1), soon(401 * DAY)]) {
         const far = await put({ lapses_at }, true);
         expect(far.response.status).toBe(422);
         expect((far.response.body as { error: string }).error).toBe("lapse_too_far");
       }
-      const year = await put({ lapses_at: soon(365 * DAY) }, true);
-      expect([year.response.status, year.response.text]).toEqual([201, year.response.text]);
+      // A device a week fast renews to 372 days by the host's clock, and 400
+      // days is the bound itself.
+      for (const days of [365, 367, 372, 400]) {
+        const ok = await put({ lapses_at: soon(days * DAY) }, true);
+        expect([days, ok.response.status, ok.response.text]).toEqual([days, 201, ok.response.text]);
+      }
     } finally {
       await restore(was);
     }
