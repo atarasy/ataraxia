@@ -276,6 +276,14 @@ describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
     });
     expect(elsewhere.status).toBe(422);
     expect((elsewhere.body as { error: string }).error).toBe("bad_signature");
+    // Signed for this host, the same terms present. Without this line the
+    // probe asked only for a refusal, which a form that names no host also
+    // gives, and a first refutation pass measured it passing under the
+    // mutation it was credited with.
+    const here = await call("POST", `/offers/${offer.id}/present`, {
+      signature: sign(null, canonicalGift(read, RP_ID), keyForHousehold(read.giver)).toString("base64"),
+    });
+    expect(here.status).toBe(200);
 
     const named = await call("POST", "/offers", conformingOffer({ purpose: "ceremonial", giver: "grandmother-tanaka" }));
     expect(named.status).toBe(422);
