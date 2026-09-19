@@ -872,10 +872,11 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
   /**
    * §13.2. A second mandate of this household's own, at version 1, signed by
    * the household alone. Recording one is not refused and question 68 did not
-   * change that: the signing rules stay as they are, so nobody is frozen out
-   * by a co-signer whose key nobody holds, which is why question 56's first
-   * attempt was refused. What changed is that the values on it no longer
-   * govern by themselves.
+   * change that, which is why question 56's first attempt was refused. What
+   * changed is that the values on it no longer govern by themselves. (This
+   * said until the first refutation pass over question 68 that nobody is
+   * frozen out by a co-signer whose key nobody holds; such a mandate does
+   * bind every label, for at most the year §16.1 allows its lapse.)
    */
   const secondLabel = async (over: Record<string, unknown> = {}) => {
     const second = {
