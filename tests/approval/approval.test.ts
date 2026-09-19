@@ -625,6 +625,34 @@ describe("approval: the screen names who made it, who ships it, and the band (cl
     expect((again.body as { error: string }).error).toBe("already_decided");
   });
 
+  test("a decision that loses the race says already_decided too (§10.5)", async () => {
+    // **The refusal at the end of the read.** §16.3 and §16.5 have an
+    // implementation read the household's protections when a set is decided,
+    // and that read waits, so two decisions of the same lines can be in
+    // flight at once. The reference refuses the loser `409 already_decided`,
+    // and until 2026-09-20 the specification defined that name only for a
+    // line a collection or an earlier decision had already resolved: a name
+    // the specification does not carry is one no probe has to assert and no
+    // second implementation has to produce (§16.5's own paragraph).
+    //
+    // **The assertion holds whichever check refuses**, which is what makes it
+    // a probe rather than a race: one of the two wins, and the loser is
+    // refused `409 already_decided` whether it lost during the read or found
+    // the line resolved before it. A reference whose source answers at once
+    // usually reaches the second.
+    const { offer } = await deliberated();
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const first = offer.candidates[0]!;
+    const [a, b] = await Promise.all([
+      decide(offer.id, { decisions: [{ candidate: first.id, valence: "kept", kept_as: "self" }] }),
+      decide(offer.id, { decisions: [{ candidate: first.id, valence: "returned" }] }),
+    ]);
+    const statuses = [a!.status, b!.status].sort();
+    expect(statuses).toEqual([200, 409]);
+    const loser = a!.status === 409 ? a! : b!;
+    expect((loser.body as { error: string }).error).toBe("already_decided");
+  });
+
   test("a ceremonial screen carries the band the giver chose", async () => {
     const prices = Object.values(PRICES);
     const band = { min: Math.min(...prices), max: Math.max(...prices) };
