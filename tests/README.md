@@ -79,6 +79,7 @@ as twenty-four environment variables:
 | `VALENCE_RECOVERY_GRACE_DAYS` | days after the recovery deadline before an uncollected candidate is lost |
 | `VALENCE_RP_ID` | the name a member's device signs for, which the deployment declares for itself (§10.5, §14b). The probes build assertions for it, and an implementation that compared some other name would accept what no member's device made |
 | `VALENCE_SECOND_HOST_URL` | a second host of the same implementation, for the move in `exit/` |
+| `VALENCE_SECOND_RP_ID` | the relying party the second host asserts for, which must differ from `VALENCE_RP_ID`. §16.1 binds a mandate version to the host it is recorded at (question 58), and two hosts under one relying party are one host for that purpose, so the probe that a version does not travel needs two |
 
 Seeding a catalogue and attesting a key are deployment plumbing the
 specification does not describe, so the suite refuses to guess at routes for

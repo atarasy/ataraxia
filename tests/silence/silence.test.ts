@@ -9,11 +9,13 @@ import {
   createConformingOffer,
   createMixedOffer,
   decide,
+  keyForHousehold,
   ownMandate,
   PRICES,
   PRICES_LATER,
   PRODUCTS,
   REPRICED,
+  RP_ID,
   signGift,
   sleep,
   soon,
@@ -255,6 +257,37 @@ describe("silence: the ceremonial default (clause 25, §2.2, §12)", () => {
     const signed = await call("POST", `/offers/${offer.id}/present`, { signature: signGift(offer.id) });
     expect(signed.status).toBe(200);
     expect((signed.body as { state: string }).state).toBe("presented");
+  });
+
+  test("a gift's signature names the host, and its giver is a key (§12, §13.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): gift_names_no_host and
+    // gift_giver_any_name. The first presented a gift signed for another
+    // relying party; the second made a gift from a name that is not a key.
+    //
+    // Question 58. A gift's bytes named no host, and the giver was any name,
+    // so a presenter could register its own key under one and sign as the
+    // giver. Measured by the third refutation pass over question 64.
+    const offer = await createConformingOffer({ purpose: "ceremonial" });
+    const read = (await call("GET", `/offers/${offer.id}`)).body as Parameters<typeof canonicalGift>[0];
+    const terms = (await call("GET", `/offers/${offer.id}/gift`)).body as { host: string };
+    expect(terms.host).toBe(RP_ID);
+    const elsewhere = await call("POST", `/offers/${offer.id}/present`, {
+      signature: sign(null, canonicalGift(read, `other.${RP_ID}`), keyForHousehold(read.giver)).toString("base64"),
+    });
+    expect(elsewhere.status).toBe(422);
+    expect((elsewhere.body as { error: string }).error).toBe("bad_signature");
+    // Signed for this host, the same terms present. Without this line the
+    // probe asked only for a refusal, which a form that names no host also
+    // gives, and a first refutation pass measured it passing under the
+    // mutation it was credited with.
+    const here = await call("POST", `/offers/${offer.id}/present`, {
+      signature: sign(null, canonicalGift(read, RP_ID), keyForHousehold(read.giver)).toString("base64"),
+    });
+    expect(here.status).toBe(200);
+
+    const named = await call("POST", "/offers", conformingOffer({ purpose: "ceremonial", giver: "grandmother-tanaka" }));
+    expect(named.status).toBe(422);
+    expect((named.body as { error: string }).error).toBe("name_is_not_the_key");
   });
 
   test("a gift is held to the giver's daily ceiling, and the recipient's never refuses it (§12, §16.3)", async () => {

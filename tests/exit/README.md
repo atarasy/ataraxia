@@ -15,6 +15,10 @@ recovery is a power separate from reading.
 The suite talks to `VALENCE_BASE_URL` and to `VALENCE_SECOND_HOST_URL`, and the
 second is empty of the household's node when the probes begin.
 
+The second host asserts for a relying party of its own, `VALENCE_SECOND_RP_ID`,
+because a mandate version is signed for the host it is recorded at (§16.1,
+question 58) and one probe asks that it does not record at the other.
+
 With one host the strongest question available is whether a file was produced,
 which is the weakest reading of clause 43. Fullness is not a field list: a
 surface added later can be missing from the export while the export still

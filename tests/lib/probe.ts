@@ -241,7 +241,12 @@ export const CO_SIGNER_KEY = createPrivateKey(
   Buffer.from(MANDATE_STATE.co_signer_key, "base64").toString("utf8")
 );
 
-/** §16.1. The bytes a mandate version is signed over. */
+/**
+ * §16.1. The bytes a mandate version is signed over, for the host it is
+ * recorded at. Question 58, decided 2026-09-19: the form names itself and the
+ * host, which is the relying party that host asserts for, so a version signed
+ * for one host does not record at another.
+ */
 export function canonicalMandate(m: {
   id: string;
   household: string;
@@ -251,9 +256,11 @@ export function canonicalMandate(m: {
   co_signers: string[];
   lapses_at: number;
   version: number;
-}): Buffer {
+}, host: string = RP_ID): Buffer {
   return Buffer.from(
     [
+      "valence.mandate.2",
+      host,
       m.id,
       m.household,
       String(m.ceiling_out_of_network),
@@ -338,9 +345,10 @@ export async function ownMandate(
 /** Signed by the household, and by the co-signer when `withCoSigner`. */
 export function signMandate(
   m: Parameters<typeof canonicalMandate>[0],
-  withCoSigner: boolean
+  withCoSigner: boolean,
+  host: string = RP_ID
 ): Record<string, string> {
-  const bytes = canonicalMandate(m);
+  const bytes = canonicalMandate(m, host);
   const out: Record<string, string> = {
     [m.household]: sign(null, bytes, keyForHousehold(m.household)).toString("base64"),
   };
@@ -368,7 +376,7 @@ export function assertMandate(
   // §13.2, question 55. The key is the household's own, which is what its
   // identifier names.
   const { key = keyForHousehold(m.household), relyingParty = RP_ID } = options;
-  const challenge = createHash("sha256").update(canonicalMandate(m)).digest("base64url");
+  const challenge = createHash("sha256").update(canonicalMandate(m, relyingParty)).digest("base64url");
   const authenticatorData = Buffer.concat([
     createHash("sha256").update(relyingParty).digest(),
     Buffer.from([0x05]),
@@ -435,6 +443,13 @@ export function keyForOffer(offerId: string): KeyObject {
  * it refuse the shape rather than guess.
  */
 export const RP_ID = required("VALENCE_RP_ID");
+
+/**
+ * §16.1, question 58. The relying party of the second host, which `exit/`
+ * moves households to. It differs from `RP_ID`, so a mandate version signed
+ * for one host can be shown not to record at the other.
+ */
+export const SECOND_RP_ID = required("VALENCE_SECOND_RP_ID");
 
 /**
  * §10.5. What a member's device sends: an authenticator's assertion, whose
@@ -874,17 +889,20 @@ export type Probe = {
 
 /**
  * §12, question 64. What a gift's giver signs, written from the specification:
- * the domain, the offer, the giver, the recipient, the presenter, the band, the
- * most the gift can come to and its expiry, one to a line.
+ * the domain, the host, the offer, the giver, the recipient, the presenter,
+ * the band, the most the gift can come to and its expiry, one to a line, the
+ * host and the three names percent-encoded. Question 58 added the host, which
+ * is the relying party of the host the gift is presented at.
  */
 export function canonicalGift(offer: {
   id: string; giver: string; household: string; presenter: string; expires_at: number;
   price_band: { min: number; max: number };
   candidates: { unit_price: number; quantity: number; given_by?: string | null }[];
-}): Buffer {
+}, host: string = RP_ID): Buffer {
   const upper = offer.candidates.reduce((sum, c) => sum + (c.given_by ? 0 : c.unit_price * c.quantity), 0);
+  const name = (v: string) => encodeURIComponent(v);
   return Buffer.from(
-    ["valence.gift.1", offer.id, offer.giver, offer.household, offer.presenter,
+    ["valence.gift.2", name(host), offer.id, name(offer.giver), name(offer.household), name(offer.presenter),
       String(offer.price_band.min), String(offer.price_band.max), String(upper), String(offer.expires_at)].join("\n"),
     "utf8"
   );
