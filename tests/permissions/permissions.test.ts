@@ -1051,6 +1051,31 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect([mine.response.status, mine.response.text]).toEqual([201, mine.response.text]);
   });
 
+  test("a mandate lapses at most a year after it is recorded (§16.1, clause 58)", async () => {
+    // NOTE (mutation check, 2026-09-19): lapse_unbounded. The refusal
+    // assertion answered 201 for a lapse in the year 9999.
+    //
+    // Decided 2026-09-19 with the probe above. A mandate naming a co-signer
+    // nobody holds binds every offer its household makes (question 68), and
+    // only its co-signers can bring its lapse forward, so the lapse is how
+    // long it holds the household. The first refutation pass over question 68
+    // recorded one lapsing in the year 9999. The reference hub renews a year
+    // out, which is the bound.
+    const DAY = 86_400_000;
+    const was = await current();
+    try {
+      for (const lapses_at of [Date.UTC(9999, 0, 1), soon(400 * DAY)]) {
+        const far = await put({ lapses_at }, true);
+        expect(far.response.status).toBe(422);
+        expect((far.response.body as { error: string }).error).toBe("lapse_too_far");
+      }
+      const year = await put({ lapses_at: soon(365 * DAY) }, true);
+      expect([year.response.status, year.response.text]).toEqual([201, year.response.text]);
+    } finally {
+      await restore(was);
+    }
+  });
+
 
   test("a confirmation taken back cannot be sent again (§10.5)", async () => {
     // NOTE (mutation check, 2026-09-11): confirmation_reusable disables the refusal
