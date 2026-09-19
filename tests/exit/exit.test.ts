@@ -5,6 +5,7 @@ import {
   PRODUCTS,
   call,
   callSecond,
+  offerBody,
   conformingOffer,
   createConformingOffer,
   decide,
@@ -247,6 +248,91 @@ describe("exit: the move (clause 52)", () => {
     expect((await callSecond("POST", `/households/${giverPath}/import`, afterBody)).status).toBe(201);
     const there = (await callSecond("GET", `/households/${giverPath}/export`)).body as { payments: Record<string, unknown>[] };
     expect(there.payments.find((p) => p.offer === offer.id)?.receipt).toBe(settlement.receipt);
+  });
+
+  test("a second move brings what the first left behind, and writes nothing the first already carried (§14.2)", async () => {
+    // Question 59, decided 2026-09-19. A move leaves behind what has not
+    // finished moving money (question 57). Once that settles, moving again
+    // from the same host carries every offer the first move already brought,
+    // and the receiving host refused those `409`, so the record of what was
+    // left behind never arrived. An offer held exactly as it arrives has been
+    // carried already, as an edge and a mandate have.
+    const house = encodeURIComponent(household());
+    // Two offers to one household need products it has not been offered
+    // (clause 26), so the finished one takes the first two and the pending
+    // one the rest.
+    const make = async (products: string[]) => {
+      const created = await call("POST", "/offers", offerBody(
+        products.map((product) => ({ product, predicted_conversion: 0.05, is_exploration: true })),
+        { household: household() }));
+      expect(created.status).toBe(201);
+      const offer = created.body as { id: string; candidates: { id: string }[] };
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      return offer;
+    };
+    const finished = await make(PRODUCTS.slice(0, 2));
+    await call("POST", `/candidates/${finished.candidates[0]!.id}/note`, { author: household(), text: "kept for the smell", shared_with: [] });
+    await decide(finished.id, { decisions: [
+      { candidate: finished.candidates[0]!.id, valence: "kept", kept_as: "self" },
+      { candidate: finished.candidates[1]!.id, valence: "returned" },
+    ] });
+    expect((await call("POST", `/offers/${finished.id}/settle`, {})).status).toBe(200);
+    const pending = await make(PRODUCTS.slice(2));
+    const decisions = pending.candidates.map((c, i) => (i === 0
+      ? { candidate: c.id, valence: "kept" as const, kept_as: "self" as const }
+      : { candidate: c.id, valence: "returned" as const }));
+    const signature = signDecisions(pending.id, decisions);
+    expect((await call("POST", `/offers/${pending.id}/decisions`, { decisions, signature })).status).toBe(200);
+
+    const first = await callSecond("POST", `/households/${house}/import`, (await call("GET", `/households/${house}/export`)).body);
+    expect(first.status).toBe(201);
+    expect((first.body as { left_behind: string[] }).left_behind).toContain(pending.id);
+
+    const settled = await call("POST", `/offers/${pending.id}/settle`, {});
+    expect(settled.status).toBe(200);
+    const second = await callSecond("POST", `/households/${house}/import`, (await call("GET", `/households/${house}/export`)).body);
+    expect(second.status).toBe(201);
+    expect((second.body as { left_behind: string[] }).left_behind).not.toContain(pending.id);
+    expect(((await callSecond("GET", `/offers/${pending.id}`)).body as { state: string }).state).toBe("settled");
+    const there = await callSecond("GET", `/offers/${pending.id}/settlement`);
+    expect(there.status).toBe(200);
+    expect((there.body as { receipt: string }).receipt).toBe((settled.body as { receipt: string }).receipt);
+
+    // The note on the offer the first move carried arrives once, not twice.
+    const node = (await callSecond("GET", `/households/${house}/export`)).body as { notes: { candidate: string }[] };
+    expect(node.notes.filter((n) => n.candidate === finished.candidates[0]!.id)).toHaveLength(1);
+  });
+
+  test("a second move that differs from what the first carried is refused, and writes nothing (§14.2)", async () => {
+    // Question 59. Treating a held offer as carried reaches its rows too: an
+    // import is a claim nobody authenticates, so a body repeating an offer
+    // must not be a way to change what the receiving host holds of it.
+    const house = encodeURIComponent(household());
+    const finished = await seedSomethingToMove();
+    const exported = (await call("GET", `/households/${house}/export`)).body as {
+      settlements: { offer: string; charged: number }[];
+      notes: { candidate: string; text: string }[];
+    };
+    expect((await callSecond("POST", `/households/${house}/import`, exported)).status).toBe(201);
+    const before = (await callSecond("GET", `/households/${house}/export`)).body as Record<string, unknown>;
+
+    const recharged = {
+      ...exported,
+      settlements: exported.settlements.map((st) => (st.offer === finished.id ? { ...st, charged: st.charged + 1_000 } : st)),
+    };
+    const refused = await callSecond("POST", `/households/${house}/import`, recharged);
+    expect(refused.status).toBe(409);
+    expect((refused.body as { error: string }).error).toBe("bad_state");
+
+    const planted = {
+      ...exported,
+      notes: [...exported.notes, { ...exported.notes[0]!, text: "written by whoever posted the body" }],
+    };
+    expect((await callSecond("POST", `/households/${house}/import`, planted)).status).toBe(409);
+
+    const after = (await callSecond("GET", `/households/${house}/export`)).body as Record<string, unknown>;
+    expect(after.settlements).toEqual(before.settlements);
+    expect(after.notes).toEqual(before.notes);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
