@@ -5,6 +5,7 @@ import {
   HAS_PHYSICAL,
   HOUSEHOLD,
   MANDATE_STATE,
+  PRICES,
   PRODUCTS,
   assertDecisions,
   assertMandate,
@@ -469,6 +470,46 @@ describe("mandates: a loosening needs its co-signers (clauses 46, 47, §16)", ()
     // 2026-09-13 while this probe asserted that name: the suite was certifying
     // a word the specification never chose.
     expect(presented.text).toContain("mandate_ceiling_out_of_network");
+  });
+
+  test("a gift is held to its giver's out-of-network ceiling and not its recipient's (clause 46, §16.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): gift_out_of_network_is_the_recipients.
+    // The first gift was refused on the recipient's ceiling of 1 and the second
+    // presented past the giver's.
+    //
+    // Question 65, decided 2026-09-19. A gift charges its giver, and the
+    // ceiling was read from the recipient's mandate, the mirror of question 60
+    // at presentation. The reference deployment's makers are not listed, so
+    // every candidate here counts towards the ceiling.
+    const band = { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) };
+    const tightRecipient = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
+    const looseGiver = await ownMandate({ ceiling_out_of_network: 1_000_000, co_signers: [], lapses_at: soon(600_000) });
+    const passes = await call("POST", "/offers", conformingOffer({
+      purpose: "ceremonial", price_band: band, giver: looseGiver.household,
+      household: tightRecipient.household, mandate: tightRecipient.mandate.id,
+    }));
+    expect(passes.status).toBe(201);
+    expect((await call("POST", `/offers/${(passes.body as { id: string }).id}/present`, {})).status).toBe(200);
+
+    const looseRecipient = await ownMandate({ ceiling_out_of_network: 1_000_000, co_signers: [], lapses_at: soon(600_000) });
+    const tightGiver = await ownMandate({ ceiling_out_of_network: 1, co_signers: [], lapses_at: soon(600_000) });
+    const refused = await call("POST", "/offers", conformingOffer({
+      purpose: "ceremonial", price_band: band, giver: tightGiver.household,
+      household: looseRecipient.household, mandate: looseRecipient.mandate.id,
+    }));
+    expect(refused.status).toBe(201);
+    const presented = await call("POST", `/offers/${(refused.body as { id: string }).id}/present`, {});
+    expect(presented.status).toBe(422);
+    expect((presented.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+  });
+
+  test("the hub answers a household's tightest out-of-network ceiling beside its daily one (§16.2)", async () => {
+    // Question 65. An engine that is not this process reads the giver's
+    // ceiling here, and refuses a hub that answers without it.
+    const own = await ownMandate({ ceiling_out_of_network: 7, co_signers: [], lapses_at: soon(600_000) });
+    const read = await call("GET", `/_node/mandates?household=${encodeURIComponent(own.household)}`);
+    expect(read.status).toBe(200);
+    expect((read.body as { ceiling_out_of_network: number }).ceiling_out_of_network).toBe(7);
   });
 
   test("a key registered under a name it does not have is refused (§13.2)", async () => {
