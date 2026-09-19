@@ -3,9 +3,14 @@ import {
   HAS_PHYSICAL,
   LINEAGE_EDGE,
   PRODUCTS,
+  SECOND_HOST,
+  SECOND_RP_ID,
   call,
   callSecond,
   offerBody,
+  ensureRegistered,
+  ownMandate,
+  signMandate,
   conformingOffer,
   createConformingOffer,
   decide,
@@ -333,6 +338,27 @@ describe("exit: the move (clause 52)", () => {
     const after = (await callSecond("GET", `/households/${house}/export`)).body as Record<string, unknown>;
     expect(after.settlements).toEqual(before.settlements);
     expect(after.notes).toEqual(before.notes);
+  });
+
+  test("a mandate version signed for one host does not record at another, and the household signs it again there (§16.1)", async () => {
+    // Question 58, decided 2026-09-19. The canonical form named no host, so a
+    // raw signature made for one host verified at every host, and whoever had
+    // relayed a submission once could record any version the household ever
+    // signed at a host holding none of its history. A fourth refutation pass
+    // measured three routes to it that no version rule closes. The form now
+    // names itself and the host, which is the relying party the host asserts
+    // for; the second host here asserts for a relying party of its own.
+    const { household: house, mandate } = await ownMandate();
+    await ensureRegistered(SECOND_HOST, house);
+    const signedHere = signMandate(mandate, true);
+    const replayed = await callSecond("POST", "/_node/mandates", { ...mandate, signatures: signedHere });
+    expect(replayed.status).toBe(422);
+    expect((replayed.body as { error: string }).error).toBe("bad_signature");
+    expect((await callSecond("GET", `/_node/mandates/${encodeURIComponent(mandate.id)}`)).status).toBe(404);
+
+    // The same terms signed for the second host record there.
+    const signedThere = signMandate(mandate, true, SECOND_RP_ID);
+    expect((await callSecond("POST", "/_node/mandates", { ...mandate, signatures: signedThere })).status).toBe(201);
   });
 
   test("an import refused at any row writes none of it, and the same move can be retried (§14.2)", async () => {
