@@ -1051,6 +1051,72 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect([mine.response.status, mine.response.text]).toEqual([201, mine.response.text]);
   });
 
+  test("a lapse does not end the window of a set already decided (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_window_not_fixed,
+    // withdraw_window_not_fixed and decision_fixes_nothing. The first two
+    // failed at the settle and the take-back respectively, the settle
+    // answering 200 and the take-back 422 no_cooling; the third at the settle.
+    //
+    // Decided 2026-09-19 after the first refutation pass over question 68,
+    // which measured this with nobody acting at all: question 68 read the
+    // longest window among the mandates live at settlement, so a set decided
+    // inside a day's window settled once the one mandate that set the window
+    // had lapsed, and could no longer be taken back. The window a set was
+    // decided under is fixed at its decision.
+    own = await ownMandate({ cooling_seconds: 3600, lapses_at: soon(3_000) });
+    const offer = await presented();
+    expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+    await sleep(3_500);
+    const early = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(early.status).toBe(422);
+    expect((early.body as { error: string }).error).toBe("mandate_cooling");
+    const withdrawn = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+    expect([withdrawn.status, withdrawn.text]).toEqual([200, withdrawn.text]);
+  });
+
+  test("a lapse does not remove the daily ceiling of a set already decided (§16.3)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_daily_not_fixed and
+    // decision_fixes_nothing. Under each the settle answered 200.
+    //
+    // The same pass measured a set decided under a daily ceiling of 500
+    // charged 900 once the mandate that set it had lapsed. A presenter that
+    // can read a lapse date, which the household's export hands to anyone,
+    // could present just before it and settle just after.
+    own = await ownMandate({ ceiling_daily: 1, lapses_at: soon(3_000) });
+    const offer = await presented();
+    expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+    await sleep(3_500);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+  });
+
+  test.if(HAS_PHYSICAL)("a box its collection decided keeps the daily ceiling live at the collection (§16.3, §11.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): collection_fixes_nothing,
+    // collection_route_fixes_nothing and settle_daily_not_fixed. Under each
+    // the signed statement settled.
+    //
+    // A box the household never answered is decided by its collection, and
+    // settles on the household's signature over the statement, which can be
+    // days later. The ceiling live at the collection is the one it keeps.
+    own = await ownMandate({ ceiling_daily: 1, lapses_at: soon(3_000) });
+    const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical" }));
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const [used, ...rest] = offer.candidates;
+    expect((await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 300, code: `dc-lapse-${offer.id.slice(0, 8)}`, status: "delivered",
+    })).status).toBe(201);
+    expect((await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id), consumed: [used!.id],
+    })).status).toBe(200);
+    await sleep(3_500);
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+  });
+
   test("a mandate lapses at most a year after it is recorded (§16.1, clause 58)", async () => {
     // NOTE (mutation check, 2026-09-19): lapse_unbounded. The refusal
     // assertion answered 201 for a lapse in the year 9999.
