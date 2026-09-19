@@ -1156,6 +1156,32 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
   });
 
 
+  test("a cooling window is at most 30 days (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-20): cooling_unbounded. Both refusal
+    // assertions read 201, and a window of thirty years recorded.
+    //
+    // Decided 2026-09-20, after the second refutation pass over question 68.
+    // A decided set keeps the window it was decided under, so the window
+    // outlives the mandate that set it, and nothing bounded the window: the
+    // pass recorded thirty years, decided a set, dropped the window a second
+    // later and alone, and that set could never settle while the household's
+    // own mandate showed no window at all. Lengthening is a tightening, so
+    // this needs no co-signer and no attacker.
+    const DAY_SECONDS = 86_400;
+    const was = await current();
+    try {
+      for (const cooling_seconds of [30 * 365 * DAY_SECONDS, 30 * DAY_SECONDS + 1]) {
+        const long = await put({ cooling_seconds }, true);
+        expect([cooling_seconds, long.response.status]).toEqual([cooling_seconds, 422]);
+        expect((long.response.body as { error: string }).error).toBe("cooling_too_long");
+      }
+      const bound = await put({ cooling_seconds: 30 * DAY_SECONDS }, true);
+      expect([bound.response.status, bound.response.text]).toEqual([201, bound.response.text]);
+    } finally {
+      await restore(was);
+    }
+  });
+
   test("a confirmation taken back cannot be sent again (§10.5)", async () => {
     // NOTE (mutation check, 2026-09-11): confirmation_reusable disables the refusal
     // of a confirmation already used for this offer. This assertion failed with 200 and the
