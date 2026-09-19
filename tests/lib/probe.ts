@@ -889,17 +889,20 @@ export type Probe = {
 
 /**
  * §12, question 64. What a gift's giver signs, written from the specification:
- * the domain, the offer, the giver, the recipient, the presenter, the band, the
- * most the gift can come to and its expiry, one to a line.
+ * the domain, the host, the offer, the giver, the recipient, the presenter,
+ * the band, the most the gift can come to and its expiry, one to a line, the
+ * host and the three names percent-encoded. Question 58 added the host, which
+ * is the relying party of the host the gift is presented at.
  */
 export function canonicalGift(offer: {
   id: string; giver: string; household: string; presenter: string; expires_at: number;
   price_band: { min: number; max: number };
   candidates: { unit_price: number; quantity: number; given_by?: string | null }[];
-}): Buffer {
+}, host: string = RP_ID): Buffer {
   const upper = offer.candidates.reduce((sum, c) => sum + (c.given_by ? 0 : c.unit_price * c.quantity), 0);
+  const name = (v: string) => encodeURIComponent(v);
   return Buffer.from(
-    ["valence.gift.1", offer.id, offer.giver, offer.household, offer.presenter,
+    ["valence.gift.2", name(host), offer.id, name(offer.giver), name(offer.household), name(offer.presenter),
       String(offer.price_band.min), String(offer.price_band.max), String(upper), String(offer.expires_at)].join("\n"),
     "utf8"
   );

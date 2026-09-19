@@ -1314,7 +1314,7 @@ describe.if(HAS_PHYSICAL)("binding: a ceremonial offer is digital (§12, §6.5)"
     const created = await call("POST", "/offers", physicalOffer({
       purpose: "ceremonial",
       price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) },
-      giver: `${freshHousehold()}-giver`,
+      giver: freshHousehold(),
     }));
     expect(created.status).toBe(422);
     expect((created.body as { error: string }).error).toBe("ceremonial_is_digital");
@@ -1327,7 +1327,7 @@ describe.if(HAS_PHYSICAL)("binding: a ceremonial offer is digital (§12, §6.5)"
     const created = await call("POST", "/offers", conformingOffer({
       purpose: "ceremonial",
       price_band: { min: Math.min(...Object.values(PRICES)), max: Math.max(...Object.values(PRICES)) },
-      giver: `${freshHousehold()}-giver`,
+      giver: freshHousehold(),
     }));
     expect(created.status).toBe(201);
   });
