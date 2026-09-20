@@ -43,6 +43,9 @@ describe("machine: withdraw (§2.1)", () => {
   });
 
   test("a withdrawn offer cannot be decided or settled", async () => {
+    // Remeasured 2026-09-20: decide_after_withdraw now bypasses the state
+    // and returned-candidate guards specifically for withdrawn offers. This
+    // assertion directly catches that retarget (200 instead of 409).
     // NOTE (mutation check, 2026-09-09): withdraw_is_not_final left the
     // candidates open and allowed a decision afterwards. Either alone is
     // caught by another rule; together they are the state a presenter

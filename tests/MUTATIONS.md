@@ -195,9 +195,9 @@ can repeat any row.
 | `merchant_export_leaks_others` | A shop's export carries every offer in the engine. Failed no probe on its first run, because the deployment had one presenter; the seed now registers a second | 1 |
 | `cost_on_candidate` | A cost put on every candidate in the offer view | 1 |
 | `deadline_on_receipt` | A due date put on each receipt | 1 |
-| `decide_after_withdraw` | Weakens the decision state guard to refuse only settled offers, exactly as decide_before_present does. The completed mutation log in the still-running original 299 sweep, reviewed on 2026-09-13, detects a decision accepted on a drafted offer; it supplies no direct withdrawn-state catch | 1 conformance failure in the original 299 run, at the drafted-offer assertion |
-| `decide_before_present` | Decisions accepted on a drafted offer | 1 |
-| `decide_twice_overwrites` | A second decision allowed to overwrite the first | 1 |
+| `decide_after_withdraw` | Permits withdrawn decisions through both state guards and bypasses returned-candidate guards only for withdrawn offers. Remeasured 2026-09-20; unlike the historical duplicate of decide_before_present, this directly reopens a withdrawn offer | 1 conformance failure: withdrawn offer cannot be decided or settled |
+| `decide_before_present` | Permits drafted decisions at both the entry guard and Q68 post-read state recheck; changing the entry guard alone is masked. Remeasured 2026-09-20 against Valence 1219a85 / tests a23cf15 | 1 conformance failure: drafted offer cannot be decided before presentation |
+| `decide_twice_overwrites` | Removes both entry and Q68 post-read same-candidate guards, retaining state and confirmation reuse checks. Remeasured 2026-09-20 | 3 conformance failures: same candidate twice, decided-line refusal, decision race refusal |
 | `discount_after_trial` | A tenth off the price for a household that had consumed something. Re-measured 2026-09-09 for the same reason as `credit_the_trial`; the probe is now self-contained | 1 |
 | `export_no_format` | The export's format string blanked | 5 |
 | `ignore_config_version` (re-anchored 2026-09-09) | The last registered matching catalogue resolved whatever version the offer named. The loop follows insertion order, not version-number order; resolve_first_config is the distinct earliest-catalogue mutation | 8; historical failed-probe count |
@@ -918,3 +918,9 @@ implementation and import nothing from this one; the eight variables in the
 README are all they need. What the engine gives the ledger is a place where
 every row can be reproduced, which is the difference between a claim that the
 probes can fail and evidence of it.
+
+## Q68 masked decision guards, 2026-09-20
+
+The fixed-input 477 sweep at Valence bfac322 / conformance a23cf15 remains a separate measurement. Three old decision mutations survived because Q68 added a second guard. The withdrawal-state-only retarget also survived because withdrawal closes its candidates; this intermediate result is retained, not relabelled CAUGHT. The final narrowly targeted scripts now exercise the named behaviours through both layers.
+
+Baseline: 284 engine tests pass; 329 conformance pass and one expected skip. Each final retarget leaves all 284 engine tests passing. Drafted and withdrawn retargets each produce 328 conformance pass, one expected skip and one failure; overwrite produces 326 pass, one expected skip and three failures. No production guard was removed. These reruns do not retroactively change the old sweep's three SURVIVED records.
