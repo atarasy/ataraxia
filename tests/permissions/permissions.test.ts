@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
+  BASE,
   CO_SIGNER_KEY,
   HAS_PHYSICAL,
   HOUSEHOLD,
@@ -24,6 +25,7 @@ import {
   settleSigned,
   signDecisions,
   signMandate,
+  signWithdrawal,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -800,6 +802,50 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     const late = await call("DELETE", `/offers/${second.id}/decisions`, undefined);
     expect(late.status).toBe(422);
     expect((late.body as { error: string }).error).toBe("cooling_over");
+  });
+
+  test("taking a signed set back is signed too (\u00a716.5)", async () => {
+    // NOTE (mutation check, 2026-09-20): withdraw_takes_any_caller. Both
+    // refusal assertions read 200: a caller holding nothing but the offer id
+    // put a signed set back to `presented`.
+    //
+    // Decided 2026-09-20, after the third refutation pass over question 68.
+    // Each half was known: \u00a716.1 recorded in 2026-09-11 that this route asked
+    // for no signature, and question 68 made the window the longest across
+    // every mandate the household holds. **The window is the interval in
+    // which the route is open**, so the change lengthened it, and the pass
+    // joined the two: a recipient's written refusal of a gift was taken back
+    // five days later by a caller holding the offer id, \u00a712 defaulted the
+    // line at the expiry, and the giver was charged for a gift refused in
+    // writing.
+    own = await ownMandate({ cooling_seconds: 3600 });
+    const offer = await presented();
+    const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+    expect(decided.status).toBe(200);
+    const decidedAt = (decided.body as { decided_at: number }).decided_at;
+    expect(typeof decidedAt).toBe("number");
+
+    // Nothing at all, which is what the route took until this rule. It goes
+    // past `call`, because `call` signs a withdrawal that carries no body so
+    // that every probe about something else keeps working.
+    const bare = await fetch(`${BASE}/offers/${offer.id}/decisions`, { method: "DELETE" });
+    expect([bare.status, await bare.text()]).toEqual([400, expect.any(String)]);
+
+    // A signature over another moment is another set's, and does not cover
+    // this one: a signature seen on the way is spent when the set is decided
+    // again.
+    const stale = await call("DELETE", `/offers/${offer.id}/decisions`, {
+      signature: signWithdrawal(offer.id, decidedAt - 1),
+    });
+    expect([stale.status, stale.text]).toEqual([422, stale.text]);
+    expect((stale.body as { error: string }).error).toBe("bad_signature");
+
+    // The household's own signature takes it back.
+    const taken = await call("DELETE", `/offers/${offer.id}/decisions`, {
+      signature: signWithdrawal(offer.id, decidedAt),
+    });
+    expect([taken.status, taken.text]).toEqual([200, taken.text]);
+    expect((taken.body as { state: string }).state).toBe("presented");
   });
 
   test.if(HAS_PHYSICAL)("a cooling window does not bar a statement the household signs", async () => {
