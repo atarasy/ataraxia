@@ -416,6 +416,22 @@ export function canonicalDecisions(offerId: string, decisions: DecisionSpec[]): 
   return Buffer.from([offerId, ...lines].join("\n"), "utf8");
 }
 
+/**
+ * §16.5, decided 2026-09-20 after the third refutation pass over question 68.
+ * The bytes a withdrawal is signed over: the form's name, the offer, and the
+ * moment the set was decided, which the offer carries. The route asked for
+ * nothing until the pass measured a caller holding the offer id voiding a
+ * recipient's written refusal of a gift, after which the expiry charged the
+ * giver.
+ */
+export function canonicalWithdrawal(offerId: string, decidedAt: number): Buffer {
+  return Buffer.from(["valence.withdraw.1", offerId, String(decidedAt)].join("\n"), "utf8");
+}
+
+export function signWithdrawal(offerId: string, decidedAt: number): string {
+  return sign(null, canonicalWithdrawal(offerId, decidedAt), keyForOffer(offerId)).toString("base64");
+}
+
 export function signDecisions(offerId: string, decisions: DecisionSpec[]): string {
   // §13.2, question 55. The key is the offer's household's, which this file
   // remembers from the reply that created the offer.
@@ -930,6 +946,24 @@ export async function call(
   const presenting = method === "POST" ? /^\/offers\/([^/]+)\/present$/.exec(path) : null;
   if (presenting && GIFTS.has(presenting[1]!) && (body === undefined || (typeof body === "object" && body !== null && Object.keys(body).length === 0))) {
     body = { signature: signGift(presenting[1]!) };
+  }
+  // §16.5, decided 2026-09-20. Taking a signed set back is signed too, over
+  // the offer and the moment it was decided. A probe that is not about that
+  // signature sends no body and it is added here, exactly as a gift's
+  // presentation is above; the probe that is about it sends its own.
+  const taking = method === "DELETE" ? /^\/offers\/([^/]+)\/decisions$/.exec(path) : null;
+  if (taking && (body === undefined || (typeof body === "object" && body !== null && Object.keys(body).length === 0))) {
+    // The moment is on the offer. Where it cannot be read, the signature is
+    // made over 0 and refused, which is right: every refusal decided before
+    // the signature (`409 bad_state`, `409 not_withdrawable`) is still the
+    // answer, because the route decides those first.
+    let decidedAt = 0;
+    try {
+      const shown = await fetch(`${BASE}/offers/${taking[1]!}`);
+      const parsedOffer = shown.ok ? (await shown.json()) as { decided_at?: unknown } : undefined;
+      if (typeof parsedOffer?.decided_at === "number") decidedAt = parsedOffer.decided_at;
+    } catch { /* an offer this host does not hold */ }
+    body = { signature: signWithdrawal(taking[1]!, decidedAt) };
   }
   const giving = method === "POST" && path === "/offers" && body && typeof body === "object"
     ? (body as Record<string, unknown>).giver

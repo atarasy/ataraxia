@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { generateKeyPairSync } from "node:crypto";
 import {
+  BASE,
   CO_SIGNER_KEY,
   HAS_PHYSICAL,
   HOUSEHOLD,
@@ -24,6 +25,7 @@ import {
   settleSigned,
   signDecisions,
   signMandate,
+  signWithdrawal,
   sleep,
   soon,
 } from "../lib/probe.js";
@@ -802,6 +804,50 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     expect((late.body as { error: string }).error).toBe("cooling_over");
   });
 
+  test("taking a signed set back is signed too (\u00a716.5)", async () => {
+    // NOTE (mutation check, 2026-09-20): withdraw_takes_any_caller. Both
+    // refusal assertions read 200: a caller holding nothing but the offer id
+    // put a signed set back to `presented`.
+    //
+    // Decided 2026-09-20, after the third refutation pass over question 68.
+    // Each half was known: \u00a716.1 recorded in 2026-09-11 that this route asked
+    // for no signature, and question 68 made the window the longest across
+    // every mandate the household holds. **The window is the interval in
+    // which the route is open**, so the change lengthened it, and the pass
+    // joined the two: a recipient's written refusal of a gift was taken back
+    // five days later by a caller holding the offer id, \u00a712 defaulted the
+    // line at the expiry, and the giver was charged for a gift refused in
+    // writing.
+    own = await ownMandate({ cooling_seconds: 3600 });
+    const offer = await presented();
+    const decided = await decide(offer.id, { decisions: keepEverything(offer) });
+    expect(decided.status).toBe(200);
+    const decidedAt = (decided.body as { decided_at: number }).decided_at;
+    expect(typeof decidedAt).toBe("number");
+
+    // Nothing at all, which is what the route took until this rule. It goes
+    // past `call`, because `call` signs a withdrawal that carries no body so
+    // that every probe about something else keeps working.
+    const bare = await fetch(`${BASE}/offers/${offer.id}/decisions`, { method: "DELETE" });
+    expect([bare.status, await bare.text()]).toEqual([400, expect.any(String)]);
+
+    // A signature over another moment is another set's, and does not cover
+    // this one: a signature seen on the way is spent when the set is decided
+    // again.
+    const stale = await call("DELETE", `/offers/${offer.id}/decisions`, {
+      signature: signWithdrawal(offer.id, decidedAt - 1),
+    });
+    expect([stale.status, stale.text]).toEqual([422, stale.text]);
+    expect((stale.body as { error: string }).error).toBe("bad_signature");
+
+    // The household's own signature takes it back.
+    const taken = await call("DELETE", `/offers/${offer.id}/decisions`, {
+      signature: signWithdrawal(offer.id, decidedAt),
+    });
+    expect([taken.status, taken.text]).toEqual([200, taken.text]);
+    expect((taken.body as { state: string }).state).toBe("presented");
+  });
+
   test.if(HAS_PHYSICAL)("a cooling window does not bar a statement the household signs", async () => {
     // NOTE (mutation check, 2026-09-13): cooling_bars_a_statement restores the
     // window over a statement settlement. The settle assertion failed with
@@ -869,6 +915,318 @@ describe("mandates: the thresholds a person sets are enforced (§16.3, §16.4, �
     }
   });
 
+  /**
+   * §13.2. A second mandate of this household's own, at version 1, signed by
+   * the household alone. Recording one is not refused and question 68 did not
+   * change that, which is why question 56's first attempt was refused. What
+   * changed is that the values on it no longer govern by themselves. (This
+   * said until the first refutation pass over question 68 that nobody is
+   * frozen out by a co-signer whose key nobody holds; such a mandate does
+   * bind every label, for at most the year §16.1 allows its lapse.)
+   */
+  const secondLabel = async (over: Record<string, unknown> = {}) => {
+    const second = {
+      id: mandateOf(own.household, "2"),
+      household: own.household,
+      ceiling_out_of_network: 10_000_000,
+      ceiling_daily: null as number | null,
+      cooling_seconds: null as number | null,
+      co_signers: [] as string[],
+      lapses_at: soon(600_000),
+      version: 1,
+      ...over,
+    };
+    const recorded = await call("POST", "/_node/mandates", {
+      ...second,
+      signatures: signMandate(second, false),
+    });
+    expect([recorded.status, recorded.text]).toEqual([201, recorded.text]);
+    return second;
+  };
+
+  test("a second mandate does not raise the ceiling the household set on another (clause 47, §16.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): own_offer_reads_its_named_ceiling
+    // puts back the read of the named mandate alone. The refusal assertion
+    // answered 200: the offer presented at the second label's ceiling.
+    //
+    // Question 68, decided 2026-09-19, and measured before it: a household
+    // holding `.m` with a ceiling of 0 and a co-signer was refused `unsigned`
+    // when it loosened that mandate, recorded `.2` at version 1 alone with a
+    // ceiling of 1,000,000, and presented an offer of 1,200 entirely outside
+    // the network under the second label. A protection a household walks
+    // around by writing a new label is not one, so its own offers are held to
+    // the tightest live value across every mandate it holds.
+    const was = await current();
+    expect((await put({ ceiling_out_of_network: 0 }, false)).response.status).toBe(201);
+    try {
+      const second = await secondLabel({ ceiling_out_of_network: 10_000_000 });
+      const created = await call("POST", "/offers", conformingOffer({
+        household: own.household,
+        mandate: second.id,
+      }));
+      expect(created.status).toBe(201);
+      const shown = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
+      expect(shown.status).toBe(422);
+      expect((shown.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+    } finally {
+      await restore(was);
+    }
+
+    // And this is not a rule that refuses every second label. A household
+    // whose mandates are all loose presents under one, which is what says the
+    // refusal above came from the tightest value and not from the label.
+    own = await ownMandate({ ceiling_out_of_network: 10_000_000, co_signers: [], lapses_at: soon(600_000) });
+    const loose = await secondLabel({ ceiling_out_of_network: 10_000_000 });
+    const fine = await call("POST", "/offers", conformingOffer({ household: own.household, mandate: loose.id }));
+    expect(fine.status).toBe(201);
+    expect((await call("POST", `/offers/${(fine.body as { id: string }).id}/present`, {})).status).toBe(200);
+  });
+
+  test("a second mandate does not raise the daily ceiling either (§16.3)", async () => {
+    // NOTE (mutation check, 2026-09-19): own_settle_reads_its_named_daily_ceiling
+    // reads the ceiling for a gift's giver alone, as before question 68. The
+    // refusal assertion answered 200.
+    const was = await current();
+    expect((await put({ ceiling_daily: 1 }, false)).response.status).toBe(201);
+    try {
+      const second = await secondLabel({ ceiling_daily: null });
+      const offer = await createConformingOffer({ household: own.household, mandate: second.id });
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+      const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+      expect(settled.status).toBe(422);
+      expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+    } finally {
+      // Removing a ceiling is a loosening, so it needs the co-signer.
+      expect((await put({ ceiling_daily: null }, true)).response.status).toBe(201);
+      await restore(was);
+    }
+  });
+
+  test("a second mandate does not shorten the cooling window either (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_cooling_reads_the_named_mandate,
+    // withdraw_cooling_reads_the_named_mandate and cooling_takes_the_shortest.
+    // Under each, the second label's window of a second had closed by the time
+    // the set was settled: the settle assertion answered 200 for the first and
+    // the third, and the take-back answered 422 cooling_over for the second.
+    //
+    // The tightest window is the longest one, which is the one place in §16
+    // where the tighter value is the larger.
+    const was = await current();
+    expect((await put({ cooling_seconds: 3600 }, false)).response.status).toBe(201);
+    try {
+      const second = await secondLabel({ cooling_seconds: 1 });
+      const offer = await createConformingOffer({ household: own.household, mandate: second.id });
+      expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+      expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+      await sleep(1_500);
+      const early = await call("POST", `/offers/${offer.id}/settle`, {});
+      expect(early.status).toBe(422);
+      expect((early.body as { error: string }).error).toBe("mandate_cooling");
+      // The other side of the same window: the set can still be taken back,
+      // which is what the window is for.
+      const withdrawn = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+      expect([withdrawn.status, withdrawn.text]).toEqual([200, withdrawn.text]);
+    } finally {
+      // Shortening cooling is a loosening, and removing it is the shortest.
+      expect((await put({ cooling_seconds: null }, true)).response.status).toBe(201);
+      await restore(was);
+    }
+  });
+
+  test("the hub answers a household's protections, not its rows (§13.1, §16.2, §16.3, §16.5)", async () => {
+    // NOTE (mutation check, 2026-09-19): hub_household_drops_out_of_network
+    // and hub_household_drops_cooling. Each field's assertion answered
+    // undefined, which is what an engine on the other side of §13.1 would
+    // have read as "the household set none".
+    //
+    // Question 68. The route carried `has` and the tightest daily ceiling; it
+    // carries the tightest out-of-network ceiling and the longest cooling
+    // window too, because an engine that holds no register reads all three
+    // there. Still three numbers and a bit, and still not the rows.
+    const was = await current();
+    expect((await put({ ceiling_out_of_network: 1, ceiling_daily: 99, cooling_seconds: 77 }, false)).response.status).toBe(201);
+    try {
+      await secondLabel({ ceiling_out_of_network: 10_000_000, ceiling_daily: 5, cooling_seconds: 7 });
+      const answered = await call("GET", `/_node/mandates?household=${encodeURIComponent(own.household)}`);
+      expect(answered.status).toBe(200);
+      expect(answered.body).toMatchObject({
+        has: true,
+        ceiling_out_of_network: 1,
+        ceiling_daily: 5,
+        cooling_seconds: 77,
+      });
+    } finally {
+      expect((await put({ ceiling_daily: null, cooling_seconds: null }, true)).response.status).toBe(201);
+      await restore(was);
+    }
+  });
+
+  test("bringing a co-signed mandate's lapse forward needs the co-signer (§16.1)", async () => {
+    // NOTE (mutation check, 2026-09-19): lapse_forward_is_the_households_alone.
+    // The refusal assertion answered 201: the household alone brought the
+    // co-signed lapse forward.
+    //
+    // Decided 2026-09-19 after the first refutation pass over question 68,
+    // which measured the escape that question left open: bringing a lapse
+    // forward counted as a tightening, so a household holding a tight mandate
+    // with a co-signer moved its lapse to a second away, alone, and once it
+    // had lapsed the loose label beside it governed every offer. Bringing it
+    // forward takes the co-signers' protection away sooner, so it needs them.
+    const was = await current();
+    expect(was.co_signers.length).toBeGreaterThan(0);
+    expect((await put({ ceiling_out_of_network: 0 }, false)).response.status).toBe(201);
+    try {
+      const second = await secondLabel({ ceiling_out_of_network: 10_000_000 });
+      const alone = await put({ lapses_at: soon(1_000) }, false);
+      expect(alone.response.status).toBe(422);
+      expect((alone.response.body as { error: string }).error).toBe("unsigned");
+      await sleep(1_500);
+      // So the tight mandate is still live, and still binds the second label.
+      const created = await call("POST", "/offers", conformingOffer({ household: own.household, mandate: second.id }));
+      expect(created.status).toBe(201);
+      const shown = await call("POST", `/offers/${(created.body as { id: string }).id}/present`, {});
+      expect(shown.status).toBe(422);
+      expect((shown.body as { error: string }).error).toBe("mandate_ceiling_out_of_network");
+    } finally {
+      await restore(was);
+    }
+
+    // A mandate that names nobody is the household's alone, lapse included.
+    own = await ownMandate({ co_signers: [], lapses_at: soon(600_000) });
+    const mine = await put({ lapses_at: soon(300_000) }, false);
+    expect([mine.response.status, mine.response.text]).toEqual([201, mine.response.text]);
+  });
+
+  test("a lapse does not end the window of a set already decided (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_window_not_fixed,
+    // withdraw_window_not_fixed and decision_fixes_nothing. The first two
+    // failed at the settle and the take-back respectively, the settle
+    // answering 200 and the take-back 422 no_cooling; the third at the settle.
+    //
+    // Decided 2026-09-19 after the first refutation pass over question 68,
+    // which measured this with nobody acting at all: question 68 read the
+    // longest window among the mandates live at settlement, so a set decided
+    // inside a day's window settled once the one mandate that set the window
+    // had lapsed, and could no longer be taken back. The window a set was
+    // decided under is fixed at its decision.
+    own = await ownMandate({ cooling_seconds: 3600, lapses_at: soon(3_000) });
+    const offer = await presented();
+    expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+    await sleep(3_500);
+    const early = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(early.status).toBe(422);
+    expect((early.body as { error: string }).error).toBe("mandate_cooling");
+    const withdrawn = await call("DELETE", `/offers/${offer.id}/decisions`, undefined);
+    expect([withdrawn.status, withdrawn.text]).toEqual([200, withdrawn.text]);
+  });
+
+  test("a lapse does not remove the daily ceiling of a set already decided (§16.3)", async () => {
+    // NOTE (mutation check, 2026-09-19): settle_daily_not_fixed and
+    // decision_fixes_nothing. Under each the settle answered 200.
+    //
+    // The same pass measured a set decided under a daily ceiling of 500
+    // charged 900 once the mandate that set it had lapsed. A presenter that
+    // can read a lapse date, which the household's export hands to anyone,
+    // could present just before it and settle just after.
+    own = await ownMandate({ ceiling_daily: 1, lapses_at: soon(3_000) });
+    const offer = await presented();
+    expect((await decide(offer.id, { decisions: keepEverything(offer) })).status).toBe(200);
+    await sleep(3_500);
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+  });
+
+  test.if(HAS_PHYSICAL)("a box its collection decided keeps the daily ceiling live at the collection (§16.3, §11.2)", async () => {
+    // NOTE (mutation check, 2026-09-19): collection_fixes_nothing,
+    // collection_route_fixes_nothing and settle_daily_not_fixed. Under each
+    // the signed statement settled.
+    //
+    // A box the household never answered is decided by its collection, and
+    // settles on the household's signature over the statement, which can be
+    // days later. The ceiling live at the collection is the one it keeps.
+    own = await ownMandate({ ceiling_daily: 1, lapses_at: soon(3_000) });
+    const created = await call("POST", "/offers", conformingOffer({ ...mine(), binding: "physical" }));
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string; candidates: { id: string }[] };
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const [used, ...rest] = offer.candidates;
+    expect((await call("POST", `/offers/${offer.id}/delivery`, {
+      carriage: 300, code: `dc-lapse-${offer.id.slice(0, 8)}`, status: "delivered",
+    })).status).toBe(201);
+    expect((await call("POST", `/offers/${offer.id}/recovery`, {
+      returned: rest.map((c) => c.id), consumed: [used!.id],
+    })).status).toBe(200);
+    await sleep(3_500);
+    const settled = await settleSigned(offer.id);
+    expect(settled.status).toBe(422);
+    expect((settled.body as { error: string }).error).toBe("mandate_ceiling_daily");
+  });
+
+  test("a mandate lapses at most 400 days after it is recorded (§16.1, clause 58)", async () => {
+    // NOTE (mutation check, 2026-09-19): lapse_unbounded. The refusal
+    // assertion answered 201 for a lapse in the year 9999.
+    // NOTE (mutation check, 2026-09-20): lapse_bound_is_a_year. The 367-day
+    // and 400-day assertions read 422 lapse_too_far at a bound of 366.
+    //
+    // Decided 2026-09-19 with the probe above. A mandate naming a co-signer
+    // nobody holds binds every offer its household makes (question 68), and
+    // only its co-signers can bring its lapse forward, so the lapse is how
+    // long it holds the household. The first refutation pass over question 68
+    // recorded one lapsing in the year 9999.
+    //
+    // **The bound is 400 days and not 366**, decided 2026-09-20 after the
+    // second pass measured what a year plus a day of slack is spent on: the
+    // reference hub computes the lapse on the member's own device, so a phone
+    // two days fast had every button on its protections screen refused. The
+    // bound is there to bound the freeze, so the tolerance is 35 days and a
+    // renewal from a device a week fast records.
+    const DAY = 86_400_000;
+    const was = await current();
+    try {
+      for (const lapses_at of [Date.UTC(9999, 0, 1), soon(401 * DAY)]) {
+        const far = await put({ lapses_at }, true);
+        expect(far.response.status).toBe(422);
+        expect((far.response.body as { error: string }).error).toBe("lapse_too_far");
+      }
+      // A device a week fast renews to 372 days by the host's clock, and 400
+      // days is the bound itself.
+      for (const days of [365, 367, 372, 400]) {
+        const ok = await put({ lapses_at: soon(days * DAY) }, true);
+        expect([days, ok.response.status, ok.response.text]).toEqual([days, 201, ok.response.text]);
+      }
+    } finally {
+      await restore(was);
+    }
+  });
+
+
+  test("a cooling window is at most 30 days (§16.5)", async () => {
+    // NOTE (mutation check, 2026-09-20): cooling_unbounded. Both refusal
+    // assertions read 201, and a window of thirty years recorded.
+    //
+    // Decided 2026-09-20, after the second refutation pass over question 68.
+    // A decided set keeps the window it was decided under, so the window
+    // outlives the mandate that set it, and nothing bounded the window: the
+    // pass recorded thirty years, decided a set, dropped the window a second
+    // later and alone, and that set could never settle while the household's
+    // own mandate showed no window at all. Lengthening is a tightening, so
+    // this needs no co-signer and no attacker.
+    const DAY_SECONDS = 86_400;
+    const was = await current();
+    try {
+      for (const cooling_seconds of [30 * 365 * DAY_SECONDS, 30 * DAY_SECONDS + 1]) {
+        const long = await put({ cooling_seconds }, true);
+        expect([cooling_seconds, long.response.status]).toEqual([cooling_seconds, 422]);
+        expect((long.response.body as { error: string }).error).toBe("cooling_too_long");
+      }
+      const bound = await put({ cooling_seconds: 30 * DAY_SECONDS }, true);
+      expect([bound.response.status, bound.response.text]).toEqual([201, bound.response.text]);
+    } finally {
+      await restore(was);
+    }
+  });
 
   test("a confirmation taken back cannot be sent again (§10.5)", async () => {
     // NOTE (mutation check, 2026-09-11): confirmation_reusable disables the refusal

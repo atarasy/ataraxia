@@ -907,7 +907,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (Â
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/7");
+    expect((exported.body as { format: string }).format).toBe("valence-node/8");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
