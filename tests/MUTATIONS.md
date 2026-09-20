@@ -471,7 +471,7 @@ can repeat any row.
 | `left_behind_keeps_its_register` | The confirmation register of an offer left behind kept in the body (§14.2, question 57), refused as unscoped | Isolated run 2026-09-19: caught by the same test |
 | `import_candidate_without_a_verdict` | A candidate taken although it arrives with no verdict (§14.2, question 57). `decide` reads a valence that is not `offered` as one already decided, so the candidate could never be decided and its line would settle at nothing | Isolated run 2026-09-18: caught by the engine's `names` unit test |
 | `claim_outlives_its_lapse` | A claim offered although it has lapsed, and keeping the identifier (§14.2, question 56). `record` refuses a lapsed mandate, so a household that did not sign in time could never sign and no route removed the row. The acceptance flow writes one with a week's fuse: **no attacker is needed, only a week** | Isolated run 2026-09-18: caught by the engine's `names` unit test |
-| `version_ceiling_unchecked` | A version taken with no room to follow it (§16.1). At 2^53 the next version is the same number, so the version stops rising and an old signature replays onto a new record, which is what the version in the signed bytes exists to prevent | Isolated run 2026-09-18: caught by the engine's `names` unit test, reached through a claim carrying that version |
+| `version_ceiling_unchecked` | A version taken with no room to follow it (§16.1). At 2^53 the next version is the same number, so the version stops rising and an old signature replays onto a new record, which is what the version in the signed bytes exists to prevent | Fixed-input sweep 2026-09-20: SURVIVED, because import now discards the test claim and the first-version guard masks the check. Repaired isolated run: two `names` unit tests fail with the unchanged mutation, using a historical held claim and the signed-history boundary; baseline 285 pass |
 | `export_drops_claims` | The claims left out of the export (§14.2, question 56), so an offer that moved with its mandate names one the next archive does not carry and the record of what the household had stops at the first host it left. **The MUST had no test at all** until a refutation pass measured that deleting the line changed nothing | Isolated run 2026-09-18: caught by the engine's `names` unit test |
 | `identity_junk_pem_overwrites` | Two PEMs that do not parse treated as the same key (clause 22), because neither has one, so the second overwrites the first under a free name. **Found by reading the diff of the fix beside it** | Isolated run 2026-09-16: caught by the engine's `names` unit test |
 | `identity_pem_text_compared` | The PEM text compared rather than the key it carries (§13.2), so the same key folded differently answers `409 identity_exists` and the holder's own registration fails after somebody else filed it re-wrapped. **Found by a review pass over the question 55 work** | Isolated run 2026-09-16: caught by the engine's `names` unit test |
@@ -924,3 +924,29 @@ probes can fail and evidence of it.
 The fixed-input 477 sweep at Valence bfac322 / conformance a23cf15 remains a separate measurement. Three old decision mutations survived because Q68 added a second guard. The withdrawal-state-only retarget also survived because withdrawal closes its candidates; this intermediate result is retained, not relabelled CAUGHT. The final narrowly targeted scripts now exercise the named behaviours through both layers.
 
 Baseline: 284 engine tests pass; 329 conformance pass and one expected skip. Each final retarget leaves all 284 engine tests passing. Drafted and withdrawn retargets each produce 328 conformance pass, one expected skip and one failure; overwrite produces 326 pass, one expected skip and three failures. No production guard was removed. These reruns do not retroactively change the old sweep's three SURVIVED records.
+
+
+## Q68 fixed-input sweep completion, 2026-09-20
+
+The unchanged Valence `bfac322` / conformance `a23cf15` sweep completed all
+477 mutations with exit 0: 469 CAUGHT, six SURVIVED and two ABORTED. Completion
+is not a claim that every mutation was caught. Later corrections do not alter
+these original verdicts.
+
+The three decision survivors are covered by the retargeted scripts measured
+above (Valence #38 / Ataraxia #29). The two import survivors are covered by the
+isolated import tests (Valence #39 / Ataraxia #30). The remaining survivor,
+`version_ceiling_unchecked`, had been masked by the later import bound: the
+claim was discarded and the first-version check returned the same error.
+Tests now inject a historical held claim with exactly the signed terms and
+exercise the last recordable version followed by its refused successor.
+The unchanged mutation produces two assertion failures; restored source passes
+all 285 engine tests. These tests establish the local defence for historical
+state, not that a current HTTP caller can import such a claim.
+
+`require_registered_merchant` aborts during shared seeding with
+`unregistered_merchant` / 422 for an unlisted merchant, before conformance
+assertions run. This is the previously documented setup boundary, not a
+successful assertion catch. `catalogue_form_is_malleable` likewise retains its
+recorded ABORTED verdict and separate unit-owned evidence. Neither is counted
+among the 469 CAUGHT results.
