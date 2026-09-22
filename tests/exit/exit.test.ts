@@ -911,7 +911,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/10");
+    expect((exported.body as { format: string }).format).toBe("valence-node/11");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
@@ -1017,5 +1017,26 @@ describe("exit: a household leaves the host (§14.3)", () => {
     const exported = await call("GET", `/households/${cleanHouse}/export`);
     expect(exported.status).toBe(200);
     expect((exported.body as { offers: unknown[] }).offers).toEqual([]);
+  });
+});
+
+describe("exit: an export carries the keys its edges verify with (§14.2, valence-node/11)", () => {
+  test("the recipient's export names the giver's key, and an import refuses a key that is not its name", async () => {
+    await call("POST", "/lineage", LINEAGE_EDGE);
+    const recipient = LINEAGE_EDGE.to as string, giver = LINEAGE_EDGE.from as string;
+    // The fixture's giver is the name of its key, which is what makes the key worth carrying.
+    expect(giver).toMatch(/^key:[A-Za-z0-9_-]{43}$/);
+    const exported = await call("GET", `/households/${encodeURIComponent(recipient)}/export`);
+    expect(exported.status).toBe(200);
+    const node = exported.body as { format: string; keys: Record<string, string> };
+    expect(node.format).toBe("valence-node/11");
+    expect(typeof node.keys[giver]).toBe("string");
+    for (const name of Object.keys(node.keys)) expect(name).toMatch(/^key:[A-Za-z0-9_-]{43}$/);
+
+    // The same export with the giver's key swapped for another is refused whole.
+    const another = "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n-----END PUBLIC KEY-----\n";
+    const refused = await callSecond("POST", `/households/${encodeURIComponent(recipient)}/import`, { ...node, keys: { ...node.keys, [giver]: another } });
+    expect(refused.status).toBe(422);
+    expect((refused.body as { error: string }).error).toBe("name_is_not_the_key");
   });
 });
