@@ -993,12 +993,13 @@ describe("exit: a household leaves the host (§14.3)", () => {
     expect(blockers.household).toBe(leaving);
     expect(blockers.blockers).toContainEqual({ kind: "offer_in_progress", id: offer.id });
 
-    const signed = (h: string) => ({ signature: sign(null, Buffer.from(JSON.stringify(["valence.leave.1", h, RP_ID])), keyForHousehold(h)).toString("base64") });
+    const signed = (h: string, at = Date.now()) => ({ at, signature: sign(null, Buffer.from(JSON.stringify(["valence.leave.1", h, RP_ID, at])), keyForHousehold(h)).toString("base64") });
     // Unsigned, and signed for another household: neither deletes anything.
-    for (const body of [{}, signed(freshHousehold())]) {
+    // Unsigned, signed for another household, and signed too long ago: none deletes anything.
+    for (const body of [{}, signed(freshHousehold()), signed(leaving, Date.now() - 10 * 60_000)]) {
       const unsigned = await call("POST", `/households/${house}/leave`, body);
       expect(unsigned.status).toBe(422);
-      expect(["unsigned", "bad_signature"]).toContain((unsigned.body as { error: string }).error);
+      expect(["unsigned", "bad_signature", "stale_request"]).toContain((unsigned.body as { error: string }).error);
     }
 
     const refused = await call("POST", `/households/${house}/leave`, signed(leaving));
@@ -1040,3 +1041,20 @@ describe("exit: an export carries the keys its edges verify with (§14.2, valenc
     expect((refused.body as { error: string }).error).toBe("name_is_not_the_key");
   });
 });
+
+describe("exit: a household reads its own export through a signed request (clause 43)", () => {
+  test("the node is handed over on the household's own recent signature and on nothing else", async () => {
+    const own = freshHousehold();
+    await ensureRegistered(BASE, own);
+    const house = encodeURIComponent(own);
+    const signed = (h: string, at = Date.now()) => ({ at, signature: sign(null, Buffer.from(JSON.stringify(["valence.export.1", h, RP_ID, at])), keyForHousehold(h)).toString("base64") });
+    for (const body of [{}, signed(freshHousehold()), signed(own, Date.now() - 10 * 60_000)]) {
+      const refused = await call("POST", `/households/${house}/export`, body);
+      expect(refused.status).toBe(422);
+    }
+    const ok = await call("POST", `/households/${house}/export`, signed(own));
+    expect(ok.status).toBe(200);
+    expect((ok.body as { household: string; format: string }).household).toBe(own);
+  });
+});
+
