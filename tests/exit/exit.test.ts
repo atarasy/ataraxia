@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { sign } from "node:crypto";
 import {
+  BASE,
+  RP_ID,
+  keyForHousehold,
   HAS_PHYSICAL,
   LINEAGE_EDGE,
   PRODUCTS,
@@ -976,6 +980,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (�
 describe("exit: a household leaves the host (§14.3)", () => {
   test("the blockers are named, a refusal writes nothing, and a clean household leaves", async () => {
     const leaving = freshHousehold();
+    await ensureRegistered(BASE, leaving);
     const created = await call("POST", "/offers", conformingOffer({ household: leaving }));
     expect(created.status).toBe(201);
     const offer = created.body as { id: string };
@@ -988,7 +993,15 @@ describe("exit: a household leaves the host (§14.3)", () => {
     expect(blockers.household).toBe(leaving);
     expect(blockers.blockers).toContainEqual({ kind: "offer_in_progress", id: offer.id });
 
-    const refused = await call("POST", `/households/${house}/leave`, {});
+    const signed = (h: string) => ({ signature: sign(null, Buffer.from(JSON.stringify(["valence.leave.1", h, RP_ID])), keyForHousehold(h)).toString("base64") });
+    // Unsigned, and signed for another household: neither deletes anything.
+    for (const body of [{}, signed(freshHousehold())]) {
+      const unsigned = await call("POST", `/households/${house}/leave`, body);
+      expect(unsigned.status).toBe(422);
+      expect(["unsigned", "bad_signature"]).toContain((unsigned.body as { error: string }).error);
+    }
+
+    const refused = await call("POST", `/households/${house}/leave`, signed(leaving));
     expect(refused.status).toBe(409);
     expect((refused.body as { error: string }).error).toBe("leave_blocked");
     // Nothing was written: the offer is still the household's.
@@ -996,8 +1009,9 @@ describe("exit: a household leaves the host (§14.3)", () => {
 
     // A household with nothing of its own leaves, and its export is empty afterwards.
     const clean = freshHousehold(), cleanHouse = encodeURIComponent(clean);
+    await ensureRegistered(BASE, clean);
     expect(((await call("GET", `/households/${cleanHouse}/leave`)).body as { blockers: unknown[] }).blockers).toEqual([]);
-    const left = await call("POST", `/households/${cleanHouse}/leave`, {});
+    const left = await call("POST", `/households/${cleanHouse}/leave`, signed(clean));
     expect(left.status).toBe(200);
     expect((left.body as { deleted: Record<string, number> }).deleted).toBeDefined();
     const exported = await call("GET", `/households/${cleanHouse}/export`);
