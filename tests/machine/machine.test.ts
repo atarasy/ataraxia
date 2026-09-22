@@ -247,3 +247,64 @@ describe("machine: an offer cannot be presented twice or out of order", () => {
     expect([409, 422]).toContain(presented.status);
   });
 });
+
+describe("machine: a signed settlement is corrected by appending (§6.6, question 70)", () => {
+  async function settledOffer() {
+    const offer = await createConformingOffer();
+    await call("POST", `/offers/${offer.id}/present`, {});
+    await decide(offer.id, {
+      decisions: offer.candidates.map((c, i) => ({
+        candidate: c.id,
+        valence: i === 0 ? "kept" : "returned",
+        ...(i === 0 ? { kept_as: "self" } : {}),
+      })),
+    });
+    const settled = await call("POST", `/offers/${offer.id}/settle`, {});
+    expect(settled.status).toBeLessThan(300);
+    return { offer, settlement: settled.body as { charged: number; settled_at: number; lines: { merchant: string }[] } };
+  }
+
+  test("the receipt shows the original and the net, and the settlement is not rewritten", async () => {
+    const { offer, settlement } = await settledOffer();
+    const receipt = await call("GET", `/offers/${offer.id}/corrections`);
+    expect(receipt.status).toBe(200);
+    const body = receipt.body as { original: { charged: number }; corrections: unknown[]; net: number };
+    expect(body.original.charged).toBe(settlement.charged);
+    expect(body.corrections).toEqual([]);
+    expect(body.net).toBeGreaterThanOrEqual(settlement.charged);
+    const read = await call("GET", `/offers/${offer.id}/settlement`);
+    expect(read.body).toEqual(settlement);
+  });
+
+  test("a correction the merchant did not sign is refused, and the net does not move", async () => {
+    // NOTE (mutation check, 2026-09-22): correction_signature_unchecked. The
+    // suite holds no merchant's private key, so the accepted path is proven in
+    // `engine/test/corrections.test.ts`; this is what an outside party sees.
+    const { offer, settlement } = await settledOffer();
+    const merchant = settlement.lines[0]!.merchant;
+    const forged = await call("POST", `/offers/${offer.id}/corrections`, {
+      id: "forged-1", merchant, amount: 1, kind: "refund", note: "", corrected_at: settlement.settled_at,
+      signature: Buffer.from("not a signature").toString("base64"),
+    });
+    expect(forged.status).toBe(422);
+    expect((forged.body as { error: string }).error).toBe("bad_signature");
+    const before = await call("GET", `/offers/${offer.id}/corrections`);
+    expect((before.body as { corrections: unknown[] }).corrections).toEqual([]);
+  });
+
+  test("a correction only lowers, and an offer with no settlement has nothing to correct", async () => {
+    const { offer, settlement } = await settledOffer();
+    const merchant = settlement.lines[0]!.merchant;
+    for (const amount of [0, -100]) {
+      const r = await call("POST", `/offers/${offer.id}/corrections`, {
+        id: "c-1", merchant, amount, kind: "refund", note: "", corrected_at: settlement.settled_at, signature: "x",
+      });
+      expect(r.status).toBe(400);
+    }
+    const open = await createConformingOffer();
+    const none = await call("POST", `/offers/${open.id}/corrections`, {
+      id: "c-1", merchant, amount: 1, kind: "refund", note: "", corrected_at: 0, signature: "x",
+    });
+    expect(none.status).toBe(404);
+  });
+});
