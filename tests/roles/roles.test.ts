@@ -196,6 +196,34 @@ describe("roles: the two parties are one implementation (§13.2)", () => {
     expect(after - before).toBe(settled.charged);
   });
 
+  test("only the engine reports to the person's day (§16.3, question 67)", async () => {
+    // Decided 2026-09-22. The hub took any settlement row from any caller, so
+    // a stranger could fill a household's day and its daily ceiling then
+    // protected nothing. A report the engine did not make is refused by name
+    // and counts for nothing; the probe above is the engine's own report
+    // arriving, which is the other half.
+    const mine = freshHousehold();
+    const before = await total(mine);
+    for (const path of [
+      `/households/${encodeURIComponent(mine)}/settled`,
+      `/households/${encodeURIComponent(mine)}/offers`,
+    ]) {
+      const body = path.endsWith("/settled")
+        ? { offer: `forged-${mine}`, household: mine, amount: 900_000, settled_at: Date.now() }
+        : { id: `forged-${mine}`, household: mine, presenter: "stranger", recorded_at: Date.now(), offer: {} };
+      for (const authorization of [undefined, "Bearer not-the-engine"]) {
+        const response = await fetch(`${HUB_ONLY}${path}`, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(authorization ? { authorization } : {}) },
+          body: JSON.stringify(body),
+        });
+        expect(response.status).toBe(401);
+        expect(((await response.json()) as { error?: string }).error).toBe("unauthenticated_report");
+      }
+    }
+    expect(await total(mine)).toBe(before);
+  });
+
   test("the hub alone exports a node that has the offer in it", async () => {
     // A household of its own: novelty is per household (clause 26), and the
     // probe above has already been offered every product in the catalogue.
