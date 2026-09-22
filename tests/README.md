@@ -28,7 +28,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`opacity/`](opacity/) | 16, 18, 19, 20, 21, and spec §7.2, §7.6, §7.7 | No response surface discloses or permits inference of recipient inaction; reciprocation is never prompted; a recipient's record holds nothing but the fact of receipt | yes |
 | [`binding/`](binding/) | spec §3.2, §6.2, §11 | A household is never billed for goods that were lost, what was used is bought at the merchant's own price, and a gift is never billed to the person who received it | yes |
 | [`lineage/`](lineage/) | 2, 19, 22, and spec §7.1, §7.6 | An edge is accepted on its signature and never on the client that sent it; a recipient's record holds the fact of receipt and nothing else | yes |
-| [`machine/`](machine/) | spec §2.1 | Withdraw, partial deciding, and that `settled` is terminal | yes |
+| [`machine/`](machine/) | spec §2.1, §6.6, §6.6a | Withdraw, partial deciding, and that `settled` is terminal; a settlement corrected by appending; a refund that came back recorded beside its correction, with `returns` and `owed` on the receipt only while a record exists, and the records moving with the household | yes |
 | [`approval/`](approval/) | 6, 34, 35, 36, 54, 58, 59, and spec §10 | The screen carries the alternatives, the argument against and the reason for an exclusion, and carries no presentation | yes |
 | [`permissions/`](permissions/) | 9, 20, 37 to 42, 46, 47, 58, and spec §7.4, §7.5, §16 to §16.6 | Asked at the moment of use, time-limited, always visible, revoked one at a time, and never priced. Since 2026-09-10 also the mandate's thresholds: a daily ceiling across presenters, a cooling window with a route to take a signed set back, and a refusal that names which of them refused. The categories needing a second signature were a fourth until 2026-09-12, when §16.4 was withdrawn | yes |
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
@@ -51,7 +51,7 @@ the founder's decision, so a note that names a mutation is historical.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twenty-four environment variables:
+as twenty-seven environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -61,6 +61,7 @@ as twenty-four environment variables:
 | `VALENCE_HOUSEHOLD` | a household the offers are placed with |
 | `VALENCE_MANDATE` | a mandate reference the implementation will accept |
 | `VALENCE_MANDATE_KEY` | the private half of the key registered for that mandate, base64 of a PKCS#8 PEM, so the probes can sign a decided set (§10.5) |
+| `VALENCE_MERCHANT_KEY` | the private half of the key registered for the merchant of record of `VALENCE_PRODUCTS`, base64 of a PKCS#8 PEM, so the probes can sign a correction (§6.6) and a record that its refund came back (§6.6a). Without it only their refusals are reachable |
 | `VALENCE_MANDATE_STATE` | base64 of the seeded mandate as JSON, with `co_signer_key`, so the probes can sign a change and see which signatures a loosening needs (§16) |
 | `VALENCE_EXPLORATION_RATE` | the rate this deployment runs at |
 | `VALENCE_LINEAGE_EDGE` | a well-formed, signed lineage edge as JSON, which this implementation will accept |
