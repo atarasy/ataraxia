@@ -28,8 +28,7 @@ higher than the deployment declared.
 
 The suite therefore asks the deployment for its rate rather than assuming one,
 and checks the boundary from both sides. The first version of this suite did
-not, and a mutation that demanded twice the declared rate passed it. See
-`../MUTATIONS.md`.
+not, and an implementation that demanded twice the declared rate passed it.
 
 ## Bypasses probed
 
