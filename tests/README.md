@@ -37,9 +37,9 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`disclosure/`](disclosure/) | spec §10a, and conformance condition 15 | The block a merchant composed travels on the offer **and on the approval surface, which is the screen a person signs from**, as composed; no request field writes one; and an offer naming a merchant without one is not presented. **No probe here asks whether a disclosure is complete, true, or in the right language**: what a seller must say is the seller's law, and an implementation carrying an empty signed block passes every probe in the suite | yes |
 | [`merchant-exit/`](merchant-exit/) | 5, 43, and spec §14.1 | A shop leaves with its ledgers: the catalogue, its own offers, how each settled, its recovery rows, no other presenter's offers, no private line and no delivery | yes |
 
-Every probe in the three written suites carries a note recording the mutation
-it was shown to catch, and [`MUTATIONS.md`](MUTATIONS.md) holds the ledger with
-what each mutation changed and what it found.
+Every probe carries a note recording what it was shown to catch. Mutation
+testing, and the `MUTATIONS.md` ledger it kept, were removed on 2026-09-22 by
+the founder's decision, so a note that names a mutation is historical.
 
 ## Two things worth knowing before writing a test here
 
@@ -100,57 +100,50 @@ VALENCE_PRICES='{"tea-a":1200,"tea-b":900}' \
 the suite could only check that an offer below the floor is refused, and an
 implementation demanding far more exploration than its deployment declared
 would pass. That is not hypothetical: it survived the first version of these
-suites, and `MUTATIONS.md` records how it was found.
+suites.
 
 ## What passing does and does not mean
 
-Read [`MUTATIONS.md`](MUTATIONS.md) before quoting a pass. It maps the
-conformance conditions in the specification's §13 to the probes that exist;
-consult the current condition list rather than a fixed count here. What no probe reaches is named in the ledger and in each
-suite's README rather than left to be discovered, because §13 sends the reader
-to these tests as the thing that entitles an implementation to the mark, and a
-gate that overstates itself is worse than one that does not exist.
+§13 says passing the tests is what entitles an implementation to the mark, so
+what each condition is gated by is stated here rather than left to be
+discovered; a gate that overstates itself is worse than one that does not
+exist. This table was kept in `MUTATIONS.md` until that ledger was removed on
+2026-09-22, and moved here unchanged.
+
+§13 listed eight conditions when this table was written and lists sixteen
+since 2026-09-12; it says passing the tests is what entitles an
+implementation to the mark. The eight are covered, and the two added on
+2026-09-12 are below them.
+Counted against the probes, not asserted.
+
+| §13 condition | Gated? | By what, or why not |
+|---|---|---|
+| 1 state machine and expiry defaults | yes | `silence/` covers the three rows of §2.2 and `machine/` covers `withdraw`, partial deciding, and that `settled` is terminal |
+| 2 exploration floor, no bypass | yes | Eleven probes, both sides of the formula, six bypass shapes, and padding |
+| 3 no §9.1 route, no §3.3 field | yes | Ten route probes, three refusal probes, and a key walk over four documents. The walk does not cover every response shape |
+| 4 no recipient inaction disclosed | yes | Ten probes in `opacity/`: giving changes nothing on the giver's surface, no period frames an empty response, no route prompts reciprocation, a receipt resolves to nothing, and the viewer's own lineage edges carry no date |
+| 5 no household balance | yes | Two route shapes and six field names in any spelling, and `binding/` settles a trial and then a purchase to check that nothing carried forward |
+| 6 terms frozen at `config_version` | yes | The deployment declares a second, later catalogue with one product repriced, and a settlement against the earlier one is checked to charge the earlier price |
+| 7 lineage edges accepted regardless of client | yes | Three probes in `lineage/`, including two different clients and a tampered signature |
+| 8 no household billed for `lost` | yes | `binding/` runs the physical binding where the deployment declares it, and checks that what is charged equals the breakdown |
+| 15 the merchant's disclosure, as composed, beside the sale | yes | `disclosure/` compares the block on the offer and on the approval screen against the one the deployment registered, checks the quantity, the price, the expiry and the carriage beside it, and since 2026-09-12 that a product's block travels only where its product is and never in the standing text's place |
+| 16 a physical box with goods used settles on the household's signature | yes | Nine probes in `binding/`: the statement, the empty settle refused, a signature over other lines or by another key refused, the assertion shape accepted, a disputed line off the charge, dispute limited to consumed lines, the next box withheld while a statement stands unsigned, and no statement where nothing was used |
+
+Clauses 43, 52 and 53 are outside §13 and are covered by `exit/`, which runs
+against two hosts and asks each surface whether the second answers as the first
+did.
+
+What no probe here reaches is stated in the suite READMEs rather than left to be
+found: the host's blindness is a property of what it stores rather than of its
+API, a reminder refusal that is really an hour-long backoff outlasts any probe,
+the routes an implementation does not have cannot be enumerated from outside,
+and the lineage circle differenced against the acts stream still yields a
+dateless form of inaction that nothing removes.
 
 ## Status
 
 September 2026. All fourteen suites are written and pass against the reference
-engine. **Historical measurement on 2026-09-12, over a corpus of 242 breaks: 241 were caught, one aborted before a probe ran, none survived and
-none was inert.** The one that aborts is `require_registered_merchant`, which
-is the one that always has.
-
-**How much each proof rests on, measured against the same logs.** Of the **227
-probes with a catch, 20 rest on a single break**, against 48 in the sweep of 220
-and 70 in the sweep of 198. **Five rest only on a break that spans nine or more
-suites**, which is the shape of one that breaks the shared fixture rather than
-one the corpus catches, and those five are named by `scripts/fragility.py` in
-the reference engine's repository.
-
-**What the run does not say.** The number of declarations was not measured, so
-no "x of y" is quoted against it. The sweep's own list of what was shown to fail
-holds 268 entries, and that number mixes conformance probes with the reference
-engine's unit tests, which the sweep runs beside them; the 227 above comes from
-`fragility.py`, which separates them. In that run the suites were **231 tests
-across 13 files with one skipped**, and the engine's own tests are 78.
-
-**Twenty-five of those 242 were written on the evening of 2026-09-11, and ten of them survived the first time they were run, and not
-
-**That is a third kind of hole, and it is the one this repository had not named: a probe that guards one response and not its neighbours.** The suites hold nine key lists, each defined inside one suite and applied to a few routes in it. `balance` sat in a list that never reached the household's offer list; `rank` sat in three lists and in none that reached the giver's acts; nothing anywhere held a word for prompting, so a field inviting a person to reciprocate passed every probe that reads the surface clause 18 protects.
-
-**Two of them found a probe rather than an engine.** One registered the ledger's listing under the grantee instead of the household and nothing went red, because the probe asked for a single path; one put a price on the answer a person is shown when they grant, and the probe walked the stored ledger only. Both probes were widened and both breaks kept. **A break that survives because a probe asked too narrow a question is a finding about the probe**, and this is the second kind of hole these suites have: not a probe that cannot fail, but a probe that can only fail one way.
-
-**How much each proof rests on is a separate question from whether it exists**,
-and the twenty probes that rest on one break are the corpus's thin end: it
-proves them, and one drifted anchor would stop proving them without anything
-turning red. `scripts/fragility.py` names them, and `scripts/anchors.py`
-reported **0 drifted anchors across 242 scripts** after this run. **The number
-fell from 70 to 48 to 20 across three sweeps**, which is what writing a second
-break for a singly-proven probe buys, measured rather than assumed.
-
-Two of the breaks stop any offer being created, so probes
-that fail only in their setup are not counted as shown-to-fail; `coverage.sh`
-excludes those two by name, reports any mutation that changed nothing, reports
-any that never reached a probe, and measures which probe each break caught
-rather than taking the notes on trust.
+engine.
 
 `opacity/` and `exit/` were the last two written, and later than the rest for a
 reason that was not schedule. Both test a hub rather than an offer engine:

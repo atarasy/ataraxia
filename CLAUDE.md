@@ -38,12 +38,12 @@ Each was written after considering whether to omit it. An editor who removes the
 
 ## `tests/`
 
-The conformance suites are written, and `tests/README.md` says what each covers. They run against any implementation over HTTP and import nothing from one; the reference is `atarasy/valence`. **Last measured in full on 2026-09-11, midday, at valence `21be218` and ataraxia `0a1c935`: 198 mutations, 218 declarations, 231 probes at runtime with one skipped, 225 shown to fail, five not, none surviving, none inert, one aborting.** Count the numerator and the denominator over the same population: `coverage.sh` unions failure lines from the conformance logs and from the engine's own unit tests, and 40 of the 78 unit tests failed under some mutation in that run, which is a separate population from the 225. **Of the 227 probes with a catch, 70 rest on a single mutation**, and seven rest only on a mutation spanning nine or more suites. **The raw logs are archived at `~/Documents/valence-sweeps/2026-09-11-198/`**, which exists because `coverage.sh` writes them under `/tmp` and a reboot took the previous run's.
+The conformance suites are written, and `tests/README.md` says what each covers. They run against any implementation over HTTP and import nothing from one; the reference is `atarasy/valence`.
 
 Three rules apply to anything added there:
 
-- **A test that cannot fail is not a test.** Each test carries a note recording what was broken in a reference implementation and that the test caught it. A test added without that note is not counted, and `MUTATIONS.md` is the ledger of the breaks.
-- **A note is a claim about the past; only a run says whether it is still true.** Seven times on 2026-09-09 a probe that could no longer fail was found by `coverage.sh` rather than by reading: an anchor that had drifted, a fixture that made a difference invisible, a deployment with only one of the thing being compared. Re-measure after any change to the engine's fields or fixtures.
+- **A test that cannot fail is not a test.** Watch a new test fail against the behaviour it refuses before trusting it green, and say in its note what it catches. Mutation testing and its `MUTATIONS.md` ledger were removed on 2026-09-22 by the founder's decision; notes naming a mutation are historical.
+- **A note is a claim about the past; only a run says whether it is still true.** A fixture can make a difference invisible, and a deployment can hold only one of the things being compared. Re-read a probe after any change to the engine's fields or fixtures.
 - **Absence is harder to test than presence.** A field missing from a response may still be inferable from timing, array length, or an optional object's presence. The `opacity/` suite in particular must probe for inference, not field names.
 
 Tests check a specific subset: capabilities that must be absent and behaviours that must be refused. Most of the constitution is not mechanically checkable, and the README refuses to imply otherwise.
