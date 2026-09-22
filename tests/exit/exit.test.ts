@@ -972,3 +972,36 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (ย
     expect((await callSecond("POST", `/offers/${second.id}/present`, {})).status).toBe(200);
   });
 });
+
+describe("exit: a household leaves the host (ยง14.3)", () => {
+  test("the blockers are named, a refusal writes nothing, and a clean household leaves", async () => {
+    const leaving = freshHousehold();
+    const created = await call("POST", "/offers", conformingOffer({ household: leaving }));
+    expect(created.status).toBe(201);
+    const offer = created.body as { id: string };
+    expect((await call("POST", `/offers/${offer.id}/present`, {})).status).toBe(200);
+    const house = encodeURIComponent(leaving);
+
+    const listed = await call("GET", `/households/${house}/leave`);
+    expect(listed.status).toBe(200);
+    const blockers = (listed.body as { household: string; blockers: { kind: string; id: string }[] });
+    expect(blockers.household).toBe(leaving);
+    expect(blockers.blockers).toContainEqual({ kind: "offer_in_progress", id: offer.id });
+
+    const refused = await call("POST", `/households/${house}/leave`, {});
+    expect(refused.status).toBe(409);
+    expect((refused.body as { error: string }).error).toBe("leave_blocked");
+    // Nothing was written: the offer is still the household's.
+    expect((await call("GET", `/offers/${offer.id}`)).status).toBe(200);
+
+    // A household with nothing of its own leaves, and its export is empty afterwards.
+    const clean = freshHousehold(), cleanHouse = encodeURIComponent(clean);
+    expect(((await call("GET", `/households/${cleanHouse}/leave`)).body as { blockers: unknown[] }).blockers).toEqual([]);
+    const left = await call("POST", `/households/${cleanHouse}/leave`, {});
+    expect(left.status).toBe(200);
+    expect((left.body as { deleted: Record<string, number> }).deleted).toBeDefined();
+    const exported = await call("GET", `/households/${cleanHouse}/export`);
+    expect(exported.status).toBe(200);
+    expect((exported.body as { offers: unknown[] }).offers).toEqual([]);
+  });
+});
