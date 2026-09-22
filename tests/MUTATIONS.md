@@ -638,6 +638,17 @@ kept here so the movement is legible.
 | `exit` > recovering does not make the recoverer able to read | The reference authenticates nobody, so a recoverer's view and a stranger's are the same view. The probe says so in its own note |
 | `floor` > one short of the floor is refused | The boundary case. `floor_off_by_one` moves the floor and is caught elsewhere before this probe sees it |
 | `approval` > a set carries a signature or an assertion, and not both | Written on 2026-09-11 with the passkey's assertion, and no mutation was written beside it. The recurring failure of this project, in its plainest form **Its mutation, `both_shapes_accepted`, was written later on 2026-09-11** and fails this probe and no other; the run that would count it has not happened |
+| `correction_retry_appends_twice` | A correction's identifier forgotten, so a retry becomes a second reduction (§6.6, question 70) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `correction_ceiling_unchecked` | The ceiling on corrections, so they together lower more than the merchant was paid (§6.6) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `correction_signature_unchecked` | The merchant's signature on a correction (§6.6) | Isolated run 2026-09-22: caught by 1 engine unit test and the `machine/` probe that a forged correction is refused |
+| `correction_any_merchant` | The check that the correcting merchant was paid anything on the settlement (§6.6) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `correction_rewrites_settlement` | A correction that lowers the signed settlement itself instead of being appended beside it (§6.6) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `correction_offer_not_signed` | The offer left out of a correction's signed bytes, so it can be re-filed under another offer (§6.6) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `export_drops_corrections` | Corrections left out of a household's export, so a move brings back the uncorrected bill (§6.6, §14.2) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `import_drops_corrections` | A move's corrections accepted and not written (§14.2) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `import_correction_unchecked` | A moved correction taken without the rules one appended here meets (§14.2) | Isolated run 2026-09-22: caught by 1 engine unit test |
+| `import_corrections_unscoped` | A correction for an offer the body does not carry taken (§14.2). Survived its first run because a later check refused the same body under the same name; the later check was given its own name, `correction_without_settlement`, and the rerun caught it | Isolated run 2026-09-22: caught by 1 engine unit test (rerun) |
+| `carried_corrections_not_compared` | A carried offer's corrections not compared, so a repeated import adds one (§14.2) | Isolated run 2026-09-22: caught by 1 engine unit test |
 | ~~`roles` > a hub alone answers for the household and the mandate~~ | ~~`roles_are_swapped` proved it and now aborts in the seed~~ **Proven again** once the seed was made non-fatal |
 | ~~`roles` > an engine alone answers for offers~~ | ~~Same~~ **Proven again** once the seed was made non-fatal |
 | ~~`roles` > an engine alone answers for deciding, because authority travels in the signature~~ | ~~The probe written for the day's largest correction, and for a few hours it proved nothing.~~ **Proven again** once the seed was made non-fatal |
