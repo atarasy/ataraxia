@@ -327,3 +327,85 @@ describe("disclosure: which block governs which line (§10a.5)", () => {
     }
   });
 });
+
+/**
+ * Question 72, decided 2026-09-22. The hub shows the merchant's contact
+ * beside its return terms. It is rendered exactly as the merchant signed it,
+ * like every other part of a block, and nothing here sends anything to the
+ * merchant through it.
+ */
+describe("disclosure: a merchant's contact (§10a, question 72)", () => {
+  test("a signed contact comes back on the approval exactly as signed", async () => {
+    const offer = await createConformingOffer();
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = {
+        alternatives: ["the same tea in a smaller tin"],
+        argument_against: "you have two of these already",
+      };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const blocks = (approval.body as { disclosures?: unknown }).disclosures as
+      | { merchant: string; product: string | null; contact: unknown }[]
+      | undefined;
+    expect(Array.isArray(blocks)).toBe(true);
+    const mine = blocks!.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null);
+    expect(mine).toBeDefined();
+    // The seed gave this merchant's standing text a contact; a block for a
+    // merchant the seed left without one renders `contact: null` and is not
+    // this test's business.
+    expect(DISCLOSURE.contact).toBeDefined();
+    expect(mine!.contact).toEqual(DISCLOSURE.contact ?? null);
+
+    const read = await call("GET", `/offers/${offer.id}`);
+    const readBlocks = (read.body as { disclosures?: unknown }).disclosures as
+      | { merchant: string; product: string | null; contact: unknown }[]
+      | undefined;
+    const mineOnOffer = readBlocks!.find((b) => b.merchant === DISCLOSURE.merchant && b.product === null);
+    expect(mineOnOffer!.contact).toEqual(DISCLOSURE.contact ?? null);
+  });
+
+  test("a contact of an unknown kind is refused, even where the value alone would pass as a url", async () => {
+    // A well-formed https url on purpose: a kind check that fell through to
+    // the url branch instead of refusing outright would accept this.
+    const refused = await call("POST", "/_disclosures", {
+      merchant: DISCLOSURE.merchant,
+      product: null,
+      version: "d-1-contact-probe",
+      items: [{ label: "returns", value: "as this merchant published" }],
+      contact: { kind: "fax", value: "https://maker-a.example/support" },
+      signature: "AAAA",
+    });
+    expect(refused.status).toBe(400);
+  });
+
+  test("a contact whose email has no @ is refused", async () => {
+    const refused = await call("POST", "/_disclosures", {
+      merchant: DISCLOSURE.merchant,
+      product: null,
+      version: "d-1-contact-probe",
+      items: [{ label: "returns", value: "as this merchant published" }],
+      contact: { kind: "email", value: "not-an-email" },
+      signature: "AAAA",
+    });
+    expect(refused.status).toBe(400);
+  });
+
+  test("a contact whose url is not https is refused", async () => {
+    const refused = await call("POST", "/_disclosures", {
+      merchant: DISCLOSURE.merchant,
+      product: null,
+      version: "d-1-contact-probe",
+      items: [{ label: "returns", value: "as this merchant published" }],
+      contact: { kind: "url", value: "http://maker-a.example/support" },
+      signature: "AAAA",
+    });
+    expect(refused.status).toBe(400);
+  });
+});

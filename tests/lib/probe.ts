@@ -64,6 +64,8 @@ export const DISCLOSURE: {
   merchant: string;
   version: string;
   items: { label: string; value: string }[];
+  /** Question 72, decided 2026-09-22. Null when the seed gave none. */
+  contact?: { kind: "email" | "tel" | "url"; value: string } | null;
   signature: string;
 } = (() => {
   const raw = required("VALENCE_DISCLOSURE");
