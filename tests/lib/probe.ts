@@ -847,6 +847,47 @@ export const HAS_PHYSICAL = BINDINGS.includes("physical");
  * weakest possible reading of clause 43. With two, the question becomes whether
  * the second answers as the first did, which is the reading `exit/` uses.
  */
+/**
+ * §6.6 and §6.6a. The private half of the key registered for the merchant of
+ * record of `VALENCE_PRODUCTS`, base64 of a PKCS#8 PEM. A correction and a
+ * record that its refund came back are the merchant's to sign, so without it
+ * the suite could reach only their refusals, and the identical retry, the
+ * receipt's keys and the move of an accepted record would be proven in no
+ * implementation's suite but the reference's own.
+ */
+export const MERCHANT_KEY = (() => {
+  const raw = required("VALENCE_MERCHANT_KEY");
+  try {
+    return createPrivateKey(Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    throw new Error("VALENCE_MERCHANT_KEY must be the base64 of a PKCS#8 PEM");
+  }
+})();
+
+/** §6.6. The bytes a merchant signs for a correction. */
+export function canonicalCorrection(c: {
+  id: string; offer: string; merchant: string; amount: number; kind: string; note: string; corrected_at: number;
+}): Buffer {
+  return Buffer.from([
+    "valence-correction/1", encodeURIComponent(c.id), encodeURIComponent(c.offer), encodeURIComponent(c.merchant),
+    String(c.amount), c.kind, encodeURIComponent(c.note), String(c.corrected_at),
+  ].join("\n"), "utf8");
+}
+
+/** §6.6a. The bytes a merchant signs for a record that a refund came back or was repaid. */
+export function canonicalCorrectionReturn(r: {
+  correction: string; offer: string; merchant: string; state: string; note: string; at: number;
+}): Buffer {
+  return Buffer.from([
+    "valence-correction-return/1", encodeURIComponent(r.correction), encodeURIComponent(r.offer),
+    encodeURIComponent(r.merchant), r.state, encodeURIComponent(r.note), String(r.at),
+  ].join("\n"), "utf8");
+}
+
+export function signByMerchant(bytes: Buffer, key: KeyObject = MERCHANT_KEY): string {
+  return sign(null, bytes, key).toString("base64");
+}
+
 export const SECOND_HOST = required("VALENCE_SECOND_HOST_URL").replace(/\/+$/, "");
 
 /** Same call, against the receiving host. */
