@@ -157,7 +157,7 @@ describe("exit: the records move with the household (§6.6a, §14)", () => {
     const exported = await call("GET", `${path}/export`);
     expect(exported.status).toBe(200);
     const node = exported.body as Record<string, any>;
-    expect(node.format).toBe("valence-node/12");
+    expect(node.format).toBe("valence-node/13");
     expect(node.correction_returns).toEqual({ [offer.id]: [{ ...returned, offer: offer.id }] });
 
     // Altered on the way, the whole move is refused and nothing arrives.

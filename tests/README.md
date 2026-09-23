@@ -34,7 +34,7 @@ the direction that finds what nothing checks: `lineage/` for clause 22,
 | [`registry/`](registry/) | 1, 6, 13, 55, and spec §17 | The endpoint registry resolves and does not rank: key order, no score, no query by intent, the same answer to every caller, and the mark never a gate | yes |
 | [`roles/`](roles/) | 1, 8, 43, and spec §13.1, §13.2 | An implementation answers for the surface it presents, and the answer has something behind it: an engine alone does not answer for the household's surface, a hub alone does not answer for the presenter's, delivery is the hub's and deciding is the engine's, the registry is answered by either, and a settlement made on one party reaches the person's own copy on the other | yes |
 | [`exit/`](exit/) | 43, 52, 53, and 5 and 43 for the shop's own export (§14.1) | Full export in a documented format; a node moves host intact; recovery and routine reading are separate powers and recovery is logged | yes |
-| [`disclosure/`](disclosure/) | spec §10a, and conformance condition 15 | The block a merchant composed travels on the offer **and on the approval surface, which is the screen a person signs from**, as composed; no request field writes one; and an offer naming a merchant without one is not presented. **No probe here asks whether a disclosure is complete, true, or in the right language**: what a seller must say is the seller's law, and an implementation carrying an empty signed block passes every probe in the suite | yes |
+| [`disclosure/`](disclosure/) | spec §10a, and conformance condition 15 | The block a merchant composed travels on the offer **and on the approval surface, which is the screen a person signs from**, as composed; no request field writes one; and an offer naming a merchant without one is not presented. **No probe here asks whether a disclosure is complete, true, or in the right language**: what a seller must say is the seller's law, and an implementation carrying an empty signed block passes every probe in the suite. Since 2026-09-23 also D-1: a catalogue's display `name`/`variant` travels the same way, absent rather than null where given none, and no request field writes it either | yes |
 | [`merchant-exit/`](merchant-exit/) | 5, 43, and spec §14.1 | A shop leaves with its ledgers: the catalogue, its own offers, how each settled, its recovery rows, no other presenter's offers, no private line and no delivery | yes |
 
 Every probe carries a note recording what it was shown to catch. Mutation
@@ -51,7 +51,7 @@ the founder's decision, so a note that names a mutation is historical.
 
 The probes talk to an implementation over HTTP and import nothing from it, so
 the implementation may be written in any language. Everything they need arrives
-as twenty-seven environment variables:
+as thirty environment variables:
 
 | Variable | What it is |
 |---|---|
@@ -81,6 +81,8 @@ as twenty-seven environment variables:
 | `VALENCE_RP_ID` | the name a member's device signs for, which the deployment declares for itself (§10.5, §14b). The probes build assertions for it, and an implementation that compared some other name would accept what no member's device made |
 | `VALENCE_SECOND_HOST_URL` | a second host of the same implementation, for the move in `exit/` |
 | `VALENCE_SECOND_RP_ID` | the relying party the second host asserts for, which must differ from `VALENCE_RP_ID`. §16.1 binds a mandate version to the host it is recorded at (question 58), and two hosts under one relying party are one host for that purpose, so the probe that a version does not travel needs two |
+| `VALENCE_CONFIG_VERSION_NAMED` and `VALENCE_PRODUCT_NAMED` | D-1, decided 2026-09-23. A catalogue with one product carrying a display `name` and `variant` (§3, "Catalogue publication signature revision 3"). Its own catalogue for the same reason `VALENCE_CONFIG_VERSION_UNDISCLOSED` is one: a product nobody has been offered is one the floor counts |
+| `VALENCE_CATALOGUE_TAMPER_STATUS` | D-1. The HTTP status a revision 3 publication got back when its `name` was altered after the signature was computed over the true one. A result rather than a route: only the presenter's own key can produce a publication to tamper with, and no variable hands the suite one |
 
 Seeding a catalogue and attesting a key are deployment plumbing the
 specification does not describe, so the suite refuses to guess at routes for

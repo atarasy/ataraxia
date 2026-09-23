@@ -1,12 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import {
   call,
+  CATALOGUE_TAMPER_STATUS,
+  CONFIG_VERSION_NAMED,
   conformingOffer,
   createConformingOffer,
   decide,
   DISCLOSURE,
   DISCLOSURE_PRODUCT,
+  DISPLAY_NAME,
+  DISPLAY_VARIANT,
+  offerBody,
   PRICES,
+  PRODUCT_NAMED,
   PRODUCT_UNDISCLOSED,
   PRODUCTS,
   CONFIG_VERSION_UNDISCLOSED,
@@ -407,5 +413,100 @@ describe("disclosure: a merchant's contact (§10a, question 72)", () => {
       signature: "AAAA",
     });
     expect(refused.status).toBe(400);
+  });
+});
+
+/**
+ * D-1, decided 2026-09-23 (`80_App_UI_Refinement_Plan_2026-09-23.md` §3.2,
+ * §5 row D-1; specification §3, "Catalogue publication signature revision
+ * 3"). A catalogue entry's display `name`/`variant` is carried the same way
+ * the merchant's disclosure is: composed by the party that sells, never by
+ * the household's own agent, rendered verbatim, and absent rather than
+ * presented-as-null where the catalogue gave none.
+ */
+describe("disclosure: a catalogue's display name and variant (D-1)", () => {
+  async function namedOffer() {
+    const created = await call(
+      "POST",
+      "/offers",
+      offerBody([{ product: PRODUCT_NAMED, quantity: 1, is_exploration: true }], { config_version: CONFIG_VERSION_NAMED })
+    );
+    if (created.status !== 201) {
+      throw new Error(`setup failed: POST /offers returned ${created.status} ${created.text}`);
+    }
+    return created.body as { id: string; candidates: { id: string }[] };
+  }
+
+  test("the candidate on GET /offers/{id} carries the catalogue's name and variant", async () => {
+    const offer = await namedOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    const candidates = (read.body as { candidates: { product: string; name?: string; variant?: string }[] }).candidates;
+    const mine = candidates.find((c) => c.product === PRODUCT_NAMED);
+    expect(mine).toBeDefined();
+    expect(mine!.name).toBe(DISPLAY_NAME);
+    expect(mine!.variant).toBe(DISPLAY_VARIANT);
+  });
+
+  test("the approval carries the same name and variant", async () => {
+    const offer = await namedOffer();
+    const perCandidate: Record<string, unknown> = {};
+    for (const c of offer.candidates) {
+      perCandidate[c.id] = { alternatives: ["a different tea"], argument_against: "you already have some" };
+    }
+    await call("POST", `/offers/${offer.id}/deliberation`, {
+      per_candidate: perCandidate,
+      excluded: [],
+      mandate: { kind: "individual", scope: "this offer", lapses_at: null },
+    });
+    const approval = await call("GET", `/offers/${offer.id}/approval`);
+    expect(approval.status).toBe(200);
+    const candidates = (approval.body as { candidates: { product: string; name?: string; variant?: string }[] }).candidates;
+    const mine = candidates.find((c) => c.product === PRODUCT_NAMED);
+    expect(mine).toBeDefined();
+    expect(mine!.name).toBe(DISPLAY_NAME);
+    expect(mine!.variant).toBe(DISPLAY_VARIANT);
+  });
+
+  test("a product published without a name yields a candidate with no `name` key at all", async () => {
+    // NOTE (mutation check, planted and watched fail 2026-09-23):
+    // `candidate_name_rendered_as_null` sets `name: null` on every candidate
+    // instead of omitting the key when the catalogue gave none. This
+    // assertion failed against it: the iOS and Android decoders compare a
+    // candidate's keys to a fixed set (question 72's `contact` is the
+    // precedent), and a null key is not an absent one.
+    const offer = await createConformingOffer();
+    const read = await call("GET", `/offers/${offer.id}`);
+    expect(read.status).toBe(200);
+    const candidates = (read.body as { candidates: Record<string, unknown>[] }).candidates;
+    expect(candidates.length).toBeGreaterThan(0);
+    for (const c of candidates) {
+      expect("name" in c).toBe(false);
+      expect("variant" in c).toBe(false);
+    }
+  });
+
+  test("a revision 3 publication whose name was altered after signing is refused", () => {
+    // The seed computes the signature over the true name and posts a
+    // different one under it, at seed time: registering a catalogue is
+    // deployment plumbing this suite has no presenter key to perform, so the
+    // HTTP status the attempt got back arrives as a fixture, the same way
+    // `CONFIG_VERSION_UNDISCLOSED` is a result rather than a route this file
+    // calls. Byte-for-byte, this is the same property
+    // `catalogue-display.test.ts` proves at the engine level directly
+    // ("stripping the name from a revision 3 publication changes the
+    // bytes, so a signature that verified before no longer does"); it is
+    // repeated here as an HTTP-observable fact about this deployment.
+    expect(CATALOGUE_TAMPER_STATUS).toBeGreaterThanOrEqual(400);
+    expect(CATALOGUE_TAMPER_STATUS).toBeLessThan(500);
+  });
+
+  test("a POST /offers candidate carrying `name` is refused, as any unknown field is (§3.3)", async () => {
+    const body = offerBody([{ product: PRODUCTS[0]!, quantity: 1, is_exploration: true }]);
+    const candidates = body.candidates as Record<string, unknown>[];
+    candidates[0]!.name = "Injected";
+    const refused = await call("POST", "/offers", body);
+    expect(refused.status).toBe(400);
+    expect((refused.body as { error?: string })?.error).toBe("malformed");
   });
 });
