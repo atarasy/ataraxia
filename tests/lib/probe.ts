@@ -54,6 +54,35 @@ export const PRODUCT_UNDISCLOSED = required("VALENCE_PRODUCT_UNDISCLOSED");
 export const CONFIG_VERSION_UNDISCLOSED = required("VALENCE_CONFIG_VERSION_UNDISCLOSED");
 
 /**
+ * D-1, decided 2026-09-23. A catalogue version whose one product carries a
+ * display `name` and `variant` (§3, "Catalogue publication signature
+ * revision 3"). Its own version for the same reason `CONFIG_VERSION_UNDISCLOSED`
+ * is: a product nobody has been offered is one the floor counts, and putting
+ * it in the main catalogue would make "this household has seen everything"
+ * untrue for the floor probes.
+ */
+export const CONFIG_VERSION_NAMED = required("VALENCE_CONFIG_VERSION_NAMED");
+export const PRODUCT_NAMED = required("VALENCE_PRODUCT_NAMED");
+/**
+ * The exact strings the deployment's seed registered `PRODUCT_NAMED` with.
+ * Not read from an environment variable: the suite and the seed are the same
+ * codebase's two halves, so a literal here that stops matching the seed is a
+ * fixture bug the probes below will themselves catch (`toBe`, not
+ * `toBeTruthy`), rather than a deployment fact worth a thirteenth variable.
+ */
+export const DISPLAY_NAME = "Sencha";
+export const DISPLAY_VARIANT = "500g bag";
+/**
+ * D-1. The HTTP status a revision 3 publication got back when its `name` was
+ * altered after the signature was computed over the true one. Deployment
+ * plumbing the suite cannot reproduce itself: only the presenter's own key
+ * can produce a publication to tamper with, and no variable here hands the
+ * suite one, the same reason `CONFIG_VERSION_UNDISCLOSED` is a result rather
+ * than a route.
+ */
+export const CATALOGUE_TAMPER_STATUS = Number(required("VALENCE_CATALOGUE_TAMPER_STATUS"));
+
+/**
  * §10a. The block the merchant of `VALENCE_PRODUCTS` composed, as it was
  * registered. The probes compare what an offer carries against this, because
  * the requirement is that it is returned **as composed**: a probe that only

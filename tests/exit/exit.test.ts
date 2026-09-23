@@ -911,7 +911,7 @@ describe.if(HAS_PHYSICAL)("exit: a move carries what the route found in a box (ย
     })).status).toBe(200);
     const exported = await call("GET", `/households/${house}/export`);
     expect(exported.status).toBe(200);
-    expect((exported.body as { format: string }).format).toBe("valence-node/12");
+    expect((exported.body as { format: string }).format).toBe("valence-node/13");
     const node = exported.body as { collections?: { offer: string; missing?: string[]; missing_notes?: Record<string, string> }[] };
     const row = (node.collections ?? []).find((c) => c.offer === offer.id);
     expect(row?.missing).toEqual([gone!.id]);
@@ -1030,7 +1030,7 @@ describe("exit: an export carries the keys its edges verify with (ยง14.2, valenc
     const exported = await call("GET", `/households/${encodeURIComponent(recipient)}/export`);
     expect(exported.status).toBe(200);
     const node = exported.body as { format: string; keys: Record<string, string> };
-    expect(node.format).toBe("valence-node/12");
+    expect(node.format).toBe("valence-node/13");
     expect(typeof node.keys[giver]).toBe("string");
     for (const name of Object.keys(node.keys)) expect(name).toMatch(/^key:[A-Za-z0-9_-]{43}$/);
 
